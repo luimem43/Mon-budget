@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mon Budget</title>
+
+<style>
+*{box-sizing:border-box}
+body{
+  margin:0;
+  font-family:Arial,sans-serif;
+  background:#f4f6f8;
+  color:#17212b;
+}
+.app{
+  max-width:520px;
+  margin:auto;
+  min-height:100vh;
+  background:#f4f6f8;
+}
+header{
+  background:#173b35;
+  color:white;
+  padding:28px 20px 24px;
+  border-radius:0 0 28px 28px;
+}
+header small{
+  opacity:.75;
+}
+header h1{
+  margin:6px 0 0;
+  font-size:29px;
+}
+.content{
+  padding:20px;
+}
+.section-title{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:14px;
+}
+.section-title h2{
+  margin:0;
+  font-size:20px;
+}
+.budget{
+  background:white;
+  border-radius:20px;
+  padding:18px;
+  margin-bottom:16px;
+  box-shadow:0 4px 16px rgba(0,0,0,.06);
+}
+.active{
+  border:2px solid #2b7968;
+}
+.top{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+}
+.name{
+  font-size:20px;
+  font-weight:700;
+}
+.badge{
+  background:#dff3ec;
+  color:#176552;
+  padding:6px 10px;
+  border-radius:20px;
+  font-size:11px;
+  font-weight:bold;
+}
+.amount{
+  font-size:31px;
+  font-weight:800;
+  margin-top:18px;
+}
+.label{
+  color:#6c7680;
+  font-size:13px;
+}
+.grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+  margin-top:18px;
+}
+.stat{
+  background:#f5f7f8;
+  padding:12px;
+  border-radius:13px;
+}
+.stat strong{
+  display:block;
+  font-size:16px;
+  margin-top:3px;
+}
+.actions{
+  display:flex;
+  gap:8px;
+  margin-top:16px;
+}
+button{
+  border:0;
+  border-radius:12px;
+  padding:11px 13px;
+  font-weight:700;
+  cursor:pointer;
+}
+.primary{
+  background:#173b35;
+  color:white;
+  flex:1;
+}
+.secondary{
+  background:#edf1f2;
+  color:#25343a;
+}
+.create{
+  width:100%;
+  background:#173b35;
+  color:white;
+  font-size:16px;
+  padding:16px;
+  margin-top:8px;
+}
+.tip{
+  background:#fff5dc;
+  border-radius:16px;
+  padding:15px;
+  margin-top:22px;
+  font-size:14px;
+  line-height:1.45;
+}
+.modal{
+  display:none;
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.5);
+  align-items:flex-end;
+  justify-content:center;
+}
+.modalbox{
+  width:100%;
+  max-width:520px;
+  background:white;
+  border-radius:25px 25px 0 0;
+  padding:24px;
+}
+.modalbox h2{
+  margin-top:0;
+}
+input{
+  width:100%;
+  border:1px solid #ccd3d6;
+  border-radius:12px;
+  padding:14px;
+  font-size:16px;
+  margin:10px 0 15px;
+}
+.choice{
+  width:100%;
+  text-align:left;
+  background:#f2f5f5;
+  padding:15px;
+  margin-bottom:9px;
+}
+.close{
+  width:100%;
+  background:white;
+  margin-top:5px;
+  color:#687278;
+}
+</style>
+</head>
+
+<body>
+
+<div class="app">
+
+<header>
+  <small>Bonjour 👋</small>
+  <h1>Mes budgets</h1>
+</header>
+
+<div class="content">
+
+<div class="section-title">
+  <h2>Vos budgets</h2>
+  <span id="count">2 budgets</span>
+</div>
+
+<div id="budgets"></div>
+
+<button class="create" onclick="openCreate()">
+  ＋ Créer un budget
+</button>
+
+<div class="tip">
+  💡 <strong>Un budget à la fois est actif.</strong><br>
+  Vos dépenses et revenus seront enregistrés dans le budget actif.
+  Vous pouvez conserver d'autres budgets pour tester différents scénarios.
+</div>
+
+</div>
+</div>
+
+<div class="modal" id="createModal">
+<div class="modalbox">
+<h2>Créer un budget</h2>
+<p>Comment souhaitez-vous commencer ?</p>
+
+<button class="choice" onclick="newBudget()">
+  ✨ <strong>Créer de zéro</strong><br>
+  <small>Configurer revenus, charges, épargne et enveloppes</small>
+</button>
+
+<button class="choice" onclick="duplicateChoice()">
+  📄 <strong>Dupliquer un budget</strong><br>
+  <small>Reprendre une configuration existante</small>
+</button>
+
+<button class="close" onclick="closeCreate()">Annuler</button>
+</div>
+</div>
+
+<div class="modal" id="nameModal">
+<div class="modalbox">
+<h2 id="modalTitle">Nom du budget</h2>
+<input id="budgetName" placeholder="Ex : Budget octobre">
+<button class="create" onclick="confirmName()">Enregistrer</button>
+<button class="close" onclick="closeName()">Annuler</button>
+</div>
+</div>
+
+<script>
+
+let budgets = JSON.parse(localStorage.getItem("budgets")) || [
+{
+ id:1,
+ name:"Budget actuel",
+ income:2000,
+ obligations:1050,
+ savings:150,
+ reserve:50,
+ available:750,
+ active:true
+},
+{
+ id:2,
+ name:"Simulation travaux",
+ income:2000,
+ obligations:1150,
+ savings:100,
+ reserve:50,
+ available:700,
+ active:false
+}
+];
+
+let editingId=null;
+let mode="new";
+
+function save(){
+ localStorage.setItem("budgets",JSON.stringify(budgets));
+ render();
+}
+
+function render(){
+
+ const container=document.getElementById("budgets");
+ container.innerHTML="";
+
+ budgets.forEach(b=>{
+
+ const card=document.createElement("div");
+ card.className="budget "+(b.active?"active":"");
+
+ card.innerHTML=`
+ <div class="top">
+   <div>
+     <div class="name">${b.name}</div>
+     <div class="label">Revenus : ${b.income} € / cycle</div>
+   </div>
+   ${b.active?'<div class="badge">ACTIF</div>':''}
+ </div>
+
+ <div class="amount">${b.available} €</div>
+ <div class="label">à répartir dans vos enveloppes</div>
+
+ <div class="grid">
+   <div class="stat">
+     <span class="label">Engagements</span>
+     <strong>${b.obligations} €</strong>
+   </div>
+
+   <div class="stat">
+     <span class="label">Épargne</span>
+     <strong>${b.savings} €</strong>
+   </div>
+
+   <div class="stat">
+     <span class="label">Réserve</span>
+     <strong>${b.reserve} €</strong>
+   </div>
+
+   <div class="stat">
+     <span class="label">Revenus</span>
+     <strong>${b.income} €</strong>
+   </div>
+ </div>
+
+ <div class="actions">
+   <button class="primary" onclick="openBudget(${b.id})">
+     Ouvrir
+   </button>
+
+   <button class="secondary" onclick="renameBudget(${b.id})">
+     ✏️
+   </button>
+
+   <button class="secondary" onclick="duplicate(${b.id})">
+     📄
+   </button>
+
+   ${!b.active ?
+   `<button class="secondary" onclick="activate(${b.id})">✓</button>`
+   :""}
+ </div>
+ `;
+
+ container.appendChild(card);
+ });
+
+ document.getElementById("count").textContent=
+ budgets.length+" budget"+(budgets.length>1?"s":"");
+}
+
+function openCreate(){
+ document.getElementById("createModal").style.display="flex";
+}
+
+function closeCreate(){
+ document.getElementById("createModal").style.display="none";
+}
+
+function newBudget(){
+ closeCreate();
+ mode="new";
+ editingId=null;
+ document.getElementById("modalTitle").textContent="Nom du nouveau budget";
+ document.getElementById("budgetName").value="";
+ document.getElementById("nameModal").style.display="flex";
+}
+
+function duplicateChoice(){
+ closeCreate();
+
+ if(!budgets.length)return;
+
+ duplicate(budgets[0].id);
+}
+
+function duplicate(id){
+
+ const original=budgets.find(b=>b.id===id);
+
+ const copy={
+  ...original,
+  id:Date.now(),
+  name:"Copie de "+original.name,
+  active:false
+ };
+
+ budgets.push(copy);
+ save();
+
+ mode="rename";
+ editingId=copy.id;
+
+ document.getElementById("modalTitle").textContent="Nommer la copie";
+ document.getElementById("budgetName").value=copy.name;
+ document.getElementById("nameModal").style.display="flex";
+}
+
+function renameBudget(id){
+
+ const b=budgets.find(x=>x.id===id);
+
+ mode="rename";
+ editingId=id;
+
+ document.getElementById("modalTitle").textContent="Renommer le budget";
+ document.getElementById("budgetName").value=b.name;
+ document.getElementById("nameModal").style.display="flex";
+}
+
+function confirmName(){
+
+ const name=document.getElementById("budgetName").value.trim();
+
+ if(!name)return;
+
+ if(mode==="new"){
+
+ budgets.push({
+  id:Date.now(),
+  name:name,
+  income:0,
+  obligations:0,
+  savings:0,
+  reserve:50,
+  available:0,
+  active:budgets.length===0
+ });
+
+ }else{
+
+ const b=budgets.find(x=>x.id===editingId);
+ if(b)b.name=name;
+
+ }
+
+ closeName();
+ save();
+}
+
+function closeName(){
+ document.getElementById("nameModal").style.display="none";
+}
+
+function activate(id){
+
+ budgets.forEach(b=>b.active=false);
+
+ const b=budgets.find(x=>x.id===id);
+
+ if(b)b.active=true;
+
+ save();
+}
+
+function openBudget(id){
+
+ const b=budgets.find(x=>x.id===id);
+
+ alert(
+ b.name+
+ "\n\nLa prochaine étape sera ici :\n"+
+ "Revenus → Charges → Provisions → Épargne → Enveloppes → Priorités → Budget proposé"
+ );
+
+}
+
+render();
+
+</script>
+
+</body>
+</html>
