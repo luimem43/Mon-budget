@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#075a4d">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<title>B² v12.91 — saisie vocale sémantique et apprenante</title>
+<title>B² v12.93 — compréhension vocale étendue et apprenante</title>
 <style>
 :root{
   --brand:#075a4d;--brand2:#0a7965;--brand3:#0f8f72;--lime:#b9ef68;
@@ -1839,7 +1839,7 @@ const CATEGORY_RULES={
     words:['glace','cornet','café plaisir','cafe plaisir','pâtisserie plaisir','patisserie plaisir','goûter dehors','gouter dehors','petit plaisir']
   },
   'Loisirs & sorties':{
-    strong:['restaurant','au resto','sortie resto','boire un verre','verre au bar','place de cinéma','place de cinema','billet concert','sortie cinéma','sortie cinema','escape game','parc attraction','parc d attraction'],
+    strong:['restaurant','au resto','sortie resto','boire un verre','verre au bar','place de cinéma','place de cinema','billet concert','sortie cinéma','sortie cinema','escape game','parc attraction','parc d attraction','acrobranche','accrobranche','parc aventure','parcours aventure','karting','trampoline','paintball'],
     merchant:['mcdonald','mcdonald s','mcdonalds','mc donald','mc donald s','mcdo','macdo','mac donald','mac donald s','burger king','quick','kfc','subway','dominos','domino s','pizza hut','buffalo grill','courtepaille','flunch','cinéville','cineville','pathé','pathe','ugc','cgr','gaumont','bowling','laser game','basic fit','fitness park'],
     words:['resto','restaurant','bar','cinéma','cinema','sortie','concert','spectacle','festival','bowling','karaoké','karaoke','escape','laser game','discothèque','discotheque','boîte de nuit','boite de nuit','bière','biere','cocktail','apéro','apero','fast food','burger','pizza','kebab','tacos','sushi','brasserie','bistrot']
   },
@@ -4951,8 +4951,12 @@ function openTx(type,prefill={}){
   $('#txAmount').value=existing?.amount??prefill.amount??'';
   $('#txLabel').value=existing?.label??prefill.label??'';
   $('#txDate').value=existing?.date||prefill.date||todayISO();
-  const cat=$('#txCategory');cat.innerHTML=b.envelopes.map(e=>`<option value="${e.id}">${esc(e.name)}</option>`).join('');
-  if(existing?.categoryId)cat.value=existing.categoryId;else if(prefill.categoryId)cat.value=prefill.categoryId;
+  const cat=$('#txCategory');
+  const voiceNeedsChoice=!!prefill.voiceOrigin&&!prefill.categoryId;
+  cat.innerHTML=(voiceNeedsChoice?`<option value="">Choisir une enveloppe</option>`:'')+b.envelopes.map(e=>`<option value="${e.id}">${esc(e.name)}</option>`).join('');
+  if(existing?.categoryId)cat.value=existing.categoryId;
+  else if(prefill.categoryId)cat.value=prefill.categoryId;
+  else if(voiceNeedsChoice)cat.value='';
   const recent=(b.transactions||[]).filter(t=>t.type==='expense').sort((a,z)=>(z.createdAt||0)-(a.createdAt||0)).slice(0,30);
   const refundSel=$('#txRefundExpense');refundSel.innerHTML=`<option value="">Choisir seulement l’enveloppe</option>`+recent.map(t=>`<option value="${t.id}">${fmtDate(t.date)} · ${esc(t.label||t.category)} · ${euro(t.amount)}</option>`).join('');
   if(existing?.linkedTxId)refundSel.value=existing.linkedTxId;
@@ -5062,11 +5066,18 @@ function normalizeVoiceLearning(v){
     const src=x&&typeof x==='object'&&!Array.isArray(x)?x:{},out={};
     Object.entries(src).sort((a,z)=>num(z[1]?.lastAt)-num(a[1]?.lastAt)).slice(0,limit).forEach(([k,val])=>{
       if(!k||!val?.categoryId)return;
-      out[k]={categoryId:String(val.categoryId),count:clamp(Math.round(num(val.count)||1),1,50),lastAt:num(val.lastAt)||Date.now()}
+      out[k]={
+        categoryId:String(val.categoryId),
+        count:clamp(Math.round(num(val.count)||1),1,50),
+        lastAt:num(val.lastAt)||Date.now(),
+        // v12.92 : seules les corrections réellement faites par l'utilisateur
+        // peuvent devenir des habitudes fortes.
+        explicit:val.explicit===true
+      }
     });
     return out
   };
-  return {merchants:safeMap(v?.merchants,140),concepts:safeMap(v?.concepts,40)}
+  return {merchants:safeMap(v?.merchants,180),concepts:safeMap(v?.concepts,60)}
 }
 function voiceMerchantKey(label){
   let low=normalizeSpeechText(label).replace(/\b(chez|au|aux|pour|paiement|achat)\b/g,' ').replace(/\s+/g,' ').trim();
@@ -5075,82 +5086,210 @@ function voiceMerchantKey(label){
     [/^(?:burger king|bk)$/,'burger king'],
     [/^(?:e leclerc|leclerc)$/,'leclerc'],
     [/^(?:intermarche|inter marche)$/,'intermarche'],
-    [/^(?:total energies|totalenergies|total access)$/,'totalenergies']
+    [/^(?:total energies|totalenergies|total access)$/,'totalenergies'],
+    [/^(?:brico depot|bricodepot)$/,'brico depot'],
+    [/^(?:mr bricolage|monsieur bricolage)$/,'mr bricolage'],
+    [/^(?:h et m|h&m)$/,'h&m'],
+    [/^(?:pull and bear|pull&bear)$/,'pull&bear'],
+    [/^(?:disney plus|disney\+)$/,'disney plus'],
+    [/^(?:o tacos|otacos)$/,'otacos']
   ];
   for(const [rx,key] of aliases)if(rx.test(low))return key;
   return low.slice(0,80)
 }
 const VOICE_CONCEPTS=[
-  {id:'dining',specific:['restaurant','restaurants','resto','restos','repas dehors','repas exterieur','manger dehors','fast food','pizzeria','bouffe plaisir'],
-    fallback:['loisirs sorties','petits plaisirs'],
-    strong:['restaurant','au resto','sortie resto','fast food','repas au restaurant','repas dehors','manger au restaurant','pizzeria','kebab','tacos'],
-    merchant:['mcdonald','mcdonald s','mcdonalds','mc donald','mc donald s','mcdo','macdo','mac donald','burger king','quick','kfc','subway','dominos','domino s','pizza hut','buffalo grill','courtepaille','flunch'],
-    words:['resto','restaurant','brasserie','bistrot','burger','pizza','sushi','kebab','tacos','sandwich dehors']},
-  {id:'groceries',specific:['courses','alimentation','alimentaire','courses quotidien','quotidien','supermarche','epicerie','nourriture maison'],
+  {id:'dining',
+    specific:['restaurant','restaurants','resto','restos','repas dehors','repas exterieur','manger dehors','fast food','pizzeria','snack','brasserie','bistrot'],
+    fallback:['loisirs sorties','sorties'],
+    strong:['restaurant','au resto','sortie resto','fast food','repas au restaurant','repas dehors','manger au restaurant','pizzeria','kebab','tacos','sushi','burger','brasserie','bistrot','creperie'],
+    merchant:['mcdonald','mcdonald s','mcdonalds','mc donald','mc donald s','mcdo','macdo','mac donald','burger king','quick','kfc','subway','dominos','domino s','pizza hut','buffalo grill','courtepaille','flunch','o tacos','otacos','five guys','big fernand','hippopotamus','sushi shop'],
+    words:['resto','restaurant','brasserie','bistrot','burger','pizza','sushi','kebab','tacos','sandwich dehors','menu','snack']},
+  {id:'groceries',
+    specific:['courses','alimentation','alimentaire','courses quotidien','quotidien','supermarche','epicerie','nourriture maison','courses maison'],
     fallback:['courses quotidien'],
-    strong:['courses alimentaires','faire les courses','supermarche','hypermarche','epicerie','drive courses','marche alimentaire'],
-    merchant:['leclerc','lidl','aldi','intermarche','carrefour','carrefour market','carrefour city','auchan','super u','hyper u','u express','monoprix','franprix','casino','spar','netto','grand frais','picard','biocoop','naturalia'],
-    words:['courses','alimentaire','nourriture','pain','baguette','viande','poisson','legumes','fruits','lait','oeufs','lessive','menage']},
-  {id:'fuel',specific:['carburant','essence','gasoil','diesel','transport','deplacements','voiture','mobilite'],
+    strong:['courses alimentaires','faire les courses','supermarche','hypermarche','epicerie','drive courses','marche alimentaire','boucherie','poissonnerie','primeur'],
+    merchant:['leclerc','e leclerc','lidl','aldi','intermarche','inter marche','carrefour','carrefour market','carrefour city','auchan','super u','hyper u','u express','monoprix','franprix','casino','spar','netto','grand frais','picard','biocoop','naturalia','la vie claire'],
+    words:['courses','alimentaire','nourriture','pain','baguette','viande','poisson','legumes','fruits','lait','oeufs','lessive','menage','epicerie','boucherie','primeur']},
+  {id:'fuel',
+    specific:['carburant','essence','gasoil','diesel','plein','station service'],
     fallback:['carburant deplacements'],
-    strong:['plein essence','plein de carburant','plein de gasoil','plein diesel','station service','essence','gasoil','diesel','carburant'],
-    merchant:['totalenergies','esso','shell','avia','bp','dyneff','leclerc carburant','carrefour carburant'],
-    words:['sp95','sp98','e10','sans plomb','station']},
-  {id:'mobility',specific:['transport','deplacements','mobilite','train','bus','parking'],
+    strong:['plein essence','plein de carburant','plein de gasoil','plein diesel','station service','essence','gasoil','diesel','carburant','sans plomb'],
+    merchant:['totalenergies','total energies','total access','esso','shell','avia','bp','dyneff','eni','leclerc carburant','carrefour carburant','auchan carburant','esso express'],
+    words:['sp95','sp98','e10','sans plomb','station','pompe']},
+  {id:'mobility',
+    specific:['transport','transports','deplacements','mobilite','train','bus','parking','peage','taxi'],
     fallback:['carburant deplacements'],
-    strong:['ticket de train','billet de train','ticket de bus','billet de bus','peage autoroute','parking','taxi','covoiturage'],
-    merchant:['sncf','ouigo','trainline','flixbus','blablacar','uber','bolt','indigo','effia','vinci autoroutes','aprr','area'],
-    words:['train','bus','tram','metro','taxi','uber','peage','parking','autoroute']},
-  {id:'children',specific:['enfants','enfant','ecole','scolaire','famille enfants'],
+    strong:['ticket de train','billet de train','ticket de bus','billet de bus','peage autoroute','parking','taxi','covoiturage','transport en commun','billet avion'],
+    merchant:['sncf','ouigo','trainline','flixbus','blablacar','uber','bolt','indigo','effia','vinci autoroutes','aprr','area','ratp','tcl','transdev'],
+    words:['train','bus','tram','metro','taxi','uber','peage','parking','autoroute','covoiturage','transport']},
+  {id:'vehicle',
+    specific:['voiture','auto','automobile','moto','scooter','vehicule','garage','entretien voiture','entretien auto','entretien moto'],
+    fallback:['carburant deplacements'],
+    strong:['reparation voiture','reparation auto','reparation moto','controle technique','vidange','pneus voiture','pneus moto','piece auto','piece moto','garage automobile'],
+    merchant:['norauto','feu vert','midas','speedy','carter cash','oscaro','autodoc','dekra','autosur','securitest'],
+    words:['voiture','auto','moto','scooter','vehicule','garage','vidange','pneu','pneus','controle technique','reparation']},
+  {id:'children',
+    specific:['enfants','enfant','famille enfants','activites enfants','budget enfants'],
     fallback:['enfants'],
-    strong:['cantine scolaire','garderie scolaire','fournitures scolaires','sortie scolaire','activite enfant','centre de loisirs','colonie de vacances'],
-    merchant:['oxybul','king jouet','joueclub','smyths toys','la grande recre','vertbaudet','orchestra','okaidi','jacadi'],
-    words:['enfant','enfants','ecole','cantine','garderie','creche','nounou','jouet','periscolaire']},
-  {id:'pets',specific:['animaux','animal','chien','chat'],
-    fallback:['animaux'],
-    strong:['veterinaire','croquettes chien','croquettes chat','nourriture chien','nourriture chat','toilettage chien','toilettage chat'],
-    merchant:['maxi zoo','zooplus','animalis','jardiland','truffaut','wanimo'],
-    words:['chien','chat','veto','veterinaire','croquette','litiere','animal','toilettage']},
-  {id:'clothing',specific:['vetements','habillement','fringues','chaussures','mode'],
-    fallback:['vetements'],
-    strong:['achat vetement','achat chaussures','vetements'],
-    merchant:['zara','h et m','h&m','uniqlo','kiabi','celio','jules','zalando','asos','primark','decathlon'],
-    words:['vetement','vetements','pantalon','jean','pull','manteau','chaussure','chaussures','robe','chemise']},
-  {id:'beauty',specific:['soins beaute','beaute','coiffeur','coiffure','esthetique'],
-    fallback:['soins beaute'],
-    strong:['coiffeur','coiffure','institut de beaute','estheticienne','parfumerie'],
-    merchant:['sephora','marionnaud','nocibe','yves rocher'],
-    words:['beaute','maquillage','parfum','coiffeur','coiffure','esthetique','cosmetique']},
-  {id:'health',specific:['sante','medical','medicaments','pharmacie'],
-    fallback:['sante'],
-    strong:['pharmacie','medecin','dentiste','opticien','consultation medicale'],
-    merchant:['doctolib','optical center','afflelou','krys','grand optical'],
-    words:['sante','medicament','medicaments','pharmacie','medecin','dentiste','optique','lunettes']},
-  {id:'leisure',specific:['loisirs','sorties','cinema','sport','activites','culture'],
-    fallback:['loisirs sorties'],
-    strong:['place de cinema','billet concert','sortie cinema','escape game','parc attraction','concert','bowling'],
-    merchant:['cineville','pathe','ugc','cgr','gaumont','bowling','laser game','basic fit','fitness park'],
-    words:['cinema','sortie','concert','spectacle','festival','bowling','karaoke','escape','laser game','discotheque','sport']},
-  {id:'treats',specific:['petits plaisirs','plaisirs','gouter','cafe'],
-    fallback:['petits plaisirs'],
-    strong:['cafe plaisir','patisserie plaisir','gouter dehors'],
-    merchant:['starbucks','columbus cafe','amorino','haagen dazs'],
-    words:['glace','cafe','patisserie','gouter','plaisir']},
-  {id:'home',specific:['maison','entretien maison','deco','decoration','equipement maison'],
-    fallback:['maison entretien'],
-    strong:['achat meuble','meubles maison','decoration maison','entretien maison','petit equipement maison'],
-    merchant:['ikea','but','conforama','maisons du monde','alinea','jysk','centrakor','gifi'],
-    words:['maison','meuble','decoration','luminaire','ampoule','rideau','coussin','jardin','rangement']},
-  {id:'diy',specific:['travaux','bricolage','renovation','materiaux'],
-    fallback:['travaux'],
-    strong:['travaux maison','materiel bricolage','peinture mur','outillage','materiaux','renovation maison'],
-    merchant:['leroy merlin','castorama','brico depot','bricomarche','mr bricolage','weldom','lapeyre'],
-    words:['travaux','bricolage','peinture','outillage','materiaux','renovation']},
-  {id:'gifts',specific:['cadeaux','cadeau','evenements','anniversaires'],
-    fallback:['cadeaux evenements'],
-    strong:['cadeau anniversaire','cadeau noel','cadeau mariage','cadeau'],
+    strong:['cantine scolaire','garderie scolaire','fournitures scolaires','sortie scolaire','activite enfant','centre de loisirs','colonie de vacances','vetements enfant','jouets enfant'],
+    merchant:['oxybul','king jouet','joueclub','smyths toys','la grande recre','vertbaudet','orchestra','okaidi','okaidi','jacadi'],
+    words:['enfant','enfants','cantine','garderie','nounou','jouet','jouets','periscolaire','colonie']},
+  {id:'baby',
+    specific:['bebe','bebes','nourrisson','petite enfance'],
+    fallback:['enfants'],
+    strong:['couches bebe','lait bebe','petits pots','poussette','siege auto bebe','creche','nounou bebe'],
+    merchant:['aubert','bebe 9','bebe neuf'],
+    words:['bebe','nourrisson','couches','poussette','biberon','creche','petits pots']},
+  {id:'education',
+    specific:['ecole','scolaire','education','etudes','formation','formations','cours'],
+    fallback:['enfants','divers'],
+    strong:['fournitures scolaires','inscription ecole','frais scolaires','formation professionnelle','cours particulier','livres scolaires'],
     merchant:[],
-    words:['cadeau','cadeaux','anniversaire','noel','mariage','fete']}
+    words:['ecole','scolaire','formation','cours','etudes','universite','fac','fournitures','inscription']},
+  {id:'pets',
+    specific:['animaux','animal','chien','chat','chiens','chats'],
+    fallback:['animaux'],
+    strong:['veterinaire','croquettes chien','croquettes chat','nourriture chien','nourriture chat','toilettage chien','toilettage chat','litiere chat'],
+    merchant:['maxi zoo','zooplus','animalis','wanimo'],
+    words:['chien','chat','veto','veterinaire','croquette','croquettes','litiere','animal','animaux','toilettage','vermifuge']},
+  {id:'clothing',
+    specific:['vetements','habillement','fringues','chaussures','mode','shopping vetements'],
+    fallback:['vetements'],
+    strong:['achat vetement','achat chaussures','vetements','chaussures','pantalon','manteau'],
+    merchant:['zara','h et m','h&m','uniqlo','kiabi','celio','jules','zalando','asos','primark','bershka','pull and bear','pull&bear','vinted'],
+    words:['vetement','vetements','pantalon','jean','pull','manteau','chaussure','chaussures','robe','chemise','t shirt','tee shirt']},
+  {id:'beauty',
+    specific:['soins beaute','beaute','coiffeur','coiffure','esthetique','cosmetiques','parfum'],
+    fallback:['soins beaute'],
+    strong:['coiffeur','coiffure','institut de beaute','estheticienne','parfumerie','manucure','barbier'],
+    merchant:['sephora','marionnaud','nocibe','yves rocher','rituals'],
+    words:['beaute','maquillage','parfum','coiffeur','coiffure','esthetique','cosmetique','manucure','barbier']},
+  {id:'health',
+    specific:['sante','medical','medicaments','pharmacie','soins medicaux'],
+    fallback:['sante'],
+    strong:['pharmacie','medecin','dentiste','opticien','consultation medicale','kine','osteopathe','psychologue','analyses medicales'],
+    merchant:['doctolib','optical center','afflelou','krys','grand optical'],
+    words:['sante','medicament','medicaments','pharmacie','medecin','dentiste','optique','lunettes','kine','osteopathe','consultation']},
+  {id:'leisure',
+    specific:['loisirs','sorties','activites','culture loisirs','activites loisirs','sorties loisirs','parcs loisirs'],
+    fallback:['loisirs sorties','sorties','loisirs'],
+    strong:['place de cinema','billet concert','sortie cinema','escape game','parc attraction','parc aventure','parcours aventure','acrobranche','accrobranche','concert','bowling','karting','trampoline','paintball','laser game','mini golf','zoo','aquarium','musee','theatre'],
+    merchant:['cineville','pathe','ugc','cgr','gaumont','bowling','laser game'],
+    words:['cinema','sortie','sorties','loisir','loisirs','concert','spectacle','festival','bowling','karaoke','escape','laser game','discotheque','acrobranche','accrobranche','karting','trampoline','paintball','mini golf','parc aventure','zoo','aquarium','musee','theatre']},
+  {id:'sport',
+    specific:['sport','sports','fitness','gym','salle de sport','activites sportives'],
+    fallback:['loisirs sorties'],
+    strong:['salle de sport','abonnement sport','materiel sport','equipement sport','piscine','escalade','ski','velo','running','football','tennis'],
+    merchant:['decathlon','intersport','go sport','basic fit','fitness park','keep cool','orange bleue'],
+    words:['sport','fitness','gym','musculation','piscine','escalade','ski','velo','running','football','tennis','padel']},
+  {id:'treats',
+    specific:['petits plaisirs','plaisirs','gouter','cafe','extras','petites envies'],
+    fallback:['petits plaisirs'],
+    strong:['cafe plaisir','patisserie plaisir','gouter dehors','glace','chocolat plaisir'],
+    merchant:['starbucks','columbus cafe','amorino','haagen dazs','paul','brioche doree'],
+    words:['glace','cafe','patisserie','gouter','plaisir','chocolat','viennoiserie']},
+  {id:'home',
+    specific:['maison','entretien maison','deco','decoration','equipement maison','mobilier','ameublement'],
+    fallback:['maison entretien'],
+    strong:['achat meuble','meubles maison','decoration maison','entretien maison','petit equipement maison','electromenager','linge de maison'],
+    merchant:['ikea','but','conforama','maisons du monde','alinea','jysk','centrakor','gifi','action'],
+    words:['maison','meuble','mobilier','decoration','luminaire','ampoule','rideau','coussin','rangement','electromenager','vaisselle']},
+  {id:'diy',
+    specific:['travaux','bricolage','renovation','materiaux','outillage'],
+    fallback:['travaux'],
+    strong:['travaux maison','materiel bricolage','peinture mur','outillage','materiaux','renovation maison','quincaillerie'],
+    merchant:['leroy merlin','castorama','brico depot','bricomarche','mr bricolage','weldom','lapeyre'],
+    words:['travaux','bricolage','peinture','outillage','materiaux','renovation','visserie','platre','placo','bois']},
+  {id:'garden',
+    specific:['jardin','jardinage','exterieur','terrasse','plantes'],
+    fallback:['maison entretien'],
+    strong:['plantes jardin','terreau','outils jardin','mobilier jardin','tondeuse','barbecue'],
+    merchant:['jardiland','truffaut','botanic','gamm vert'],
+    words:['jardin','jardinage','plante','plantes','terreau','tondeuse','barbecue','terrasse','potager']},
+  {id:'gifts',
+    specific:['cadeaux','cadeau','evenements','anniversaires','noel','fetes'],
+    fallback:['cadeaux evenements'],
+    strong:['cadeau anniversaire','cadeau noel','cadeau mariage','cadeau naissance','cadeau'],
+    merchant:[],
+    words:['cadeau','cadeaux','anniversaire','noel','mariage','fete','naissance','saint valentin']},
+  {id:'travel',
+    specific:['vacances','voyage','voyages','week end','weekend','escapades','sejours','tourisme'],
+    fallback:['loisirs sorties'],
+    strong:['vacances','voyage','week end','weekend','location vacances','camping','billet avion','sejour','location saisonniere'],
+    merchant:['airbnb','booking','abritel','camping.com','expedia','lastminute','opodo','air france','easyjet','ryanair','transavia'],
+    words:['vacances','voyage','weekend','sejour','camping','hotel','avion','tourisme','escapade']},
+  {id:'accommodation',
+    specific:['hotel','hotels','hebergement','logement vacances','location vacances'],
+    fallback:['vacances','voyage','loisirs sorties'],
+    strong:['nuit hotel','chambre hotel','hebergement','location vacances'],
+    merchant:['ibis','novotel','mercure','b and b hotels','premiere classe','campanile','hotel f1'],
+    words:['hotel','hebergement','chambre','nuit','location']},
+  {id:'tech',
+    specific:['tech','technologie','informatique','electronique','telephone','ordinateur','high tech'],
+    fallback:['divers'],
+    strong:['ordinateur','smartphone','telephone portable','tablette','ecran','casque audio','cable hdmi','disque dur','accessoire informatique'],
+    merchant:['darty','boulanger','ldlc','materiel.net','apple store','samsung store'],
+    words:['ordinateur','pc','smartphone','telephone','tablette','ecran','casque','chargeur','cable','informatique','electronique']},
+  {id:'gaming',
+    specific:['jeux video','gaming','jeux','console'],
+    fallback:['loisirs sorties'],
+    strong:['jeu video','console de jeux','abonnement gaming','playstation plus','xbox game pass'],
+    merchant:['steam','playstation','xbox','nintendo','micromania','epic games'],
+    words:['gaming','jeu video','console','playstation','xbox','nintendo','steam']},
+  {id:'culture',
+    specific:['culture','livres','lecture','musique','spectacles'],
+    fallback:['loisirs sorties'],
+    strong:['achat livre','livres','concert','theatre','musee','billet spectacle'],
+    merchant:[],
+    words:['livre','livres','lecture','roman','bd','manga','musique','musee','theatre','spectacle']},
+  {id:'subscriptions',
+    specific:['abonnements','abonnement','streaming','services en ligne'],
+    fallback:['divers'],
+    strong:['abonnement netflix','abonnement spotify','abonnement streaming','abonnement musique','abonnement video'],
+    merchant:['netflix','spotify','disney plus','disney+','prime video','deezer','canal plus','youtube premium','apple music'],
+    words:['abonnement','streaming','netflix','spotify','deezer','canal','disney']},
+  {id:'communication',
+    specific:['telephone internet','telecom','forfait mobile','internet','mobile'],
+    fallback:['divers'],
+    strong:['forfait telephone','forfait mobile','abonnement internet','box internet','fibre'],
+    merchant:['orange','sfr','bouygues telecom','free mobile','free telecom','sosh','red by sfr','b and you'],
+    words:['telephone','mobile','internet','fibre','box','forfait']},
+  {id:'professional',
+    specific:['travail','pro','professionnel','frais pro','business'],
+    fallback:['divers'],
+    strong:['frais professionnel','frais pro','materiel professionnel','repas professionnel','deplacement professionnel'],
+    merchant:[],
+    words:['professionnel','travail','business','bureau','frais pro']},
+  {id:'insurance',
+    specific:['assurances','assurance'],
+    fallback:['divers'],
+    strong:['assurance auto','assurance habitation','assurance moto','assurance scolaire'],
+    merchant:['maif','macif','matmut','mma','axa','allianz','groupama','gmf'],
+    words:['assurance','assurances','cotisation assurance']},
+  {id:'banking',
+    specific:['banque','frais bancaires','frais banque'],
+    fallback:['divers'],
+    strong:['frais bancaire','frais bancaires','commission bancaire','agios'],
+    merchant:[],
+    words:['banque','bancaire','agios','commission']},
+  {id:'administration',
+    specific:['impots','taxes','administratif','administration','amendes'],
+    fallback:['divers'],
+    strong:['impot','impots','taxe','taxes','amende','contravention','timbre fiscal'],
+    merchant:['impots gouv','amendes gouv'],
+    words:['impot','impots','taxe','taxes','amende','contravention','administratif']},
+  {id:'charity',
+    specific:['dons','don','solidarite','associations','association'],
+    fallback:['divers'],
+    strong:['don association','don caritatif','donation'],
+    merchant:['restos du coeur','secours populaire','croix rouge','unicef'],
+    words:['don','dons','association','solidarite','caritatif']},
+  {id:'other',
+    specific:['divers','autre','autres depenses'],
+    fallback:['divers'],
+    strong:['divers','autre depense','autres depenses'],
+    merchant:[],
+    words:['divers','autre']}
 ];
 function detectVoiceConcept(text){
   const low=normalizeSpeechText(text);if(!low)return null;
@@ -5163,21 +5302,71 @@ function detectVoiceConcept(text){
   }).sort((a,z)=>z.score-a.score);
   const top=ranked[0],second=ranked[1]||{score:0};
   if(!top||top.score<=0)return null;
-  return {...top,confidence:top.score>=11&&top.score-second.score>=4?'high':top.score>=8?'medium':'low',gap:top.score-second.score}
+  const related=ranked.slice(1,4).filter(x=>x.score>0&&x.score>=Math.max(5,top.score*.28));
+  return {...top,
+    confidence:top.score>=11&&top.score-second.score>=4?'high':top.score>=8?'medium':'low',
+    gap:top.score-second.score,
+    related
+  }
+}
+function voiceSemanticTokens(s){
+  const stop=new Set(['et','de','du','des','la','le','les','a','au','aux','en','pour','mon','ma','mes']);
+  return normalizeSpeechText(s).split(/\s+/).filter(w=>w.length>=3&&!stop.has(w));
+}
+function voiceSemanticSimilarity(a,b){
+  const A=voiceSemanticTokens(a),B=voiceSemanticTokens(b);
+  if(!A.length||!B.length)return 0;
+  const setA=new Set(A),setB=new Set(B);
+  const common=[...setA].filter(x=>setB.has(x)).length;
+  if(!common)return 0;
+  const coverage=common/Math.min(setA.size,setB.size);
+  return coverage;
+}
+function voiceIsDefaultEnvelope(env){
+  const n=normalizeSpeechText(env?.name||'');
+  return DEFAULT_ENVELOPES.some(x=>normalizeSpeechText(x[0])===n)
+}
+function voiceNameMatchScore(name,terms,exactScore,containsScore,tokenScore){
+  let best=0;
+  for(const a of terms||[]){
+    const n=normalizeSpeechText(a);if(!n)continue;
+    if(name===n)best=Math.max(best,exactScore);
+    else if(name.includes(n)||n.includes(name))best=Math.max(best,containsScore);
+    else{
+      const sim=voiceSemanticSimilarity(name,n);
+      if(sim>=1)best=Math.max(best,tokenScore);
+      else if(sim>=.5)best=Math.max(best,Math.max(1,tokenScore-12));
+    }
+  }
+  return best
 }
 function envelopeConceptNameScore(env,concept){
   if(!env||!concept)return 0;
   const name=normalizeSpeechText(env.name);
   let score=0;
-  for(const a of concept.specific||[]){
-    const n=normalizeSpeechText(a);
-    if(name===n)score=Math.max(score,56);
-    else if(name.includes(n)||n.includes(name))score=Math.max(score,44);
-  }
-  for(const a of concept.fallback||[]){
-    const n=normalizeSpeechText(a);
-    if(name===n)score=Math.max(score,28);
-    else if(name.includes(n)||n.includes(name))score=Math.max(score,22);
+  score=Math.max(score,voiceNameMatchScore(name,concept.specific,82,72,66));
+  score=Math.max(score,voiceNameMatchScore(name,concept.fallback,58,53,49));
+
+  // Une enveloppe personnalisée peut elle-même porter le nom d'un commerçant,
+  // d'une activité ou d'un mot métier : "McDo", "Acrobranche", "Moto", "Netflix"...
+  score=Math.max(score,voiceNameMatchScore(name,concept.strong,64,57,52));
+  score=Math.max(score,voiceNameMatchScore(name,concept.merchant,68,60,54));
+  score=Math.max(score,voiceNameMatchScore(name,concept.words,60,54,48));
+
+  // À pertinence égale, une enveloppe créée par l'utilisateur est plus précise
+  // qu'une enveloppe générique fournie par défaut.
+  if(score>0&&!voiceIsDefaultEnvelope(env))score+=8;
+
+  // Contexte secondaire : "sortie enfants", "vacances ski", etc.
+  for(const rel of concept.related||[]){
+    const secondary=Math.round(
+      Math.max(
+        voiceNameMatchScore(name,rel.specific,46,40,36),
+        voiceNameMatchScore(name,rel.fallback,34,30,27),
+        voiceNameMatchScore(name,rel.words,30,27,24)
+      )*.55
+    );
+    score+=secondary;
   }
   return score
 }
@@ -5202,7 +5391,7 @@ function learnedVoiceEntry(b,map,key){
   const l=normalizeVoiceLearning(b?.voiceLearning);
   const x=l?.[map]?.[key];if(!x)return null;
   const env=(b.envelopes||[]).find(e=>String(e.id)===String(x.categoryId));
-  return env?{env,count:num(x.count),lastAt:num(x.lastAt)}:null
+  return env?{env,count:num(x.count),lastAt:num(x.lastAt),explicit:x.explicit===true}:null
 }
 function inferVoiceEnvelope(text,label,b,concept){
   const envs=b?.envelopes||[];
@@ -5212,28 +5401,85 @@ function inferVoiceEnvelope(text,label,b,concept){
   const learnedMerchant=merchantKey?learnedVoiceEntry(b,'merchants',merchantKey):null;
   const learnedConcept=concept?.id?learnedVoiceEntry(b,'concepts',concept.id):null;
   const base=inferCategory(label||text,b);
+  const conceptStrong=!!concept&&concept.confidence==='high';
+
   const ranked=envs.map(env=>{
     let score=0,reasons=[];
-    if(explicit&&String(explicit.env.id)===String(env.id)){score+=explicit.score;reasons.push('enveloppe dite')}
-    if(learnedMerchant&&String(learnedMerchant.env.id)===String(env.id)){score+=68+Math.min(12,learnedMerchant.count*2);reasons.push('habitude commerçant')}
-    if(learnedConcept&&String(learnedConcept.env.id)===String(env.id)){score+=45+Math.min(10,learnedConcept.count);reasons.push('habitude catégorie')}
-    const semantic=envelopeConceptNameScore(env,concept);if(semantic){score+=semantic;reasons.push('sens de l’enveloppe')}
-    if(base?.env&&String(base.env.id)===String(env.id)){score+=Math.min(34,8+num(base.score)*2);reasons.push('mots-clés/historique')}
-    return {env,score,reasons}
+
+    if(explicit&&String(explicit.env.id)===String(env.id)){
+      score+=130;reasons.push('enveloppe dite')
+    }
+
+    const semantic=envelopeConceptNameScore(env,concept);
+    if(semantic){
+      score+=semantic;reasons.push('sens de la dépense')
+    }
+
+    if(learnedMerchant?.explicit&&String(learnedMerchant.env.id)===String(env.id)){
+      score+=76+Math.min(18,learnedMerchant.count*2);reasons.push('habitude commerçant')
+    }
+    if(learnedConcept?.explicit&&String(learnedConcept.env.id)===String(env.id)){
+      score+=50+Math.min(14,learnedConcept.count);reasons.push('habitude catégorie')
+    }
+
+    if(base?.env&&String(base.env.id)===String(env.id)){
+      // Si B² comprend clairement "restaurant", "acrobranche", "essence", etc.,
+      // l'ancien historique ne peut plus ramener la dépense vers une enveloppe
+      // sans rapport. Il reste seulement un filet de sécurité.
+      const baseWeight=conceptStrong&&!semantic?Math.min(8,2+num(base.score)):Math.min(24,6+num(base.score)*2);
+      score+=baseWeight;reasons.push('mots-clés/historique')
+    }
+
+    return {env,score,reasons,semantic}
   }).sort((a,z)=>z.score-a.score);
+
   const top=ranked[0],second=ranked[1]||{score:0};
   if(!top||top.score<=0)return {env:null,confidence:false,level:'none',score:0,alternatives:[]};
+
   const gap=top.score-second.score;
-  const level=top.score>=55&&gap>=9?'high':top.score>=32&&gap>=5?'medium':'low';
-  return {env:top.env,confidence:level!=='low',level,score:top.score,alternatives:ranked.slice(1,3).filter(x=>x.score>0).map(x=>({env:x.env,score:x.score})),reasons:top.reasons}
+  const semanticStrong=top.semantic>=52;
+  const learnedStrong=top.reasons.includes('habitude commerçant');
+  const explicitStrong=top.reasons.includes('enveloppe dite');
+
+  const level=explicitStrong||learnedStrong||(semanticStrong&&gap>=7)||top.score>=78&&gap>=10?'high':
+              top.score>=40&&gap>=5?'medium':'low';
+
+  // Si un concept très clair n'a AUCUNE enveloppe sémantiquement compatible
+  // et aucune habitude explicite, mieux vaut demander que classer au hasard.
+  if(conceptStrong&&top.semantic<=0&&!learnedStrong&&!explicitStrong){
+    return {env:null,confidence:false,level:'none',score:0,
+      alternatives:ranked.slice(0,3).filter(x=>x.score>0).map(x=>({env:x.env,score:x.score})),
+      reasons:['aucune enveloppe adaptée']}
+  }
+
+  return {
+    env:top.env,
+    confidence:level!=='low',
+    level,
+    score:top.score,
+    alternatives:ranked.slice(1,3).filter(x=>x.score>0).map(x=>({env:x.env,score:x.score})),
+    reasons:top.reasons
+  }
 }
 function learnVoiceChoice(b,ctx,categoryId){
   if(!b||!categoryId)return;
+  const suggested=ctx?.suggestedCategoryId||null;
+  // Ne pas "apprendre" une suggestion que B² vient lui-même de faire.
+  // On apprend seulement si l'utilisateur change la catégorie,
+  // ou si B² n'avait proposé aucune catégorie.
+  const explicitChoice=!suggested||String(suggested)!==String(categoryId);
+  if(!explicitChoice)return;
+
   const current=normalizeVoiceLearning(b.voiceLearning),now=Date.now();
   const bump=(map,key)=>{
     if(!key)return;
     const prev=current[map][key];
-    current[map][key]={categoryId:String(categoryId),count:prev&&String(prev.categoryId)===String(categoryId)?Math.min(50,num(prev.count)+1):1,lastAt:now}
+    current[map][key]={
+      categoryId:String(categoryId),
+      count:prev&&String(prev.categoryId)===String(categoryId)?Math.min(50,num(prev.count)+1):1,
+      lastAt:now,
+      explicit:true
+    }
   };
   bump('merchants',ctx?.merchantKey||voiceMerchantKey(ctx?.label||''));
   bump('concepts',ctx?.conceptId||null);
@@ -5243,7 +5489,9 @@ function cleanVoiceLabel(text){
   let s=String(text||'').trim();
   if(!s)return '';
   s=s.replace(/^\s*(?:j['’ ]?ai\s+(?:d[eé]pens[eé]|pay[eé]|mis)|je\s+(?:d[eé]pense|paye)|d[eé]pense|paiement|achat|ajoute|ajouter)\s+/i,'');
-  s=s.replace(/^\s*(?:\+|plus\s+)?\d+(?:[.,]\d{1,2})?\s*(?:€|euros?|euro)(?:\s+\d{1,2})?(?:\s*centimes?)?\s*/i,'');
+  // Montant avec "euro(s)" : peut être au début OU à la fin de la phrase.
+  s=s.replace(/(?:^|\s)(?:\+|plus\s+)?\d+(?:[.,]\d{1,2})?\s*(?:€|euros?|euro)(?:\s+\d{1,2})?(?:\s*centimes?)?(?=\s|$)/i,' ');
+  // Sans "euro", on ne retire le nombre que s'il est clairement en tête.
   s=s.replace(/^\s*(?:\+|plus\s+)?\d+(?:[.,]\d{1,2})?\s*/i,'');
   s=s.replace(/^\s*(?:chez|au|aux|a|à|pour|de|du)\s+/i,'');
   s=s.replace(/\s+/g,' ').replace(/^[,;:.\-–—\s]+|[,;:.\-–—\s]+$/g,'').trim();
@@ -5253,7 +5501,7 @@ function parseVoicePhrase(text){
   const b=active();if(!b)return null;
   const low=normalizeSpeechText(text).replace(',','.');
   const amount=extractVoiceAmount(text);if(!(amount>0))return null;
-  const income=/^\s*\+|\bplus\s+(?:\d|un|une|deux|trois|quatre|cinq|six|sept|huit|neuf|dix)|\bj ai recu\b|\brecu\b|\bencaisse\b|\brevenu\b|\bsalaire\b|\bprime\b|\bremboursement\b|\bvente\b|\bvendu\b|\bvinted\b|\bleboncoin\b|\bpaypal recu\b/.test(low);
+  const income=/^\s*\+|\bplus\s+(?:\d|un|une|deux|trois|quatre|cinq|six|sept|huit|neuf|dix)|\bj ai recu\b|\brecu\b|\bencaisse\b|\brevenu\b|\bsalaire\b|\bprime\b|\bremboursement\b|\bvente\b|\bvendu\b|\bpaypal recu\b|\b(?:vinted|leboncoin)\b.*\b(?:vente|vendu|recu|encaisse)\b/.test(low);
   let label=cleanVoiceLabel(text);
   if(!label)label=income?'Revenu':'Dépense';
   let inf,concept=null;
@@ -5293,7 +5541,7 @@ function saveVoiceDirect(r,text){
   const finish=()=>{b.transactions.push(tx);matchPendingBankToTransaction(b,tx);const remAfter=r2(e.amount-(spentFor(b,e.id)));save();if(remAfter<-.01){overspendCtx={budgetId:b.id,envId:e.id};$('#overspendLead').textContent=`${e.name} dépasse de ${euro(Math.abs(remAfter))}. Que veux-tu faire ?`;$('#overspendReserve').disabled=b.reserve<Math.abs(remAfter)-.01;openModal('overspendModal')}else showToast(tx.bankVerified?`${euro(r.amount)} · ${e.name} · rapproché avec la banque, aucun doublon.`:`${euro(r.amount)} · ${e.name} · enregistré.`)};
   const dup=findRecordedBankDuplicate(b,tx);if(dup){askPossibleDuplicate(dup,tx,finish);return}finish();
 }
-/* v12.90 — saisie vocale Android plus tolérante aux hésitations */
+/* v12.93 — saisie vocale Android + dictionnaire étendu + enveloppes personnalisées apprenantes */
 let recognition=null,recognitionActive=false,voiceText='',voiceEngine='';
 let nativeVoiceSilenceTimer=null,nativeVoiceMaxTimer=null,nativeVoiceFinalized=false;
 function nativeSpeechPlugin(){
