@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#075a4d">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<title>B² v12.11 — dates des charges</title>
+<title>B² v12.89 — saisie vocale</title>
 <style>
 :root{
   --brand:#075a4d;--brand2:#0a7965;--brand3:#0f8f72;--lime:#b9ef68;
@@ -1423,7 +1423,7 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}button:disabled{
 <div class="field hidden" id="txMemberWrap"><label for="txMember">Qui a payé ?</label><select id="txMember"></select><div class="help">Le budget reste commun ; B² garde simplement la trace de qui a payé quoi.</div></div>
 <div class="field"><label for="txLabel">Libellé</label><input id="txLabel" autocomplete="off" placeholder="Ex. restaurant"></div><div class="field"><label for="txDate">Date</label><input id="txDate" type="date"></div><div class="modal-actions"><button class="btn btn-soft" data-close="transactionModal" type="button">Annuler</button><button class="btn btn-primary" id="saveTxBtn" type="button">Enregistrer</button></div></div></div>
 
-<div class="modal" id="voiceModal"><div class="sheet"><div class="grab"></div><h3>Parler à B²</h3><button class="voice-orb" id="voiceOrb" type="button" aria-label="Arrêter le micro"><span class="ui-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 15a3.5 3.5 0 0 0 3.5-3.5V7.5A3.5 3.5 0 0 0 12 4a3.5 3.5 0 0 0-3.5 3.5v4A3.5 3.5 0 0 0 12 15Z"/><path d="M18 11.5a6 6 0 0 1-12 0"/><path d="M12 17.5V20"/><path d="M9 20h6"/></svg></span></button><div class="voice-live" id="voiceLive" aria-live="polite"></div><div class="voice-example">Ex. « 54 euros courses alimentaires »</div><div class="status info compact hidden" id="voiceHint" aria-live="polite"></div><button class="btn btn-soft btn-full" id="voiceCancel" data-close="voiceModal" type="button" style="margin-top:14px">Annuler</button></div></div>
+<div class="modal" id="voiceModal"><div class="sheet"><div class="grab"></div><h3>Parler à B²</h3><p class="lead" style="margin-bottom:10px">Dis simplement le montant et ce que tu as payé. B² s’arrête dès que tu as fini.</p><button class="voice-orb" id="voiceOrb" type="button" aria-label="Démarrer le micro"><span class="ui-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 15a3.5 3.5 0 0 0 3.5-3.5V7.5A3.5 3.5 0 0 0 12 4a3.5 3.5 0 0 0-3.5 3.5v4A3.5 3.5 0 0 0 12 15Z"/><path d="M18 11.5a6 6 0 0 1-12 0"/><path d="M12 17.5V20"/><path d="M9 20h6"/></svg></span></button><div class="voice-live" id="voiceLive" aria-live="polite">Appuie sur le micro et parle.</div><div class="voice-example">Ex. « 54 euros courses », « 32 euros essence » ou « plus 50 euros Vinted »</div><div class="status info compact hidden" id="voiceHint" aria-live="polite"></div><button class="btn btn-soft btn-full" id="voiceCancel" data-close="voiceModal" type="button" style="margin-top:14px">Annuler</button></div></div>
 
 <div class="modal" id="overspendModal"><div class="sheet"><div class="grab"></div><h3>Enveloppe dépassée</h3><p class="lead" id="overspendLead"></p><div class="choice-stack"><button class="choice" id="overspendRebalance" type="button"><span class="choice-icon"><span class="ui-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 8h12"/><path d="m13 5 3 3-3 3"/><path d="M20 16H8"/><path d="m11 13-3 3 3 3"/></svg></span></span><div><strong>Rééquilibrer</strong><span>B² utilise d'abord l'argent non réparti puis les enveloppes non protégées.</span></div></button><button class="choice" id="overspendReserve" type="button"><span class="choice-icon"><span class="ui-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 4 6 6.5v4.8c0 4.2 2.5 6.8 6 8.7 3.5-1.9 6-4.5 6-8.7V6.5L12 4Z"/></svg></span></span><div><strong>Utiliser ma réserve</strong><span>Seulement si tu le décides maintenant.</span></div></button><button class="choice danger-choice" id="overspendKeep" type="button"><span class="choice-icon"><span class="ui-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 5 4.5 19h15L12 5Z"/><path d="M12 10v4"/><path d="M12 17h.01"/></svg></span></span><div><strong>Laisser le dépassement</strong><span>B² continuera simplement à le signaler.</span></div></button></div></div></div>
 
@@ -5020,13 +5020,45 @@ function inferCategory(text,b){
   const gap=top.score-second.score;const level=top.score>=8&&gap>=3?'high':top.score>=5&&gap>=2?'medium':'low';
   return {env:top.env,confidence:level!=='low',level,score:top.score,alternatives:ranked.slice(1,3).filter(x=>x.score>0).map(x=>({env:x.env,score:x.score}))}
 }
+function frenchSpokenNumber(tokens){
+  const unit={zero:0,un:1,une:1,deux:2,trois:3,quatre:4,cinq:5,six:6,sept:7,huit:8,neuf:9,dix:10,onze:11,douze:12,treize:13,quatorze:14,quinze:15,seize:16};
+  const tens={vingt:20,trente:30,quarante:40,cinquante:50,soixante:60};
+  let n=0,seen=false;
+  for(let i=0;i<tokens.length;i++){
+    const t=tokens[i];
+    if(t==='et')continue;
+    if(t==='cent'||t==='cents'){n=(n||1)*100;seen=true;continue}
+    if(t==='quatre'&&(tokens[i+1]==='vingt'||tokens[i+1]==='vingts')){
+      n+=80;seen=true;i++;
+      if(tokens[i+1]==='dix'){n+=10;i++;if(unit[tokens[i+1]]!==undefined&&unit[tokens[i+1]]<10){n+=unit[tokens[++i]]}}
+      else if(unit[tokens[i+1]]!==undefined&&unit[tokens[i+1]]<10){n+=unit[tokens[++i]]}
+      continue;
+    }
+    if(t==='soixante'&&tokens[i+1]&&unit[tokens[i+1]]!==undefined&&unit[tokens[i+1]]>=10){n+=60+unit[tokens[++i]];seen=true;continue}
+    if(tens[t]!==undefined){n+=tens[t];seen=true;continue}
+    if(unit[t]!==undefined){n+=unit[t];seen=true;continue}
+    return null;
+  }
+  return seen?n:null;
+}
+function extractVoiceAmount(text){
+  const low=normalizeSpeechText(text).replace(/-/g,' ');
+  let m=low.match(/(?:^|\s)(?:\+|plus\s+)?(\d+(?:[.,]\d{1,2})?)\s*(?:€|euros?|euro)(?:\s+(\d{1,2})(?:\s|$))?/i);
+  if(m){let v=num(String(m[1]).replace(',','.'));if(m[2]&&!String(m[1]).includes('.')&&!String(m[1]).includes(','))v+=num(m[2])/100;return r2(v)}
+  m=low.match(/(?:^|\s)(?:\+|plus\s+)?(\d+(?:[.,]\d{1,2})?)(?=\s|$)/i);
+  if(m&&num(String(m[1]).replace(',','.'))>0)return r2(num(String(m[1]).replace(',','.')));
+  const toks=low.split(/\s+/),euroIdx=toks.findIndex(t=>/^euros?$/.test(t)||t==='€');
+  if(euroIdx>0){
+    const vocab=/^(zero|un|une|deux|trois|quatre|cinq|six|sept|huit|neuf|dix|onze|douze|treize|quatorze|quinze|seize|vingt|vingts|trente|quarante|cinquante|soixante|cent|cents|et)$/;
+    let start=euroIdx-1;while(start>=0&&vocab.test(toks[start]))start--;start++;
+    const v=frenchSpokenNumber(toks.slice(start,euroIdx));if(v&&v>0)return r2(v);
+  }
+  return 0;
+}
 function parseVoicePhrase(text){
   const b=active();if(!b)return null;const low=normalizeSpeechText(text).replace(',','.');
-  const matches=[...low.matchAll(/(?:^|\s)(?:\+|plus\s+)?(\d+(?:[.,]\d{1,2})?)\s*(?:€|euros?|euro)?(?=\s|$)/gi)];
-  if(!matches.length)return null;
-  const amountMatch=matches.find(x=>num(String(x[1]).replace(',','.'))>0);if(!amountMatch)return null;
-  const amount=num(String(amountMatch[1]).replace(',','.'));
-  const income=/^\s*\+|\bplus\s+\d|\bj ai recu\b|\brecu\b|\bencaisse\b|\brevenu\b|\bsalaire\b|\bprime\b|\bremboursement\b|\bvente\b|\bvendu\b|\bvinted\b|\bleboncoin\b|\bpaypal recu\b/.test(low);
+  const amount=extractVoiceAmount(text);if(!(amount>0))return null;
+  const income=/^\s*\+|\bplus\s+(?:\d|un|une|deux|trois|quatre|cinq|six|sept|huit|neuf|dix)|\bj ai recu\b|\brecu\b|\bencaisse\b|\brevenu\b|\bsalaire\b|\bprime\b|\bremboursement\b|\bvente\b|\bvendu\b|\bvinted\b|\bleboncoin\b|\bpaypal recu\b/.test(low);
   const inf=income?{env:null,confidence:true,level:'high',score:10,alternatives:[]}:inferCategory(low,b);
   return {type:income?'income':'expense',amount,label:text.trim(),categoryId:inf.env?.id||null,categoryName:inf.env?.name||'',confidence:inf.confidence,confidenceLevel:inf.level,alternatives:inf.alternatives||[]}
 }
@@ -5057,26 +5089,110 @@ function saveVoiceDirect(r,text){
   const finish=()=>{b.transactions.push(tx);matchPendingBankToTransaction(b,tx);const remAfter=r2(e.amount-(spentFor(b,e.id)));save();if(remAfter<-.01){overspendCtx={budgetId:b.id,envId:e.id};$('#overspendLead').textContent=`${e.name} dépasse de ${euro(Math.abs(remAfter))}. Que veux-tu faire ?`;$('#overspendReserve').disabled=b.reserve<Math.abs(remAfter)-.01;openModal('overspendModal')}else showToast(tx.bankVerified?`${euro(r.amount)} · ${e.name} · rapproché avec la banque, aucun doublon.`:`${euro(r.amount)} · ${e.name} · enregistré.`)};
   const dup=findRecordedBankDuplicate(b,tx);if(dup){askPossibleDuplicate(dup,tx,finish);return}finish();
 }
-let recognition=null,recognitionActive=false,voiceText='';
+/* v12.89 — saisie vocale : moteur Android natif si présent + secours Web Speech */
+let recognition=null,recognitionActive=false,voiceText='',voiceEngine='';
+function nativeSpeechPlugin(){
+  try{
+    const cap=window.Capacitor;if(!cap)return null;
+    if(cap.Plugins?.SpeechRecognition)return cap.Plugins.SpeechRecognition;
+    if(typeof cap.registerPlugin==='function')return cap.registerPlugin('SpeechRecognition');
+  }catch(e){}
+  return null;
+}
+function voiceSetListening(on,label){
+  recognitionActive=!!on;
+  $('#voiceOrb')?.classList.toggle('listening',!!on);
+  $('#voiceOrb')?.setAttribute('aria-label',on?'Arrêter le micro':'Démarrer le micro');
+  if(label!==undefined&&$('#voiceLive'))$('#voiceLive').textContent=label;
+}
+async function stopVoiceRecognition(){
+  if(voiceEngine==='native'){
+    try{const p=nativeSpeechPlugin();await p?.stop?.()}catch(e){}
+    voiceSetListening(false);
+    return;
+  }
+  try{recognition&&recognition.stop()}catch(e){}
+}
 function resetVoiceModal(){
   try{recognition&&recognition.abort()}catch(e){}
-  recognition=null;recognitionActive=false;voiceText='';
-  $('#voiceOrb').classList.remove('listening');$('#voiceOrb').setAttribute('aria-label','Démarrer le micro');
-  $('#voiceLive').textContent='';$('#voiceHint').className='status info compact hidden';$('#voiceHint').textContent='';
+  try{const p=nativeSpeechPlugin();p?.stop?.()}catch(e){}
+  recognition=null;recognitionActive=false;voiceText='';voiceEngine='';
+  $('#voiceOrb')?.classList.remove('listening');$('#voiceOrb')?.setAttribute('aria-label','Démarrer le micro');
+  if($('#voiceLive'))$('#voiceLive').textContent='Appuie sur le micro et parle.';
+  if($('#voiceHint')){$('#voiceHint').className='status info compact hidden';$('#voiceHint').textContent=''}
+}
+async function startNativeVoice(){
+  const p=nativeSpeechPlugin();if(!p)return false;
+  try{
+    const av=await p.available?.();if(av&&av.available===false)return false;
+    const perm=await p.checkPermissions?.();
+    if(perm&&perm.speechRecognition!=='granted'){
+      const req=await p.requestPermissions?.();
+      if(req&&req.speechRecognition!=='granted')throw new Error('permission-denied');
+    }
+    voiceEngine='native';voiceText='';voiceSetListening(true,'B² écoute…');
+    $('#voiceHint').className='status info compact hidden';$('#voiceHint').textContent='';
+    const result=await p.start({language:currentLanguage().speech,maxResults:3,prompt:'Parle à B²',partialResults:false,popup:true});
+    const spoken=String(result?.matches?.[0]||'').trim();
+    voiceSetListening(false);
+    if(spoken){voiceText=spoken;$('#voiceLive').textContent=`« ${spoken} »`;setTimeout(()=>analyseVoice(spoken),120)}
+    else{$('#voiceHint').className='status warn compact';$('#voiceHint').textContent='Je n’ai rien entendu. Appuie sur le micro pour réessayer.'}
+    return true;
+  }catch(e){
+    voiceSetListening(false);
+    const msg=String(e?.message||e||'').toLowerCase();
+    if(msg.includes('permission')){$('#voiceHint').className='status warn compact';$('#voiceHint').textContent='Autorise le microphone dans les réglages de B² pour utiliser la saisie vocale.';return true}
+    // Si le pont natif existe mais que le plugin n'est pas installé, on retombe sur le moteur web.
+    return false;
+  }
+}
+async function ensureWebMicPermission(){
+  try{
+    if(!navigator.mediaDevices?.getUserMedia)return true;
+    const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+    stream.getTracks().forEach(t=>t.stop());return true;
+  }catch(e){return false}
+}
+async function startWebVoice(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){
+    $('#voiceHint').className='status warn compact';
+    $('#voiceHint').innerHTML='Le moteur vocal n’est pas disponible dans cette version de l’app. B² est prêt pour le moteur Android natif ; il faudra l’activer dans le prochain build Android.';
+    return false;
+  }
+  const micOk=await ensureWebMicPermission();
+  if(!micOk){$('#voiceHint').className='status warn compact';$('#voiceHint').textContent='Autorise le microphone pour utiliser la saisie vocale.';return false}
+  try{
+    voiceEngine='web';voiceText='';recognition=new SR();recognition.lang=currentLanguage().speech;recognition.interimResults=true;recognition.continuous=false;recognition.maxAlternatives=3;
+    voiceSetListening(true,'B² écoute…');$('#voiceHint').className='status info compact hidden';$('#voiceHint').textContent='';
+    recognition.onresult=e=>{
+      let finalText='',interim='';
+      for(let i=0;i<e.results.length;i++){const t=e.results[i][0]?.transcript||'';if(e.results[i].isFinal)finalText+=t+' ';else interim+=t+' '}
+      const shown=(finalText||interim).trim();if(shown)$('#voiceLive').textContent=`« ${shown} »`;
+      if(finalText.trim())voiceText=finalText.trim();
+    };
+    recognition.onerror=e=>{
+      voiceSetListening(false);
+      $('#voiceHint').className='status warn compact';
+      const code=String(e?.error||'');
+      $('#voiceHint').textContent=(code==='not-allowed'||code==='service-not-allowed')?'Autorise le microphone pour utiliser la saisie vocale.':code==='no-speech'?'Je n’ai rien entendu. Appuie sur le micro et réessaie.':'Je n’ai pas pu utiliser le micro. Appuie dessus pour réessayer.';
+    };
+    recognition.onend=()=>{
+      const spoken=voiceText.trim();voiceSetListening(false);
+      if(spoken){$('#voiceLive').textContent=`« ${spoken} »`;setTimeout(()=>analyseVoice(spoken),120)}
+      else if(!$('#voiceHint').textContent){$('#voiceHint').className='status warn compact';$('#voiceHint').textContent='Je n’ai rien entendu. Appuie sur le micro pour réessayer.'}
+    };
+    recognition.start();return true;
+  }catch(e){
+    voiceSetListening(false);$('#voiceHint').className='status warn compact';$('#voiceHint').textContent='Le micro n’a pas pu démarrer. Vérifie l’autorisation du microphone.';return false;
+  }
 }
 async function startVoice(){
-  if(recognitionActive){try{recognition.stop()}catch(e){}return}
-  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-  if(!SR){$('#voiceHint').className='status warn compact';$('#voiceHint').innerHTML='La reconnaissance vocale n’est pas disponible ici. Ouvre B² depuis son adresse <strong>HTTPS dans Chrome</strong>, puis réessaie.';return}
-  try{
-    if(navigator.mediaDevices?.getUserMedia){const stream=await navigator.mediaDevices.getUserMedia({audio:true});stream.getTracks().forEach(t=>t.stop())}
-    voiceText='';recognition=new SR();recognition.lang=currentLanguage().speech;recognition.interimResults=true;recognition.continuous=true;recognition.maxAlternatives=1;
-    recognitionActive=true;$('#voiceOrb').classList.add('listening');$('#voiceOrb').setAttribute('aria-label','Arrêter et enregistrer');$('#voiceLive').textContent='B² écoute…';$('#voiceHint').className='status info compact hidden';
-    recognition.onresult=e=>{let full='';for(let i=e.resultIndex;i<e.results.length;i++)full+=e.results[i][0].transcript+' ';voiceText=(voiceText+' '+full).trim();$('#voiceLive').textContent=`« ${voiceText} »`};
-    recognition.onerror=e=>{recognitionActive=false;$('#voiceOrb').classList.remove('listening');$('#voiceOrb').setAttribute('aria-label','Démarrer le micro');$('#voiceHint').className='status warn compact';$('#voiceHint').textContent=e.error==='not-allowed'?'Autorise le microphone pour utiliser la saisie vocale.':'Je n’ai pas pu utiliser le micro. Appuie dessus pour réessayer.'};
-    recognition.onend=()=>{const spoken=voiceText.trim();recognitionActive=false;$('#voiceOrb').classList.remove('listening');$('#voiceOrb').setAttribute('aria-label','Démarrer le micro');if(spoken){$('#voiceLive').textContent=`« ${spoken} »`;setTimeout(()=>analyseVoice(spoken),180)}else if(!$('#voiceHint').textContent){$('#voiceHint').className='status warn compact';$('#voiceHint').textContent='Je n’ai rien entendu. Appuie sur le micro pour réessayer.'}};
-    recognition.start();
-  }catch(e){recognitionActive=false;$('#voiceOrb').classList.remove('listening');$('#voiceHint').className='status warn compact';$('#voiceHint').textContent='Le micro n’a pas pu démarrer. Vérifie l’autorisation du microphone et ouvre B² depuis la version HTTPS.'}
+  if(recognitionActive){await stopVoiceRecognition();return}
+  $('#voiceHint').className='status info compact hidden';$('#voiceHint').textContent='';
+  $('#voiceLive').textContent='Ouverture du micro…';
+  const nativeOk=await startNativeVoice();if(nativeOk)return;
+  await startWebVoice();
 }
 
 function rebalanceOverspend(){closeModal('overspendModal');openBalanceAssistant('auto')}
