@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#075a4d">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<title>B² v13.00 — validation budget corrigée et récapitulatif simplifié</title>
+<title>B² v13.01 — charges mensuelles temporaires</title>
 <style>
 :root{
   --brand:#075a4d;--brand2:#0a7965;--brand3:#0f8f72;--lime:#b9ef68;
@@ -2416,7 +2416,12 @@ function normalizeBudget(b){
     members:Array.isArray(b.members)?b.members.map((m,i)=>({id:m.id||uid(),name:m.name||`Membre ${i+1}`,contribution:num(m.contribution),current:!!m.current,status:m.status||(m.current?'joined':'pending'),role:m.role||(m.current?'owner':'member'),recipient:m.recipient||''})):[],
     incomeMode:b.incomeMode==='contributions'?'contributions':'global',income:num(b.income),
     incomeSources:Array.isArray(b.incomeSources)?b.incomeSources.map((x,i)=>({id:x.id||uid(),name:x.name||`Revenu ${i+1}`,amount:Math.max(0,num(x.amount)),nextDate:x.nextDate||'',primary:!!x.primary,frequency:'monthly',bankAliases:Array.isArray(x.bankAliases)?x.bankAliases.slice(-8):[]})):[],
-    fixed:Array.isArray(b.fixed)?b.fixed.map(x=>({id:x.id||uid(),name:x.name||'Charge',amount:num(x.amount),dueThisCycle:x.dueThisCycle!==false,dueDay:x.dueDay==null?null:clamp(Math.round(num(x.dueDay)),1,31),systemKey:x.systemKey||null,bankAliases:Array.isArray(x.bankAliases)?x.bankAliases.slice(-8):[]})):[],
+    fixed:Array.isArray(b.fixed)?b.fixed.map(x=>{
+      const durationMode=['unlimited','months','date'].includes(x.durationMode)?x.durationMode:(num(x.remainingPayments)>0?'months':x.endDate?'date':'unlimited');
+      const remainingPayments=durationMode==='months'?Math.max(1,Math.round(num(x.remainingPayments||x.totalPayments||1))):null;
+      const totalPayments=durationMode==='months'?Math.max(remainingPayments,Math.round(num(x.totalPayments||remainingPayments))):null;
+      return {id:x.id||uid(),name:x.name||'Charge',amount:num(x.amount),dueThisCycle:x.dueThisCycle!==false,dueDay:x.dueDay==null?null:clamp(Math.round(num(x.dueDay)),1,31),durationMode,remainingPayments,totalPayments,endDate:durationMode==='date'?(x.endDate||null):null,systemKey:x.systemKey||null,bankAliases:Array.isArray(x.bankAliases)?x.bankAliases.slice(-8):[]}
+    }):[],
     oneOffs:Array.isArray(b.oneOffs)?b.oneOffs.map(x=>({id:x.id||uid(),name:x.name||'Dépense prévue',amount:num(x.amount),bankAliases:Array.isArray(x.bankAliases)?x.bankAliases.slice(-8):[]})):[],
     exceptionalIncomes:Array.isArray(b.exceptionalIncomes)?b.exceptionalIncomes.map(x=>({id:x.id||uid(),name:x.name||'Revenu exceptionnel',amount:Math.max(0,num(x.amount))})):[],
     provisions:Array.isArray(b.provisions)?b.provisions.map(x=>({id:x.id||uid(),name:x.name||'À mettre de côté',targetAmount:num(x.targetAmount),dueDate:x.dueDate||addMonthsISO(todayISO(),12),savedAmount:num(x.savedAmount),manualContribution:x.manualContribution==null?null:num(x.manualContribution),recurringMonths:[2,3,6,12].includes(num(x.recurringMonths))?num(x.recurringMonths):null,status:['active','ready','kept'].includes(x.status)?x.status:'active',readyAt:x.readyAt||null,lastPaidAt:x.lastPaidAt||null,cycleReduction:Math.max(0,num(x.cycleReduction)),periodContributionDone:x.periodContributionDone===true})):[],
@@ -2664,8 +2669,60 @@ function monthlyDueDateInWindow(day,startISO,endISO){
   }
   return null
 }
-function fixedDueDate(b,x){if(!x||x.dueThisCycle===false||x.dueDay==null)return null;return monthlyDueDateInWindow(x.dueDay,b.cycleStart||todayISO(),b.cycleEnd||addMonthsISO(todayISO(),1))}
-function fixedIsDueNow(b,x){if(!x||x.dueThisCycle===false)return false;if(x.dueDay==null)return true;return !!fixedDueDate(b,x)}
+function fixedDurationMode(x){
+  if(['unlimited','months','date'].includes(x?.durationMode))return x.durationMode;
+  if(num(x?.remainingPayments)>0)return 'months';
+  if(x?.endDate)return 'date';
+  return 'unlimited'
+}
+function fixedActiveInWindow(x,startISO,endISO){
+  if(!x)return false;
+  const mode=fixedDurationMode(x);
+  if(mode==='months'&&Math.round(num(x.remainingPayments))<=0)return false;
+  if(mode==='date'){
+    const endDate=x.endDate||'';
+    if(!endDate)return true;
+    if(x.dueDay!=null){
+      const due=monthlyDueDateInWindow(x.dueDay,startISO,endISO);
+      return !!due&&due<=endDate
+    }
+    return startISO<=endDate
+  }
+  return true
+}
+function fixedDurationText(x){
+  const mode=fixedDurationMode(x);
+  if(mode==='months'){
+    const left=Math.max(0,Math.round(num(x.remainingPayments)));
+    return `${left} versement${left>1?'s':''} restant${left>1?'s':''}${left?` · ${euro(num(x.amount)*left)} restant${left>1?'s':''}`:''}`
+  }
+  if(mode==='date'&&x.endDate)return `jusqu’au ${fmtDateFull(x.endDate)}`;
+  return 'sans date de fin'
+}
+function fixedDurationShort(x){
+  const mode=fixedDurationMode(x);
+  if(mode==='months'){
+    const left=Math.max(0,Math.round(num(x.remainingPayments)));
+    return `${left} mois restant${left>1?'s':''}`
+  }
+  if(mode==='date'&&x.endDate)return `jusqu’au ${fmtDate(x.endDate)}`;
+  return 'sans fin'
+}
+function fixedDueDate(b,x){
+  if(!x||x.dueThisCycle===false||x.dueDay==null)return null;
+  const start=b.cycleStart||todayISO(),end=b.cycleEnd||addMonthsISO(todayISO(),1);
+  if(!fixedActiveInWindow(x,start,end))return null;
+  const due=monthlyDueDateInWindow(x.dueDay,start,end);
+  if(fixedDurationMode(x)==='date'&&due&&x.endDate&&due>x.endDate)return null;
+  return due
+}
+function fixedIsDueNow(b,x){
+  if(!x||x.dueThisCycle===false)return false;
+  const start=b.cycleStart||todayISO(),end=b.cycleEnd||addMonthsISO(todayISO(),1);
+  if(!fixedActiveInWindow(x,start,end))return false;
+  if(x.dueDay==null)return true;
+  return !!fixedDueDate(b,x)
+}
 function fixedThisCycle(b){return (b.fixed||[]).filter(x=>fixedIsDueNow(b,x)).reduce((s,x)=>s+num(x.amount),0)}
 function upcomingFixedCharges(b){return (b.fixed||[]).map(x=>{const dueDate=fixedDueDate(b,x);return dueDate?{charge:x,dueDate,days:daysUntil(dueDate)}:null}).filter(Boolean).filter(x=>x.dueDate>=todayISO()).sort((a,z)=>a.dueDate.localeCompare(z.dueDate))}
 function fixedTimingText(b,x){
@@ -2856,7 +2913,7 @@ function normalCycleIncome(b){
   return r2(Math.max(0,plannedIncome(b)))
 }
 function normalCycleProtected(b){
-  const fixed=r2((b.fixed||[]).reduce((sum,x)=>sum+Math.max(0,num(x.amount)),0));
+  const fixed=r2((b.fixed||[]).filter(x=>fixedActiveInWindow(x,b.cycleStart||todayISO(),b.cycleEnd||addMonthsISO(todayISO(),1))).reduce((sum,x)=>sum+Math.max(0,num(x.amount)),0));
   const savings=r2((b.savings||[]).reduce((sum,x)=>sum+Math.max(0,num(x.monthlyAmount)),0));
   const provisions=r2((b.provisions||[]).reduce((sum,p)=>sum+Math.max(0,provisionBaseContribution(p,b)),0));
   const reserveTopUp=r2(Math.max(0,num(b.reserveTarget)-num(b.reserve)));
@@ -3347,7 +3404,7 @@ function pendingBankContext(b){
 }
 function shortTermMoneyContext(b){
   const cashNow=currentCashEstimate(b),nextIncome=nextExpectedIncome(b),end=nextIncome?.nextDate||b.cycleEnd||addDaysISO(todayISO(),30),today=todayISO();
-  const knownFixed=(b.fixed||[]).filter(x=>x.dueThisCycle!==false).reduce((s,x)=>{
+  const knownFixed=(b.fixed||[]).filter(x=>x.dueThisCycle!==false&&fixedActiveInWindow(x,b.cycleStart||today,b.cycleEnd||end)).reduce((s,x)=>{
     if(x.dueDay==null)return s+num(x.amount);
     const due=fixedDueDate(b,x);
     return s+(due&&due>=today&&due<=end?num(x.amount):0)
@@ -6550,7 +6607,7 @@ function budgetStructureSignature(b){
     startBalance:r2(num(b?.startBalance)),startCash:r2(num(b?.startCash)),
     household:b?.household||{},profile:budgetProfileOf(b),reserve:r2(num(b?.reserve)),
     incomes:(b?.incomeSources||[]).map(x=>[normalizeSpeechText(x.name),r2(x.amount),x.nextDate||'',!!x.primary]),
-    fixed:(b?.fixed||[]).map(x=>[normalizeSpeechText(x.name),r2(x.amount),x.dueDay??null,x.dueThisCycle!==false]),
+    fixed:(b?.fixed||[]).map(x=>[normalizeSpeechText(x.name),r2(x.amount),x.dueDay??null,x.dueThisCycle!==false,fixedDurationMode(x),x.remainingPayments??null,x.endDate||null]),
     provisions:(b?.provisions||[]).map(x=>[normalizeSpeechText(x.name),r2(x.targetAmount),x.dueDate||'',x.recurringMonths||0]),
     savings:(b?.savings||[]).map(x=>[normalizeSpeechText(x.name),r2(x.monthlyAmount),r2(x.targetAmount),x.dueDate||''])
   };
@@ -6779,7 +6836,7 @@ function expenseListHTML(w,editing=true){
   const actions=(key,id)=>editing?`<div class="fund-actions">${key==='variable'?`<button class="btn-link" data-edit-variable="${id}" type="button">Modifier</button>`:`<button class="btn-link" data-edit-bill="${key}:${id}" type="button">Modifier</button><button class="btn-link danger-link" data-remove-bill="${key}:${id}" type="button">Retirer</button>`}</div>`:'';
   const rows=[];
 
-  (w.fixed||[]).forEach(x=>rows.push(`<div class="fund-row"><div class="fund-top"><strong>${ico(billIconForName(x.name))} ${esc(x.name)}</strong><b>${euro(x.amount)}</b></div><div class="fund-sub">Paiement mensuel${x.dueDay?` · le ${x.dueDay} de chaque mois`:''}${x.dueThisCycle===false?' · déjà payée':''}</div>${actions('fixed',x.id)}</div>`));
+  (w.fixed||[]).forEach(x=>rows.push(`<div class="fund-row"><div class="fund-top"><strong>${ico(billIconForName(x.name))} ${esc(x.name)}</strong><b>${euro(x.amount)}</b></div><div class="fund-sub">Paiement mensuel · ${fixedDurationText(x)}${x.dueDay?` · le ${x.dueDay}`:''}${x.dueThisCycle===false?' · déjà payée':''}</div>${actions('fixed',x.id)}</div>`));
   (w.oneOffs||[]).forEach(x=>rows.push(`<div class="fund-row"><div class="fund-top"><strong>${ico(billIconForName(x.name))} ${esc(x.name)}</strong><b>${euro(x.amount)}</b></div><div class="fund-sub">Paiement ponctuel pris en compte dans cette période.</div>${actions('oneoff',x.id)}</div>`));
   (w.provisions||[]).forEach(p=>{
     const preview=provisionContributionPreview(p,w);
@@ -6978,7 +7035,7 @@ function renderWizardBase(){
       :'<div class="help">Aucun revenu enregistré.</div>';
 
     const fixedRows=(wizard.fixed||[]).length
-      ?wizard.fixed.map(x=>`<div class="b2-details-row"><span>${esc(x.name)}</span><b>${euro(x.amount)}/mois</b></div>`).join('')
+      ?wizard.fixed.map(x=>`<div class="b2-details-row"><span>${esc(x.name)} · ${fixedDurationShort(x)}</span><b>${euro(x.amount)}/mois</b></div>`).join('')
       :'<div class="help">Aucune charge mensuelle.</div>';
 
     const prepareRows=[
@@ -7069,7 +7126,7 @@ function sharedIncomeHTML(w){
 }
 function billGroupsHTML(w){
   const actions=(key,id)=>`<div class="fund-actions"><button class="btn-link" data-edit-bill="${key}:${id}" type="button">Modifier</button><button class="btn-link danger-link" data-remove-bill="${key}:${id}" type="button">Retirer</button></div>`;
-  const monthly=w.fixed.map(x=>`<div class="fund-row"><div class="fund-top"><strong>${ico(billIconForName(x.name))} ${esc(x.name)}</strong><b>${euro(x.amount)}/mois</b></div><div class="fund-sub">${x.dueThisCycle===false?'Déjà payée':x.dueDay?`Prélevée le ${x.dueDay} de chaque mois`:'Jour de prélèvement non renseigné'}</div>${actions('fixed',x.id)}</div>`).join('');
+  const monthly=w.fixed.map(x=>`<div class="fund-row"><div class="fund-top"><strong>${ico(billIconForName(x.name))} ${esc(x.name)}</strong><b>${euro(x.amount)}/mois</b></div><div class="fund-sub">${fixedDurationText(x)}${x.dueThisCycle===false?' · déjà payée':x.dueDay?` · le ${x.dueDay}`:' · jour non renseigné'}</div>${actions('fixed',x.id)}</div>`).join('');
   const prep=w.provisions.map(p=>{const q=provisionContributionPreview(p,w),skipped=p.periodContributionDone===true;return `<div class="fund-row"><div class="fund-top"><strong>${ico('target')} ${esc(p.name)}</strong><b>${euro(q.current)} cette période</b></div><div class="fund-sub">${euro(p.targetAmount)} à prévoir · ${fmtDate(p.dueDate)}${num(p.cycleReduction)>0?` · allégé de ${euro(p.cycleReduction)} uniquement cette période`:''}</div>${skipped&&q.next>0?`<div class="fund-sub">Prochaine période : B² prévoit ≈ ${euro(q.next)} à mettre de côté.</div>`:q.next>0?`<div class="fund-sub">Puis ≈ ${euro(q.next)} à la prochaine période.</div>`:''}${actions('provision',p.id)}</div>`}).join('');
   const now=w.oneOffs.map(x=>`<div class="fund-row"><div class="fund-top"><strong>${ico(billIconForName(x.name))} ${esc(x.name)}</strong><b>${euro(x.amount)}</b></div><div class="fund-sub">Dépense ponctuelle prise en compte dans la période.</div>${actions('oneoff',x.id)}</div>`).join('');
   return `<div class="section-title"><h3>Chaque mois</h3></div><div class="card flat">${monthly||'<div class="empty">Aucun élément.</div>'}</div><div class="section-title"><h3>À mettre de côté</h3></div><div class="card flat">${prep||'<div class="empty">Aucun élément.</div>'}</div><div class="section-title"><h3>Dépenses ponctuelles</h3></div><div class="card flat">${now||'<div class="empty">Aucun élément.</div>'}</div>`
@@ -7371,7 +7428,7 @@ function openBill(name,preferredMode='monthly'){
   $('#billModalTitle').textContent=mode==='prepare'?'Préparer une dépense':'Ajouter une charge';
   $('#billModal .lead').textContent=mode==='prepare'?'À quelle date veux-tu que cette somme soit prête ?':'Quand faut-il prévoir ce paiement ?';
   $('#saveBillBtn').disabled=false;
-  billDraft={mode,dueThisCycle:true,dueDay:null,id:null,originKey:null,periodContributionDone:false};
+  billDraft={mode,dueThisCycle:true,dueDay:null,id:null,originKey:null,periodContributionDone:false,durationMode:'unlimited',remainingPayments:null,totalPayments:null,endDate:null};
   $('#saveBillBtn').textContent='Ajouter';
   $$('[data-billmode]').forEach(x=>x.disabled=false);
   $('#billName').value=name||'';
@@ -7404,6 +7461,10 @@ function openBillEdit(ref){
     amount:num(item.amount),
     dueThisCycle:item.dueThisCycle!==false,
     dueDay:item.dueDay??null,
+    durationMode:fixedDurationMode(item),
+    remainingPayments:item.remainingPayments==null?null:Math.max(1,Math.round(num(item.remainingPayments))),
+    totalPayments:item.totalPayments==null?null:Math.max(1,Math.round(num(item.totalPayments))),
+    endDate:item.endDate||null,
     targetAmount:num(item.targetAmount),
     dueDate:item.dueDate||'',
     savedAmount:num(item.savedAmount),
@@ -7431,11 +7492,45 @@ function removeBillRef(key,id){
   if(key==='provision')wizard.provisions=wizard.provisions.filter(y=>String(y.id)!==String(id));
   if(key==='oneoff')wizard.oneOffs=wizard.oneOffs.filter(y=>String(y.id)!==String(id))
 }
+function captureMonthlyBillDraft(){
+  if(billDraft.mode!=='monthly')return;
+  billDraft.amount=num($('#billAmount')?.value)||billDraft.amount||0;
+  const raw=$('#billDueDay')?.value;
+  billDraft.dueDay=raw?clamp(Math.round(num(raw)),1,31):null;
+  const countRaw=$('#billPaymentCount')?.value;
+  if(countRaw)billDraft.remainingPayments=Math.max(1,Math.round(num(countRaw)));
+  const end=$('#billEndDate')?.value;
+  if(end)billDraft.endDate=end
+}
+function updateMonthlyDurationPreview(){
+  const box=$('#billDurationPreview');if(!box)return;
+  const amount=Math.max(0,num($('#billAmount')?.value)||num(billDraft.amount));
+  const count=Math.max(0,Math.round(num($('#billPaymentCount')?.value)||num(billDraft.remainingPayments)));
+  if(!count){box.textContent='Indique combien de versements il reste.';return}
+  box.innerHTML=`${count} versement${count>1?'s':''} · <strong>${euro(amount*count)}</strong> au total restant.`
+}
 function renderBillFields(){
   const f=$('#billFields');
   if(billDraft.mode==='variable'){f.innerHTML=`<div class="choice-stack">${PRIORITIES.map(p=>`<button class="choice ${billDraft.priority===p.id?'on':''}" data-bpriority="${p.id}" type="button" aria-pressed="${billDraft.priority===p.id}"><div><strong>${p.label}</strong><span>${p.hint}</span></div></button>`).join('')}</div>`;$('#saveBillBtn').disabled=!billDraft.priority;$$('[data-bpriority]',f).forEach(x=>x.addEventListener('click',()=>{billDraft.priority=x.dataset.bpriority;renderBillFields()}));}
 
-  if(billDraft.mode==='monthly')f.innerHTML=`<div class="field"><label for="billAmount">Montant chaque mois</label><input id="billAmount" type="number" step="0.01" inputmode="decimal" value="${billDraft.amount||''}"></div><div class="field"><label for="billDueDay">Jour de prélèvement <span style="font-weight:650;color:var(--muted)">(facultatif)</span></label><input id="billDueDay" type="number" min="1" max="31" step="1" inputmode="numeric" placeholder="Ex. 5" value="${billDraft.dueDay||''}"><div class="help">Si tu le connais, B² saura quand cette charge arrive et pourra mieux anticiper.</div></div>${wizard?.startMode==='now'?`<div class="field"><label>Pour maintenant</label><div class="segmented"><button class="seg-btn ${billDraft.dueThisCycle?'on':''}" data-billdue="yes" type="button">Encore à payer</button><button class="seg-btn ${!billDraft.dueThisCycle?'on':''}" data-billdue="no" type="button">Déjà payée</button></div></div>`:''}`;
+  if(billDraft.mode==='monthly'){
+    const duration=billDraft.durationMode||'unlimited';
+    const countLabel=billDraft.id?'Nombre de versements restants':'Nombre de versements';
+    f.innerHTML=`<div class="field"><label for="billAmount">Montant chaque mois</label><input id="billAmount" type="number" step="0.01" inputmode="decimal" value="${billDraft.amount||''}"></div>
+    <div class="field"><label for="billDueDay">Jour du versement <span style="font-weight:650;color:var(--muted)">(facultatif)</span></label><input id="billDueDay" type="number" min="1" max="31" step="1" inputmode="numeric" placeholder="Ex. 5" value="${billDraft.dueDay||''}"><div class="help">Si tu le connais, B² saura quand cette charge arrive et pourra mieux anticiper.</div></div>
+    <div class="field">
+      <label>Pendant combien de temps ?</label>
+      <div class="segmented" style="grid-template-columns:1fr 1fr 1fr">
+        <button class="seg-btn ${duration==='unlimited'?'on':''}" data-billduration="unlimited" type="button">Sans fin</button>
+        <button class="seg-btn ${duration==='months'?'on':''}" data-billduration="months" type="button">X mois</button>
+        <button class="seg-btn ${duration==='date'?'on':''}" data-billduration="date" type="button">Date de fin</button>
+      </div>
+    </div>
+    ${duration==='months'?`<div class="field"><label for="billPaymentCount">${countLabel}</label><input id="billPaymentCount" type="number" min="1" max="120" step="1" inputmode="numeric" value="${billDraft.remainingPayments||billDraft.totalPayments||''}" placeholder="Ex. 8"><div class="help" id="billDurationPreview"></div></div>`:''}
+    ${duration==='date'?`<div class="field"><label for="billEndDate">Dernier mois / date de fin</label><input id="billEndDate" type="date" value="${billDraft.endDate||addMonthsISO(wizard?.cycleStart||todayISO(),8)}"><div class="help">B² cessera automatiquement de prévoir cette charge après cette date.</div></div>`:''}
+    ${wizard?.startMode==='now'?`<div class="field"><label>Pour maintenant</label><div class="segmented"><button class="seg-btn ${billDraft.dueThisCycle?'on':''}" data-billdue="yes" type="button">Encore à payer</button><button class="seg-btn ${!billDraft.dueThisCycle?'on':''}" data-billdue="no" type="button">Déjà payée</button></div></div>`:''}`;
+    setTimeout(updateMonthlyDurationPreview,0)
+  }
   if(billDraft.mode==='periodic')f.innerHTML=`<div class="field"><label for="billTarget">Montant à chaque paiement</label><input id="billTarget" type="number" step="0.01" inputmode="decimal" value="${billDraft.targetAmount||''}"></div><div class="field"><label for="billRecurringMonths">Fréquence</label><select id="billRecurringMonths"><option value="2" ${billDraft.recurringMonths===2?'selected':''}>Tous les 2 mois</option><option value="3" ${billDraft.recurringMonths===3?'selected':''}>Tous les 3 mois</option><option value="6" ${billDraft.recurringMonths===6?'selected':''}>Tous les 6 mois</option><option value="12" ${billDraft.recurringMonths===12?'selected':''}>Chaque année</option></select></div><div class="field"><label for="billDue">Prochain paiement</label><input id="billDue" type="date" value="${billDraft.dueDate||addMonthsISO(todayISO(),3)}"></div><div class="field"><label for="billAlreadySaved">Déjà mis de côté <span style="font-weight:650;color:var(--muted)">(facultatif)</span></label><input id="billAlreadySaved" type="number" min="0" step="0.01" inputmode="decimal" value="${billDraft.savedAmount||''}" placeholder="0,00"></div><div class="help">B² calcule automatiquement ce qu’il faut réserver à chaque période pour que la somme soit prête à temps.</div>`;
   if(billDraft.mode==='prepare'){
     const periodDone=billDraft.periodContributionDone===true;
@@ -7446,7 +7541,10 @@ function renderBillFields(){
     <div class="help">B² calcule le montant à mettre de côté pour atteindre ton objectif à la date prévue.</div>`;
   }
   if(billDraft.mode==='now')f.innerHTML=`<div class="field"><label for="billAmount">Montant à payer</label><input id="billAmount" type="number" step="0.01" inputmode="decimal" value="${billDraft.amount||''}"></div>`;
-  $$('[data-billdue]',f).forEach(x=>x.addEventListener('click',()=>{billDraft.amount=num($('#billAmount')?.value);const raw=$('#billDueDay')?.value;billDraft.dueDay=raw?clamp(Math.round(num(raw)),1,31):null;billDraft.dueThisCycle=x.dataset.billdue==='yes';renderBillFields()}));
+  $$('[data-billdue]',f).forEach(x=>x.addEventListener('click',()=>{captureMonthlyBillDraft();billDraft.dueThisCycle=x.dataset.billdue==='yes';renderBillFields()}));
+  $$('[data-billduration]',f).forEach(x=>x.addEventListener('click',()=>{captureMonthlyBillDraft();billDraft.durationMode=x.dataset.billduration;if(billDraft.durationMode==='months'&&!billDraft.remainingPayments)billDraft.remainingPayments=8;if(billDraft.durationMode==='date'&&!billDraft.endDate)billDraft.endDate=addMonthsISO(wizard?.cycleStart||todayISO(),8);renderBillFields()}));
+  $('#billAmount',f)?.addEventListener('input',updateMonthlyDurationPreview);
+  $('#billPaymentCount',f)?.addEventListener('input',updateMonthlyDurationPreview);
   $$('[data-periodsaved]',f).forEach(x=>x.addEventListener('click',()=>{
     billDraft.targetAmount=num($('#billTarget')?.value);
     billDraft.dueDate=$('#billDue')?.value||billDraft.dueDate;
@@ -7471,9 +7569,25 @@ function saveBill(){
   let next=null,nextKey=null;
   if(billDraft.mode==='monthly'){
     const a=num($('#billAmount').value),rawDay=$('#billDueDay')?.value?.trim()||'',dueDay=rawDay?Math.round(num(rawDay)):null;
+    const durationMode=['unlimited','months','date'].includes(billDraft.durationMode)?billDraft.durationMode:'unlimited';
     if(a<=0)return showToast('Indique un montant.');
     if(rawDay&&(dueDay<1||dueDay>31))return showToast('Le jour doit être compris entre 1 et 31.');
-    next={id,name,amount:r2(a),dueThisCycle:billDraft.dueThisCycle!==false,dueDay};nextKey='fixed'
+
+    let remainingPayments=null,totalPayments=null,endDate=null;
+    if(durationMode==='months'){
+      remainingPayments=Math.round(num($('#billPaymentCount')?.value)||num(billDraft.remainingPayments));
+      if(remainingPayments<1||remainingPayments>120)return showToast('Indique un nombre de versements entre 1 et 120.');
+      totalPayments=billDraft.id&&num(billDraft.totalPayments)>0
+        ?Math.max(remainingPayments,Math.round(num(billDraft.totalPayments)))
+        :remainingPayments
+    }
+    if(durationMode==='date'){
+      endDate=$('#billEndDate')?.value||billDraft.endDate||'';
+      if(!endDate)return showToast('Indique la date de fin.');
+      if(endDate<todayISO())return showToast('Choisis une date de fin à venir.')
+    }
+
+    next={id,name,amount:r2(a),dueThisCycle:billDraft.dueThisCycle!==false,dueDay,durationMode,remainingPayments,totalPayments,endDate};nextKey='fixed'
   }
   if(billDraft.mode==='now'){
     const a=num($('#billAmount').value);if(a<=0)return showToast('Indique un montant.');
@@ -7620,7 +7734,19 @@ function finishCycle(carry,held,reserveRecovery=0,nextOneOffs=[],nextIncomes=[],
   b.bankNotifications=[];
   b.oneOffs=(nextOneOffs||[]).map(x=>({id:x.id||uid(),name:x.name,amount:r2(x.amount)}));
   b.exceptionalIncomes=(nextIncomes||[]).map(x=>({id:x.id||uid(),name:x.name,amount:r2(x.amount)}));
-  b.fixed.forEach(x=>x.dueThisCycle=true);
+
+  // Une charge mensuelle temporaire avance d'un versement à chaque période clôturée.
+  b.fixed.forEach(x=>{
+    if(fixedDurationMode(x)==='months')x.remainingPayments=Math.max(0,Math.round(num(x.remainingPayments))-1);
+    x.dueThisCycle=true
+  });
+  b.fixed=b.fixed.filter(x=>{
+    const mode=fixedDurationMode(x);
+    if(mode==='months')return Math.round(num(x.remainingPayments))>0;
+    if(mode==='date')return fixedActiveInWindow(x,b.cycleStart,b.cycleEnd);
+    return true
+  });
+
   b.startMode='next';b.nextIncomeDate=b.cycleEnd;
   save();
   showToast('Nouvelle période prête. La précédente est archivée.');
