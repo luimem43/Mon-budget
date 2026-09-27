@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#075a4d">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<title>B² v12.97 — parrainage sécurisé, 1 mois chacun</title>
+<title>B² v12.99 — profil budget enrichi et enfants mieux répartis</title>
 <style>
 :root{
   --brand:#075a4d;--brand2:#0a7965;--brand3:#0f8f72;--lime:#b9ef68;
@@ -23,29 +23,33 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}button:disabled{
 .app{max-width:580px;margin:0 auto;min-height:100vh;padding-bottom:90px}.page{display:none}.page.show{display:block}.hidden{display:none!important}
 .hero{position:relative;overflow:hidden;background:linear-gradient(145deg,#06483f,#07604f 55%,#08745e);color:white;padding:20px 18px 27px;border-radius:0 0 30px 30px}
 .hero:before{
-content:"";position:absolute;right:-58px;top:-68px;width:205px;height:205px;border-radius:46%;
-border:1px solid rgba(185,239,104,.12);box-shadow:inset 0 0 0 18px rgba(255,255,255,.018);
-transform:rotate(18deg);pointer-events:none;opacity:.72
+content:"";position:absolute;right:-24px;top:4px;width:148px;height:132px;pointer-events:none;opacity:.24;
+background:
+ linear-gradient(90deg,rgba(255,255,255,.19) 1px,transparent 1px),
+ linear-gradient(rgba(255,255,255,.19) 1px,transparent 1px);
+background-size:26px 26px;
+transform:rotate(4deg);
+-webkit-mask-image:linear-gradient(135deg,rgba(0,0,0,.92),rgba(0,0,0,.38) 70%,transparent);
+mask-image:linear-gradient(135deg,rgba(0,0,0,.92),rgba(0,0,0,.38) 70%,transparent)
 }
 .hero:after{
-content:"";position:absolute;right:15px;top:18px;width:122px;height:108px;pointer-events:none;opacity:.64;
+content:"";position:absolute;right:8px;top:18px;width:116px;height:98px;pointer-events:none;
 background:
- radial-gradient(circle at 18% 30%,rgba(185,239,104,.70) 0 2px,transparent 3px),
- radial-gradient(circle at 53% 18%,rgba(255,255,255,.48) 0 1.5px,transparent 2.5px),
- radial-gradient(circle at 76% 49%,rgba(185,239,104,.50) 0 2px,transparent 3px),
- radial-gradient(circle at 37% 73%,rgba(255,255,255,.38) 0 1.5px,transparent 2.5px),
- radial-gradient(circle at 88% 83%,rgba(185,239,104,.40) 0 1.5px,transparent 2.5px),
- linear-gradient(24deg,transparent 0 31%,rgba(255,255,255,.10) 32% 32.8%,transparent 33.5% 100%),
- linear-gradient(145deg,transparent 0 45%,rgba(185,239,104,.10) 46% 46.7%,transparent 47.5% 100%);
-filter:drop-shadow(0 0 8px rgba(185,239,104,.06));
-animation:b2HeroSignal 8.2s ease-in-out infinite
+ linear-gradient(rgba(185,239,104,.78),rgba(185,239,104,.78)) 6px 11px/7px 7px no-repeat,
+ linear-gradient(rgba(255,255,255,.55),rgba(255,255,255,.55)) 38px 5px/5px 5px no-repeat,
+ linear-gradient(rgba(185,239,104,.48),rgba(185,239,104,.48)) 68px 27px/8px 8px no-repeat,
+ linear-gradient(rgba(255,255,255,.34),rgba(255,255,255,.34)) 23px 56px/6px 6px no-repeat,
+ linear-gradient(rgba(185,239,104,.60),rgba(185,239,104,.60)) 87px 68px/6px 6px no-repeat,
+ linear-gradient(rgba(255,255,255,.28),rgba(255,255,255,.28)) 52px 79px/4px 4px no-repeat;
+opacity:.58;
+animation:b2HeroSquares 7.6s ease-in-out infinite
 }
-@keyframes b2HeroSignal{
-0%,100%{opacity:.50;transform:translate3d(0,0,0) scale(.985)}
-45%{opacity:.72;transform:translate3d(-2px,1px,0) scale(1)}
-72%{opacity:.58;transform:translate3d(1px,-1px,0) scale(.993)}
+@keyframes b2HeroSquares{
+0%,100%{opacity:.48;transform:translate3d(0,0,0)}
+42%{opacity:.68;transform:translate3d(-1px,1px,0)}
+72%{opacity:.54;transform:translate3d(1px,-1px,0)}
 }
-@media(prefers-reduced-motion:reduce){.hero:after{animation:none;opacity:.58}}
+@media(prefers-reduced-motion:reduce){.hero:after{animation:none;opacity:.56}}
 .brandbar{position:relative;z-index:1;display:flex;align-items:center;gap:12px}.brandbar>div:nth-child(2){min-width:0;flex:1}.logo{position:relative;width:56px;height:56px;border-radius:17px;display:flex;align-items:center;justify-content:center;font-size:39px;font-weight:950;letter-spacing:-2px;background:linear-gradient(145deg,#0ca07b,#043c37);box-shadow:0 8px 20px rgba(0,31,28,.28);flex:0 0 56px;overflow:visible}.logo sup{font-size:17px;color:var(--lime);margin-left:2px;margin-top:-23px;letter-spacing:0}.logo .plus-mark{display:none;position:absolute;right:-5px;top:-8px;width:21px;height:21px;border-radius:7px;background:var(--lime);color:#06483f;border:2px solid #075a4d;align-items:center;justify-content:center;font-size:13px;line-height:1;font-weight:950;letter-spacing:0;box-shadow:0 6px 14px rgba(0,31,28,.24)}.logo.plus .plus-mark{display:flex}.slogan{font-size:15px;font-weight:800;line-height:1.2;white-space:nowrap}.brand-sub{font-size:11px;opacity:.76;margin-top:4px}.budget-switch{margin-left:auto;position:relative;z-index:2;border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.12);color:#fff;border-radius:999px;padding:8px 10px;font-size:11px;font-weight:850;max-width:42%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .home-controls{display:flex;align-items:center;gap:10px;margin-top:18px;position:relative;z-index:3}
 .home-controls .budget-switch{margin-left:0;flex:0 1 auto;width:fit-content;max-width:calc(100% - 62px)}
@@ -1421,7 +1425,7 @@ animation:b2HeroSignal 8.2s ease-in-out infinite
       <button class="more-card" id="economiesCard" type="button"><span class="big-icon"><span class="ui-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="16" cy="7" r="3"/><path d="M5 13h4l2 2h4.5a2 2 0 0 1 0 4H10l-3-2H4"/><path d="M4 11v8"/></svg></span></span><strong>Mes économies</strong><span>Repérer où réduire les charges si tu le souhaites.</span></button>
       <button class="more-card" id="accountCard" type="button"><span class="big-icon"><span class="ui-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.2"/><path d="M5.5 19a6.5 6.5 0 0 1 13 0"/></svg></span></span><strong>Mon profil</strong><span>Identifiant, e-mail, mot de passe et sécurité.</span></button><button class="more-card" id="settingsCard" type="button"><span class="big-icon"><span class="ui-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 8.5a3.5 3.5 0 1 0 0 7a3.5 3.5 0 0 0 0-7Z"/><path d="M19 12a7.6 7.6 0 0 0-.08-1l2.03-1.57-2-3.46-2.47 1a8.33 8.33 0 0 0-1.72-1L14.4 3h-4.8l-.36 2.97c-.6.24-1.18.57-1.72 1l-2.47-1-2 3.46L5.08 11a8.6 8.6 0 0 0 0 2l-2.03 1.57 2 3.46 2.47-1c.54.43 1.12.76 1.72 1L9.6 21h4.8l.36-2.97c.6-.24 1.18-.57 1.72-1l2.47 1 2-3.46L18.92 13c.05-.33.08-.67.08-1Z"/></svg></span></span><strong>Réglages</strong><span>Alertes, saisie vocale et préférences.</span></button>
       <div class="more-ad-slot" id="moreAdSlot"></div>
-      <button class="more-card" id="referralCard" type="button"><span class="big-icon"><span class="ui-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="8" cy="9" r="2.3"/><circle cx="16" cy="9" r="2.3"/><circle cx="12" cy="7" r="2.3"/><path d="M4.8 18a3.6 3.6 0 0 1 6.4-2.2"/><path d="M12.8 15.8A3.6 3.6 0 0 1 19.2 18"/><path d="M8 18a4 4 0 0 1 8 0"/></svg></span></span><strong>Parrainage</strong><span>1 proche actif = 1 mois de B²+ pour chacun · jusqu’à 3 mois pour toi.</span></button>
+      <button class="more-card" id="referralCard" type="button"><span class="big-icon"><span class="ui-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="8" cy="9" r="2.3"/><circle cx="16" cy="9" r="2.3"/><circle cx="12" cy="7" r="2.3"/><path d="M4.8 18a3.6 3.6 0 0 1 6.4-2.2"/><path d="M12.8 15.8A3.6 3.6 0 0 1 19.2 18"/><path d="M8 18a4 4 0 0 1 8 0"/></svg></span></span><strong>Parrainage</strong><span>1 filleul actif = 1 mois de B²+ pour chacun · jusqu’à 3 mois pour toi.</span></button>
       <button class="more-card premium-card" id="plusCard" type="button"><span class="big-icon"><span class="ui-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 4 13.8 8.2 18 10l-4.2 1.8L12 16l-1.8-4.2L6 10l4.2-1.8L12 4Z"/></svg></span></span><strong id="plusCardTitle">B²+</strong><span id="plusCardCopy">Analyses intelligentes dans le temps, budget partagé, objectifs avancés et zéro publicité.</span></button>
       <button class="more-card hidden" id="analysisCard" type="button"><span class="big-icon"><span class="ui-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 19V12M10 19V8M15 19v-5M20 19V5"/><path d="M4 19h17"/></svg></span></span><strong>Analyse <span class="plus-badge">B²+</span></strong><span>Graphiques, tendances et recommandations dans le temps.</span></button>
     </div>
@@ -1693,7 +1697,7 @@ const FRESH_START_KEY='B2_FRESH_START_V1214_DONE';
 const DEFAULT_ENVELOPES=[
   ['Courses & quotidien','cart'],
   ['Carburant & déplacements','fuel'],
-  ['Enfants','child'],
+  ['École & activités enfants','child'],
   ['Animaux','pet'],
   ['Vêtements','shirt'],
   ['Soins & beauté','beauty'],
@@ -1710,12 +1714,12 @@ const BILL_PRESETS=[
   'Électricité','Gaz','Eau',
   'Assurance habitation','Assurance auto / moto','Crédit / LOA véhicule',
   'Mutuelle santé','Téléphone','Internet','Abonnements divers','Abonnement parking',
-  'Cantine','Assurance scolaire / extrascolaire','Crèche / nounou'
+  'Cantine','Assurance scolaire / extrascolaire','Crèche / nounou','Activité extrascolaire / club'
 ];
 const PREPARE_PRESETS=[
   'Taxe foncière','Assurance annuelle','Révision / entretien véhicule',
   'Contrôle technique','Pneus','Ramonage','Rentrée scolaire',
-  'Sortie scolaire','Centre de loisirs','Noël','Vacances'
+  'Sortie scolaire','Centre de loisirs','Licence / inscription activité enfant','Noël','Vacances'
 ];
 const INCOME_PRESETS=['Salaire','Revenus immobiliers','Allocations / aides','Pension / retraite','Revenus professionnels'];
 const LANGUAGES=[
@@ -1875,10 +1879,10 @@ const CATEGORY_RULES={
     merchant:['totalenergies','total energies','total access','esso','shell','avia','bp','dyneff','e leclerc carburant','carrefour carburant','sncf','ouigo','trainline','flixbus','blablacar','uber','bolt','indigo','effia','vinci autoroutes','aprr','area'],
     words:['essence','sans plomb','sp95','sp98','e10','gasoil','diesel','carburant','péage','peage','parking','autoroute','bus','train','tram','métro','metro','taxi','uber','covoiturage','déplacement','deplacement']
   },
-  'Enfants':{
-    strong:['cantine scolaire','garderie scolaire','fournitures scolaires','sortie scolaire','activité enfant','activite enfant','centre de loisirs','colonies de vacances','colonie de vacances'],
-    merchant:['oxybul','king jouet','jouéclub','joueclub','smyths toys','la grande récré','la grande recre','vertbaudet','orchestra','okaidi','okaïdi','jacadi'],
-    words:['enfant','enfants','école','ecole','cantine','garderie','crèche','creche','nounou','baby sitter','babysitter','jouet','jouets','fourniture scolaire','fournitures scolaires','périscolaire','periscolaire','anniversaire enfant']
+  'École & activités enfants':{
+    strong:['activité enfant','activite enfant','activité extrascolaire','activite extrascolaire','club enfant','danse enfant','football enfant','foot enfant','judo enfant','gym enfant','centre de loisirs','sortie scolaire','fournitures scolaires','licence sport enfant','inscription activité enfant','inscription activite enfant'],
+    merchant:['oxybul','king jouet','jouéclub','joueclub','smyths toys','la grande récré','la grande recre'],
+    words:['activité enfant','activite enfant','extrascolaire','périscolaire','periscolaire','centre de loisirs','sortie scolaire','fourniture scolaire','fournitures scolaires','club enfant','licence enfant','jouet','jouets']
   },
   'Animaux':{
     strong:['vétérinaire','veterinaire','croquettes chien','croquettes chat','nourriture chien','nourriture chat','toilettage chien','toilettage chat'],
@@ -1887,7 +1891,7 @@ const CATEGORY_RULES={
   },
   'Vêtements':{
     strong:['vêtements','vetements','chaussures','achat vêtements','achat vetements'],
-    merchant:['zara','h&m','kiabi','celio','jules','uniqlo','bershka','pull&bear','pull and bear','stradivarius','mango','c&a','primark','zalando','asos','vinted','courir','foot locker'],
+    merchant:['zara','h&m','kiabi','celio','jules','uniqlo','bershka','pull&bear','pull and bear','stradivarius','mango','c&a','primark','zalando','asos','vinted','courir','foot locker','vertbaudet','orchestra','okaidi','okaïdi','jacadi'],
     words:['vêtement','vetement','habit','habits','chaussure','chaussures','basket','baskets','manteau','pantalon','jean','pull','tee shirt','t-shirt','chemise','robe','sous vêtements','sous vetements']
   },
   'Soins & beauté':{
@@ -2334,6 +2338,7 @@ function canonicalEnvelopeName(name){
   if(n==='Vêtements & soins')return 'Vêtements';
   if(n==='Maison & travaux')return 'Maison & entretien';
   if(n==='Achats plaisir')return 'Petits plaisirs';
+  if(n==='Enfants')return 'École & activités enfants';
   return n
 }
 function normalizeBudget(b){
@@ -2346,7 +2351,16 @@ function normalizeBudget(b){
     budgetProfile:{
       meals:['cook','mixed','out'].includes(b.budgetProfile?.meals)?b.budgetProfile.meals:'mixed',
       mobility:['low','regular','high'].includes(b.budgetProfile?.mobility)?b.budgetProfile.mobility:'regular',
-      focus:['none','home','fun','travel','shopping'].includes(b.budgetProfile?.focus)?b.budgetProfile.focus:'none'
+      housing:['tenant','owner','hosted'].includes(b.budgetProfile?.housing)?b.budgetProfile.housing:'tenant',
+      pets:['none','one','several'].includes(b.budgetProfile?.pets)?b.budgetProfile.pets:'none',
+      clothing:['low','regular','high'].includes(b.budgetProfile?.clothing)?b.budgetProfile.clothing:'regular',
+      leisure:['home','balanced','active'].includes(b.budgetProfile?.leisure)?b.budgetProfile.leisure:'balanced',
+      cushion:['tight','balanced','safe'].includes(b.budgetProfile?.cushion)?b.budgetProfile.cushion:'balanced',
+      childStages:Array.isArray(b.budgetProfile?.childStages)?b.budgetProfile.childStages.filter(x=>['baby','school','teen'].includes(x)):[],
+      childNeeds:Array.isArray(b.budgetProfile?.childNeeds)?b.budgetProfile.childNeeds.filter(x=>['canteen','childcare','activities'].includes(x)):[],
+      priorities:Array.isArray(b.budgetProfile?.priorities)
+        ?b.budgetProfile.priorities.filter(x=>['home','fun','travel','shopping','sport'].includes(x)).slice(0,3)
+        :(['home','fun','travel','shopping'].includes(b.budgetProfile?.focus)?[b.budgetProfile.focus]:[])
     },
     members:Array.isArray(b.members)?b.members.map((m,i)=>({id:m.id||uid(),name:m.name||`Membre ${i+1}`,contribution:num(m.contribution),current:!!m.current,status:m.status||(m.current?'joined':'pending'),role:m.role||(m.current?'owner':'member'),recipient:m.recipient||''})):[],
     incomeMode:b.incomeMode==='contributions'?'contributions':'global',income:num(b.income),
@@ -2767,7 +2781,7 @@ function envelopeCategoryKind(e){
   if(/carbur|transport|deplacement|essence|diesel/.test(n))return 'transport';
   if(/soin.*beaute|beaute|coiffeur|estheti/.test(n))return 'beauty';
   if(/sante|pharm|medec|medical/.test(n))return 'health';
-  if(/enfant/.test(n))return 'children';
+  if(/enfant|scolaire/.test(n))return 'children';
   if(/animaux|animal|chien|chat/.test(n))return 'pets';
   if(/maison|travaux|entretien|bricol/.test(n))return 'home';
   if(/vetement/.test(n))return 'clothes';
@@ -2802,7 +2816,7 @@ function normalVariableCapacity(b){
   return r2(Math.max(0,income-protectedPart.total))
 }
 function profileBaselineEnvelopePlan(b){
-  const envs=b.envelopes||[],cap=normalVariableCapacity(b);
+  const envs=b.envelopes||[],cap=r2(normalVariableCapacity(b)*profileAllocationShare(b));
   if(!envs.length)return {capacity:cap,amounts:{}};
   const weights=envs.map(e=>Math.max(.05,allocationWeight(e,b))),total=weights.reduce((a,z)=>a+z,0)||1,amounts={};
   envs.forEach((e,i)=>amounts[e.id]=r2(cap*weights[i]/total));
@@ -3718,7 +3732,7 @@ function runSquareScenarioChecks(){
   add('Pressions cumulées','Petit solde + charges + essentiels + longue attente est sévère',()=>{
     const b=mk({startBalance:180,cycleEnd:addDaysISO(todayISO(),22),incomeSources:salary(22,1500),
       fixed:[{id:'rent',name:'Loyer',amount:250,dueThisCycle:true,dueDay:null},{id:'ins',name:'Assurance',amount:80,dueThisCycle:true,dueDay:null}],
-      envelopes:[env('food','Courses & quotidien',400,'essential'),env('transport','Carburant & déplacements',180,'important'),env('kids','Enfants',150,'essential')]});
+      envelopes:[env('food','Courses & quotidien',400,'essential'),env('transport','Carburant & déplacements',180,'important'),env('kids','École & activités enfants',150,'essential')]});
     return H(b).level>=3
   });
   add('Pressions cumulées','Bon solde mais très grosses obligations peut devenir préoccupant',()=>{
@@ -3736,7 +3750,7 @@ function runSquareScenarioChecks(){
   [0,1,2,3].forEach(children=>{
     add('Foyer',children+' enfant(s) : calcul reste stable',()=>{
       const b=mk({household:{adults:2,children},cycleEnd:addDaysISO(todayISO(),14),incomeSources:salary(14,1900),
-        envelopes:[env('food','Courses & quotidien',420,'essential'),env('kids','Enfants',180,'important')]});
+        envelopes:[env('food','Courses & quotidien',420,'essential'),env('kids','École & activités enfants',180,'important')]});
       const l=L(b);return Number.isFinite(l.variableNeed)&&l.variableNeed>=0
     })
   });
@@ -5387,8 +5401,8 @@ function renderReferral(){
   c.innerHTML=`
     <div class="referral-hero">
       <div class="referral-kicker">PARRAINAGE B²</div>
-      <h3>1 proche actif = 1 mois pour chacun</h3>
-      <p>Ton proche découvre B²+ pendant 1 mois et tu gagnes toi aussi 1 mois. Tu peux cumuler jusqu’à 3 mois offerts en parrainant.</p>
+      <h3>1 filleul actif = 1 mois pour chacun</h3>
+      <p>Ton filleul découvre B²+ pendant 1 mois et tu gagnes toi aussi 1 mois. Tu peux cumuler jusqu’à 3 mois offerts en parrainant.</p>
       <div class="referral-reward">
         <i class="referral-month ${confirmed>=1?'on':''}"></i>
         <i class="referral-month ${confirmed>=2?'on':''}"></i>
@@ -5402,7 +5416,7 @@ function renderReferral(){
       <div class="card-title"><h3>Quand le parrainage est-il validé ?</h3></div>
       <div class="fund-row">
         <div class="fund-top"><strong>${ico('check')} Compte confirmé</strong></div>
-        <div class="fund-sub">Ton proche confirme son adresse e-mail.</div>
+        <div class="fund-sub">Ton filleul confirme son adresse e-mail.</div>
       </div>
       <div class="fund-row">
         <div class="fund-top"><strong>${ico('grid')} Premier budget créé</strong></div>
@@ -5416,7 +5430,7 @@ function renderReferral(){
     </div>
 
     <div class="card">
-      <div class="card-title"><h3>Inviter un proche</h3></div>
+      <div class="card-title"><h3>Inviter un filleul</h3></div>
       <div class="small muted">La personne reçoit ton lien personnel. Le code de parrainage est attaché automatiquement à son nouveau compte.</div>
 
       <div class="field" style="margin-top:13px">
@@ -5680,23 +5694,23 @@ const VOICE_CONCEPTS=[
     merchant:['norauto','feu vert','midas','speedy','carter cash','oscaro','autodoc','dekra','autosur','securitest'],
     words:['voiture','auto','moto','scooter','vehicule','garage','vidange','pneu','pneus','controle technique','reparation']},
   {id:'children',
-    specific:['enfants','enfant','famille enfants','activites enfants','budget enfants'],
-    fallback:['enfants'],
-    strong:['cantine scolaire','garderie scolaire','fournitures scolaires','sortie scolaire','activite enfant','centre de loisirs','colonie de vacances','vetements enfant','jouets enfant'],
-    merchant:['oxybul','king jouet','joueclub','smyths toys','la grande recre','vertbaudet','orchestra','okaidi','okaidi','jacadi'],
-    words:['enfant','enfants','cantine','garderie','nounou','jouet','jouets','periscolaire','colonie']},
+    specific:['activites enfants','activité enfant','activite enfant','extrascolaire enfant','ecole enfant','école enfant','loisirs enfants'],
+    fallback:['ecole activites enfants'],
+    strong:['sortie scolaire','activite enfant','activité enfant','centre de loisirs','colonie de vacances','licence sport enfant','club enfant','danse enfant','football enfant','judo enfant','fournitures scolaires','jouets enfant'],
+    merchant:['oxybul','king jouet','joueclub','smyths toys','la grande recre'],
+    words:['enfant','enfants','extrascolaire','periscolaire','périscolaire','colonie','centre loisirs','sortie scolaire','jouet','jouets']},
   {id:'baby',
     specific:['bebe','bebes','nourrisson','petite enfance'],
-    fallback:['enfants'],
-    strong:['couches bebe','lait bebe','petits pots','poussette','siege auto bebe','creche','nounou bebe'],
-    merchant:['aubert','bebe 9','bebe neuf'],
-    words:['bebe','nourrisson','couches','poussette','biberon','creche','petits pots']},
-  {id:'education',
-    specific:['ecole','scolaire','education','etudes','formation','formations','cours'],
-    fallback:['enfants','divers'],
-    strong:['fournitures scolaires','inscription ecole','frais scolaires','formation professionnelle','cours particulier','livres scolaires'],
+    fallback:['courses quotidien'],
+    strong:['couches bebe','lait bebe','petits pots','lingettes bebe','produits bebe'],
     merchant:[],
-    words:['ecole','scolaire','formation','cours','etudes','universite','fac','fournitures','inscription']},
+    words:['bebe','nourrisson','couches','biberon','petits pots','lingettes']},
+  {id:'education',
+    specific:['ecole','scolaire','education','etudes','cours'],
+    fallback:['ecole activites enfants','divers'],
+    strong:['fournitures scolaires','inscription ecole','frais scolaires','cours particulier','livres scolaires','sortie scolaire'],
+    merchant:[],
+    words:['ecole','scolaire','cours','etudes','fournitures','inscription']},
   {id:'pets',
     specific:['animaux','animal','chien','chat','chiens','chats'],
     fallback:['animaux'],
@@ -5707,7 +5721,7 @@ const VOICE_CONCEPTS=[
     specific:['vetements','habillement','fringues','chaussures','mode','shopping vetements'],
     fallback:['vetements'],
     strong:['achat vetement','achat chaussures','vetements','chaussures','pantalon','manteau'],
-    merchant:['zara','h et m','h&m','uniqlo','kiabi','celio','jules','zalando','asos','primark','bershka','pull and bear','pull&bear','vinted'],
+    merchant:['zara','h et m','h&m','uniqlo','kiabi','celio','jules','zalando','asos','primark','bershka','pull and bear','pull&bear','vinted','vertbaudet','orchestra','okaidi','jacadi'],
     words:['vetement','vetements','pantalon','jean','pull','manteau','chaussure','chaussures','robe','chemise','t shirt','tee shirt']},
   {id:'beauty',
     specific:['soins beaute','beaute','coiffeur','coiffure','esthetique','cosmetiques','parfum'],
@@ -6420,23 +6434,65 @@ function applyBalance(){
 }
 function budgetProfileOf(b){
   const p=b?.budgetProfile||{};
+  const legacyFocus=['home','fun','travel','shopping'].includes(p.focus)?p.focus:null;
+  const priorities=Array.isArray(p.priorities)
+    ?p.priorities.filter(x=>['home','fun','travel','shopping','sport'].includes(x)).slice(0,3)
+    :(legacyFocus?[legacyFocus]:[]);
   return {
     meals:['cook','mixed','out'].includes(p.meals)?p.meals:'mixed',
     mobility:['low','regular','high'].includes(p.mobility)?p.mobility:'regular',
-    focus:['none','home','fun','travel','shopping'].includes(p.focus)?p.focus:'none'
+    housing:['tenant','owner','hosted'].includes(p.housing)?p.housing:'tenant',
+    pets:['none','one','several'].includes(p.pets)?p.pets:'none',
+    clothing:['low','regular','high'].includes(p.clothing)?p.clothing:'regular',
+    leisure:['home','balanced','active'].includes(p.leisure)?p.leisure:'balanced',
+    cushion:['tight','balanced','safe'].includes(p.cushion)?p.cushion:'balanced',
+    childStages:Array.isArray(p.childStages)?p.childStages.filter(x=>['baby','school','teen'].includes(x)):[],
+    childNeeds:Array.isArray(p.childNeeds)?p.childNeeds.filter(x=>['canteen','childcare','activities'].includes(x)):[],
+    priorities
   }
+}
+function profileHas(p,key){return Array.isArray(p?.priorities)&&p.priorities.includes(key)}
+function profileChildStage(p,key){return Array.isArray(p?.childStages)&&p.childStages.includes(key)}
+function profileChildNeed(p,key){return Array.isArray(p?.childNeeds)&&p.childNeeds.includes(key)}
+function profileAllocationShare(b){
+  const p=budgetProfileOf(b);
+  return p.cushion==='tight'?.99:p.cushion==='safe'?.88:.94
 }
 function profileRecommendedCategories(b){
   const p=budgetProfileOf(b),h=b.household||{adults:1,children:0},out=[];
-  if(num(h.children)>0)out.push('Enfants');
+  const kids=Math.max(0,num(h.children));
+
+  if(kids>0){
+    out.push('Courses & quotidien','Vêtements');
+    if(profileChildNeed(p,'activities')||profileChildStage(p,'school')||profileChildStage(p,'teen')){
+      out.push('École & activités enfants')
+    }
+  }
   if(p.meals==='cook')out.push('Courses & quotidien');
-  if(p.meals==='out')out.push('Loisirs & sorties');
+  if(p.meals==='out'||p.leisure==='active'||profileHas(p,'fun'))out.push('Loisirs & sorties');
   if(p.mobility==='high')out.push('Carburant & déplacements');
-  if(p.focus==='home')out.push('Maison & entretien');
-  if(p.focus==='fun')out.push('Loisirs & sorties');
-  // Les vacances sont un projet à préparer, pas une enveloppe de dépense courante.
-  if(p.focus==='shopping'){out.push('Petits plaisirs');out.push('Vêtements')}
-  return [...new Set(out)].slice(0,4)
+  if(p.pets!=='none')out.push('Animaux');
+  if(p.clothing==='high'||profileHas(p,'shopping'))out.push('Vêtements');
+  if(p.housing==='owner'||profileHas(p,'home'))out.push('Maison & entretien');
+  if(profileHas(p,'shopping'))out.push('Petits plaisirs');
+  return [...new Set(out)].slice(0,7)
+}
+function profileRecommendedBills(b){
+  const p=budgetProfileOf(b),out=[];
+  if(profileChildNeed(p,'canteen'))out.push('Cantine');
+  if(profileChildNeed(p,'childcare'))out.push('Crèche / nounou');
+  if(profileChildNeed(p,'activities'))out.push('Activité extrascolaire / club');
+  if(['tenant','owner'].includes(p.housing))out.push('Assurance habitation');
+  return [...new Set(out)]
+}
+function profileRecommendedPrepare(b){
+  const p=budgetProfileOf(b),h=b.household||{children:0},out=[];
+  if(num(h.children)>0&&(profileChildStage(p,'school')||profileChildStage(p,'teen')))out.push('Rentrée scolaire');
+  if(profileChildNeed(p,'activities'))out.push('Licence / inscription activité enfant','Centre de loisirs');
+  if(p.housing==='owner')out.push('Taxe foncière');
+  if(profileHas(p,'travel'))out.push('Vacances');
+  if(p.mobility==='high')out.push('Révision / entretien véhicule');
+  return [...new Set(out)]
 }
 function budgetStructureSignature(b){
   const clean={
@@ -6454,44 +6510,87 @@ function profileSummary(b){
   parts.push(`${h.adults} adulte${h.adults>1?'s':''}${h.children?` · ${h.children} enfant${h.children>1?'s':''}`:''}`);
   parts.push(p.meals==='cook'?'cuisine souvent':p.meals==='out'?'repas souvent dehors':'repas variés');
   parts.push(p.mobility==='low'?'peu de déplacements':p.mobility==='high'?'beaucoup de déplacements':'déplacements réguliers');
-  if(p.focus!=='none')parts.push({home:'maison',fun:'sorties',travel:'voyages',shopping:'achats plaisir'}[p.focus]);
+  if(p.pets!=='none')parts.push(p.pets==='several'?'plusieurs animaux':'un animal');
+  if(p.leisure==='active')parts.push('sorties fréquentes');
+  if(p.cushion==='safe')parts.push('marge de sécurité renforcée');
   return parts.join(' · ')
 }
 function allocationWeight(e,b){
   const n=normalizeSpeechText(e.name||''),h=b.household||{adults:1,children:0},p=budgetProfileOf(b);
+  const kids=Math.max(0,num(h.children));
+  const hasBaby=profileChildStage(p,'baby'),hasSchool=profileChildStage(p,'school'),hasTeen=profileChildStage(p,'teen');
   let w=1.15;
 
-  if(/course|aliment|quotidien/.test(n))w=3.05+Math.max(0,num(h.adults)-1)*.75+num(h.children)*.62;
-  else if(/enfant/.test(n))w=.95+num(h.children)*.82;
+  if(/course|aliment|quotidien/.test(n)){
+    let childFood=.60;
+    if(hasBaby&&!hasSchool&&!hasTeen)childFood=.46;
+    if(hasTeen)childFood=.76;
+    w=3.05+Math.max(0,num(h.adults)-1)*.75+kids*childFood
+  }
+  else if(/ecole.*activite.*enfant|activité.*enfant|activite.*enfant|scolaire.*enfant/.test(n)){
+    w=.58+kids*.38;
+    if(profileChildNeed(p,'activities'))w*=1.55;
+    if(hasSchool||hasTeen)w*=1.18;
+    if(!profileChildNeed(p,'activities')&&!hasSchool&&!hasTeen)w*=.62
+  }
   else if(/transport|carbur|deplacement|déplacement/.test(n))w=1.7;
   else if(/loisir|sortie/.test(n))w=1.45;
+  else if(/animaux|animal/.test(n))w=p.pets==='several'?1.55:p.pets==='one'?1.18:.55;
   else if(/maison|travaux/.test(n))w=1.35;
   else if(/vacance|voyage/.test(n))w=1.12;
-  else if(/achat plaisir|shopping/.test(n))w=1.08;
-  else if(/vetement|vêtement|soin/.test(n))w=1.12*(1+Math.min(.32,num(h.children)*.10));
+  else if(/achat plaisir|shopping|petit plaisir/.test(n))w=1.08;
+  else if(/vetement|vêtement/.test(n)){
+    w=1.05*(1+Math.min(.55,kids*.14));
+    if(hasTeen)w*=1.13;
+    if(p.clothing==='low')w*=.78;
+    if(p.clothing==='high')w*=1.28
+  }
+  else if(/soin|beaute|beauté/.test(n))w=1.08;
   else if(/sante|santé/.test(n))w=1.12;
 
-  // Influence douce : utile mais jamais prioritaire sur les choix manuels.
   if(/course|aliment|quotidien/.test(n)){
     if(p.meals==='cook')w*=1.22;
     if(p.meals==='out')w*=.88
   }
-  if(/loisir|sortie/.test(n)){
-    if(p.meals==='out')w*=1.22;
-    if(p.meals==='cook')w*=.92;
-    if(p.focus==='fun')w*=1.20
+  if(/loisir|sortie/.test(n)&&!/enfant/.test(n)){
+    if(p.meals==='out')w*=1.12;
+    if(p.leisure==='home')w*=.78;
+    if(p.leisure==='active')w*=1.30;
+    if(profileHas(p,'fun'))w*=1.18;
+    if(profileHas(p,'sport'))w*=1.08
   }
   if(/transport|carbur|deplacement|déplacement/.test(n)){
     w*=p.mobility==='low'?.80:p.mobility==='high'?1.28:1
   }
-  if(/maison|travaux|entretien logement/.test(n)&&p.focus==='home')w*=1.24;
-  if(/vacance|voyage/.test(n)&&p.focus==='travel')w*=1.30;
-  if(/petit plaisir/.test(n)&&p.focus==='shopping')w*=1.23;
-  if(/vetement|vêtement|soin|beaute|beauté/.test(n)&&p.focus==='shopping')w*=1.08;
+  if(/maison|travaux|entretien logement/.test(n)){
+    if(p.housing==='owner')w*=1.14;
+    if(profileHas(p,'home'))w*=1.22
+  }
+  if(/vacance|voyage/.test(n)&&profileHas(p,'travel'))w*=1.30;
+  if(/petit plaisir|achat plaisir|shopping/.test(n)&&profileHas(p,'shopping'))w*=1.23;
+  if(/vetement|vêtement|soin|beaute|beauté/.test(n)&&profileHas(p,'shopping'))w*=1.08;
 
-  return Math.max(.45,w)*[1,1.65,2.3][priorityRank(e)]
+  return Math.max(.35,w)*[1,1.65,2.3][priorityRank(e)]
 }
-function autoBalance(b){const before=amountMap(b);const target=Math.max(0,pool(b)),locked=b.envelopes.filter(e=>e.locked),free=b.envelopes.filter(e=>!e.locked);let lockedTotal=locked.reduce((s,e)=>s+Math.max(e.amount,spentFor(b,e.id)),0);if(lockedTotal>target+.01){showToast('Les enveloppes protégées dépassent déjà l’argent disponible.');return}const room=target-lockedTotal,w=free.reduce((s,e)=>s+allocationWeight(e,b),0)||1;let assigned=0;free.forEach((e,i)=>{const min=spentFor(b,e.id);let a=i===free.length-1?r2(room-assigned):r2(room*allocationWeight(e,b)/w);a=Math.max(min,a);e.amount=a;assigned=r2(assigned+a)});save();showToast('Répartition recalculée.','Annuler',()=>{b.envelopes.forEach(e=>e.amount=before[e.id]??e.amount);save();showToast('Répartition annulée.')})}
+function autoBalance(b){
+  const before=amountMap(b),target=Math.max(0,pool(b)*profileAllocationShare(b)),
+    locked=b.envelopes.filter(e=>e.locked),free=b.envelopes.filter(e=>!e.locked);
+  let lockedTotal=locked.reduce((s,e)=>s+Math.max(e.amount,spentFor(b,e.id)),0);
+  if(lockedTotal>target+.01){showToast('Les enveloppes protégées dépassent déjà l’argent disponible.');return}
+  const room=target-lockedTotal,w=free.reduce((s,e)=>s+allocationWeight(e,b),0)||1;
+  let assigned=0;
+  free.forEach((e,i)=>{
+    const min=spentFor(b,e.id);
+    let a=i===free.length-1?r2(room-assigned):r2(room*allocationWeight(e,b)/w);
+    a=Math.max(min,a);e.amount=a;assigned=r2(assigned+a)
+  });
+  save();
+  showToast('Répartition recalculée.','Annuler',()=>{
+    b.envelopes.forEach(e=>e.amount=before[e.id]??e.amount);
+    save();showToast('Répartition annulée.')
+  })
+}
+
 
 function sharedMemberCard(m){
   return `<div class="member-card"><div class="member-avatar">${esc((m.name||'?').trim().slice(0,1).toUpperCase())}</div><div class="member-main"><strong>${esc(m.name)}${m.current?' · vous':''}</strong><span>${m.role==='owner'?'Propriétaire du budget':'Membre du budget'}</span><span class="member-status ${m.status==='joined'?'joined':'pending'}">${memberStatusLabel(m)}</span></div>${m.contribution>0?`<strong>${euro(m.contribution)}</strong>`:''}</div>`
@@ -6548,7 +6647,7 @@ function startWizard(id=null,jump=null,opts=null){
   wizard=saved?normalizeBudget(saved.wizard):(editing?normalizeBudget(JSON.parse(JSON.stringify(editing))):makeBlankAccountV11(v11WizardGroupId,defaultName,v11WizardShared));wizard.budgetGroupId=v11WizardGroupId;wizard.type=v11WizardShared?'shared':'personal';
   if(!editing&&first){
     wizard.household=JSON.parse(JSON.stringify(first.household||{adults:1,children:0}));
-    wizard.budgetProfile=JSON.parse(JSON.stringify(first.budgetProfile||{meals:'mixed',mobility:'regular',focus:'none'}))
+    wizard.budgetProfile=JSON.parse(JSON.stringify(first.budgetProfile||{meals:'mixed',mobility:'regular',housing:'tenant',pets:'none',clothing:'regular',leisure:'balanced',cushion:'balanced',childStages:[],childNeeds:[],priorities:[]}))
   }
   if(v11WizardShared)wizard.members=JSON.parse(JSON.stringify(g?.members?.length?g.members:[{id:uid(),name:'Moi',contribution:0,current:true,status:'joined',role:'owner',recipient:''}]));
   wizardBalanceMode=wizard.buildMode==='manual'?'manual':'auto';wizardStep=jump!=null?jump:(saved?.wizardStep??0);if(saved){wizardAccountBalance=num(saved.wizardAccountBalance);wizardCashExtra=num(saved.wizardCashExtra)}else{wizardCashExtra=Math.max(0,num(wizard.startCash));wizardAccountBalance=r2(num(wizard.startBalance)-wizardCashExtra)}
@@ -6642,21 +6741,24 @@ function expenseListHTML(w,editing=true){
 }
 function expensesStepHTML(){
   const chosen=new Set([...wizard.fixed,...wizard.provisions,...wizard.oneOffs].map(x=>x.name));
-  const chip=(n,attr)=>`<button class="chip ${chosen.has(n)?'on':''}" ${attr}="${esc(n)}" type="button">${ico(billIconForName(n))}<span>${esc(n)}</span>${chosen.has(n)?'<b class="chip-check">✓</b>':''}</button>`;
+  const billRecommended=new Set(profileRecommendedBills(wizard));
+  const prepareRecommended=new Set(profileRecommendedPrepare(wizard));
+  const chip=(n,attr,rec=false)=>`<button class="chip ${chosen.has(n)?'on':''}" ${attr}="${esc(n)}" type="button">${ico(billIconForName(n))}<span>${esc(n)}${rec?'<b class="profile-recommended">Conseillé</b>':''}</span>${chosen.has(n)?'<b class="chip-check">✓</b>':''}</button>`;
   return `<h2 class="wizard-title">Tes charges et dépenses à prévoir</h2>
     <p class="wizard-lead">Sépare ce qui revient régulièrement de ce que tu veux préparer à l’avance.</p>
+    <div class="profile-used">${ico('magic')}<span>B² utilise ton profil pour mettre en avant ce qui semble pertinent. Il ne crée aucune charge sans ton accord.</span></div>
     <div class="section-title"><h3>Charges régulières</h3></div>
-    <div class="chips">${BILL_PRESETS.map(n=>chip(n,'data-add-bill')).join('')}</div>
+    <div class="chips">${BILL_PRESETS.map(n=>chip(n,'data-add-bill',billRecommended.has(n))).join('')}</div>
     <div class="section-title"><h3>À préparer pour plus tard</h3></div>
     <div class="help" style="margin-bottom:9px">Pour une dépense connue ou prévisible à une date : sortie scolaire, centre de loisirs, pneus… B² met progressivement de côté. Ce n’est pas compté une deuxième fois dans l’épargne.</div>
-    <div class="chips">${PREPARE_PRESETS.map(n=>chip(n,'data-add-prepare')).join('')}</div>
+    <div class="chips">${PREPARE_PRESETS.map(n=>chip(n,'data-add-prepare',prepareRecommended.has(n))).join('')}</div>
     <button class="btn btn-white btn-full" id="customBill" type="button" style="margin-top:12px">＋ Autre charge ou dépense</button>
     <div class="section-title"><h3>Ce que B² doit prévoir</h3></div>
     <div class="card flat">${expenseListHTML({...wizard,envelopes:[]})}</div>`
 }
 function envelopesStepHTML(){
   const recommended=new Set(profileRecommendedCategories(wizard));
-  return `<h2 class="wizard-title">Tes enveloppes</h2><p class="wizard-lead">Choisis tes dépenses variables du quotidien. Les grosses dépenses prévisibles se préparent à l’étape précédente.</p><div class="status info">B² met en avant les catégories qui correspondent à tes réponses. Rien n’est ajouté sans toi.</div><div class="chips">${DEFAULT_ENVELOPES.map(([n,i])=>{const e=wizard.envelopes.find(e=>e.name===n),rec=recommended.has(n);return `<button class="chip category-chip ${e?'on':''}" data-add-variable="${esc(n)}" data-icon="${i}" type="button">${ico(i)}<span>${esc(n)}${rec?'<b class="profile-recommended">Conseillé</b>':''}</span>${e?'<b class="chip-check">✓</b>':''}</button>`}).join('')}</div><button class="btn btn-white btn-full" id="customEnvelope" type="button" style="margin-top:12px">＋ Autre enveloppe</button><div class="section-title"><h3>Sur ce compte</h3></div>${wizard.envelopes.map(e=>`<div class="wizard-env-row"><div class="env-icon">${ico(e.icon)}</div><div class="card flat wizard-env-main"><div class="card-title"><h3>${esc(e.name)}</h3>${priorityTag(e)}</div><button class="btn-link" data-edit-variable="${e.id}" type="button">Changer la priorité</button>${spentFor(wizard,e.id)===0?`<button class="btn-link" data-remove-variable="${e.id}" type="button" style="margin-left:18px">Retirer</button>`:''}</div></div>`).join('')||'<div class="empty">Aucune enveloppe sélectionnée. Tu peux continuer si ce compte sert seulement aux charges.</div>'}`
+  return `<h2 class="wizard-title">Tes enveloppes</h2><p class="wizard-lead">Choisis tes dépenses variables du quotidien. Les grosses dépenses prévisibles se préparent à l’étape précédente.</p><div class="status info">B² met en avant les catégories qui correspondent à tes réponses. Avec des enfants, il répartit désormais les besoins là où ils ont du sens : courses, vêtements, charges de garde/cantine et « École & activités enfants ». Rien n’est ajouté sans toi.</div><div class="chips">${DEFAULT_ENVELOPES.map(([n,i])=>{const e=wizard.envelopes.find(e=>e.name===n),rec=recommended.has(n);return `<button class="chip category-chip ${e?'on':''}" data-add-variable="${esc(n)}" data-icon="${i}" type="button">${ico(i)}<span>${esc(n)}${rec?'<b class="profile-recommended">Conseillé</b>':''}</span>${e?'<b class="chip-check">✓</b>':''}</button>`}).join('')}</div><button class="btn btn-white btn-full" id="customEnvelope" type="button" style="margin-top:12px">＋ Autre enveloppe</button><div class="section-title"><h3>Sur ce compte</h3></div>${wizard.envelopes.map(e=>`<div class="wizard-env-row"><div class="env-icon">${ico(e.icon)}</div><div class="card flat wizard-env-main"><div class="card-title"><h3>${esc(e.name)}</h3>${priorityTag(e)}</div><button class="btn-link" data-edit-variable="${e.id}" type="button">Changer la priorité</button>${spentFor(wizard,e.id)===0?`<button class="btn-link" data-remove-variable="${e.id}" type="button" style="margin-left:18px">Retirer</button>`:''}</div></div>`).join('')||'<div class="empty">Aucune enveloppe sélectionnée. Tu peux continuer si ce compte sert seulement aux charges.</div>'}`
 }
 function openVariable(name,icon='money',id=null){openBill(name);billDraft={mode:'variable',icon,id,priority:null};const e=wizard.envelopes.find(x=>x.id===id);if(e)billDraft={...billDraft,priority:priorityOf(e),icon:e.icon};$('#billModes').hidden=true;$('#billModalTitle').textContent='Quelle priorité pour cette enveloppe ?';$('#billModal .lead').textContent='B² calculera son montant avec l’argent disponible.';$('#saveBillBtn').textContent=id?'Enregistrer':'Ajouter l’enveloppe';renderBillFields()}
 function renderWizardBase(){
@@ -6665,15 +6767,50 @@ function renderWizardBase(){
 <div class="b2-recalc-top"><button class="btn btn-white btn-full" id="wizardFinishBalance" type="button">Laisser B² recalculer</button></div>
 <div class="choice-stack"><button class="choice ${wizard.accountKind==='personal'?'on':''}" data-accountkind="personal" type="button"><span class="choice-icon">${ico('person')}</span><div><strong>Personnel</strong><span>Ton compte courant ou un compte réservé à certaines dépenses.</span></div></button><button class="choice ${wizard.accountKind==='pro'?'on':''}" data-accountkind="pro" type="button"><span class="choice-icon">${ico('briefcase')}</span><div><strong>Professionnel</strong><span>Ses montants restent totalement séparés de tes comptes personnels.</span></div></button><button class="choice ${wizard.accountKind==='other'?'on':''}" data-accountkind="other" type="button"><span class="choice-icon">${ico('accounts')}</span><div><strong>Autre</strong><span>Voiture, travaux, projet ou tout autre compte dédié.</span></div></button></div><div class="section-title"><h3>Accès</h3></div><div class="choice-stack"><button class="choice ${wizard.type!=='shared'?'on':''}" data-wtype="personal" type="button"><span class="choice-icon">${ico('person')}</span><div><strong>Moi uniquement</strong><span>Ce compte reste privé.</span></div></button><button class="choice ${wizard.type==='shared'?'on':''} ${!isPlus()?'locked-feature':''}" data-wtype="shared" type="button"><span class="choice-icon">${ico('group')}</span><div><strong>À plusieurs <span class="plus-badge">B²+</span></strong><span>Les membres utilisent le même compte B², synchronisé sur leurs téléphones.</span></div></button></div>`;
   if(wizardStep===1){
-    const p=budgetProfileOf(wizard);
-    c.innerHTML=`<h2 class="wizard-title">Pour mieux te connaître</h2>
-      <p class="wizard-lead">Quelques réponses rapides pour que B² propose une répartition plus proche de ton quotidien. Tu pourras tout modifier.</p>
+    const p=budgetProfileOf(wizard),kids=Math.max(0,num(wizard.household?.children));
+    const hasPriority=k=>profileHas(p,k),hasStage=k=>profileChildStage(p,k),hasNeed=k=>profileChildNeed(p,k);
+    c.innerHTML=`<h2 class="wizard-title">Aide B² à comprendre ton quotidien</h2>
+      <p class="wizard-lead">Une seule page, environ une minute. Plus B² comprend ta vie réelle, plus sa première répartition sera juste. Tout reste modifiable ensuite.</p>
+
+      <div class="profile-note" style="margin:0 0 12px"><strong>Important :</strong> ces réponses ne remplacent jamais tes vrais montants. Elles servent à mieux répartir ce qui reste après tes revenus, charges, épargne et réserves.</div>
 
       <div class="card profile-card">
         <div class="profile-question">
           <strong>Ton foyer</strong>
           <div class="profile-counter-row"><strong>Adultes</strong>${compactCounterHTML('wAdults',wizard.household.adults,1)}</div>
           <div class="profile-counter-row"><strong>Enfants</strong>${compactCounterHTML('wChildren',wizard.household.children,0)}</div>
+        </div>
+
+        ${kids>0?`<div class="profile-question">
+          <strong>Âge des enfants dans le foyer</strong>
+          <span>Tu peux sélectionner plusieurs groupes.</span>
+          <div class="profile-options">
+            <button class="profile-option ${hasStage('baby')?'on':''}" data-profile-childstage="baby" type="button">${ico('child')}<span>Petite enfance<br>0–5 ans</span></button>
+            <button class="profile-option ${hasStage('school')?'on':''}" data-profile-childstage="school" type="button">${ico('school')}<span>École<br>6–11 ans</span></button>
+            <button class="profile-option ${hasStage('teen')?'on':''}" data-profile-childstage="teen" type="button">${ico('person')}<span>Ados<br>12–17 ans</span></button>
+          </div>
+        </div>
+
+        <div class="profile-question">
+          <strong>Ce qui concerne les enfants</strong>
+          <span>B² s’en sert pour proposer les bonnes charges et éviter une enveloppe « Enfants » fourre-tout.</span>
+          <div class="profile-options">
+            <button class="profile-option ${hasNeed('canteen')?'on':''}" data-profile-childneed="canteen" type="button">${ico('school')}<span>Cantine</span></button>
+            <button class="profile-option ${hasNeed('childcare')?'on':''}" data-profile-childneed="childcare" type="button">${ico('child')}<span>Crèche / garde</span></button>
+            <button class="profile-option ${hasNeed('activities')?'on':''}" data-profile-childneed="activities" type="button">${ico('fun')}<span>Sport / danse / activités</span></button>
+          </div>
+          <div class="profile-note"><strong>Comment B² gère les enfants :</strong> alimentation et hygiène renforcent « Courses & quotidien », l’habillement renforce « Vêtements », cantine/garde sont proposées en charges, et les sorties scolaires ou activités vont dans « École & activités enfants ».</div>
+        </div>`:''}
+      </div>
+
+      <div class="card profile-card">
+        <div class="profile-question">
+          <strong>Ton logement</strong>
+          <div class="profile-options">
+            <button class="profile-option ${p.housing==='tenant'?'on':''}" data-profile-housing="tenant" type="button">${ico('home')}<span>Locataire</span></button>
+            <button class="profile-option ${p.housing==='owner'?'on':''}" data-profile-housing="owner" type="button">${ico('building')}<span>Propriétaire</span></button>
+            <button class="profile-option ${p.housing==='hosted'?'on':''}" data-profile-housing="hosted" type="button">${ico('person')}<span>Hébergé / autre</span></button>
+          </div>
         </div>
       </div>
 
@@ -6701,19 +6838,64 @@ function renderWizardBase(){
 
       <div class="card profile-card">
         <div class="profile-question">
-          <strong>Quand tu as un peu de marge, tu préfères plutôt…</strong>
-          <span>Ça aide seulement B² à départager les dépenses ajustables.</span>
-          <div class="profile-options five">
-            <button class="profile-option ${p.focus==='home'?'on':''}" data-profile-focus="home" type="button">${ico('home')}<span>Maison</span></button>
-            <button class="profile-option ${p.focus==='fun'?'on':''}" data-profile-focus="fun" type="button">${ico('fun')}<span>Sorties</span></button>
-            <button class="profile-option ${p.focus==='travel'?'on':''}" data-profile-focus="travel" type="button">${ico('vacation')}<span>Voyages</span></button>
-            <button class="profile-option ${p.focus==='shopping'?'on':''}" data-profile-focus="shopping" type="button">${ico('treat')}<span>Petits plaisirs</span></button>
-            <button class="profile-option ${p.focus==='none'?'on':''}" data-profile-focus="none" type="button">${ico('dots')}<span>Pas de préférence</span></button>
+          <strong>Animaux à charge ?</strong>
+          <div class="profile-options">
+            <button class="profile-option ${p.pets==='none'?'on':''}" data-profile-pets="none" type="button">${ico('dots')}<span>Aucun</span></button>
+            <button class="profile-option ${p.pets==='one'?'on':''}" data-profile-pets="one" type="button">${ico('pet')}<span>Un animal</span></button>
+            <button class="profile-option ${p.pets==='several'?'on':''}" data-profile-pets="several" type="button">${ico('pet')}<span>Plusieurs</span></button>
           </div>
         </div>
       </div>
 
-      <div class="profile-note"><strong>À quoi ça sert ?</strong> B² combine ces réponses avec tes revenus, charges, épargne, enveloppes et priorités. Ce sont seulement des repères pour sa proposition : tu gardes toujours la main.</div>
+      <div class="card profile-card">
+        <div class="profile-question">
+          <strong>Les vêtements dans ton quotidien ?</strong>
+          <div class="profile-options">
+            <button class="profile-option ${p.clothing==='low'?'on':''}" data-profile-clothing="low" type="button">${ico('shirt')}<span>Peu d’achats</span></button>
+            <button class="profile-option ${p.clothing==='regular'?'on':''}" data-profile-clothing="regular" type="button">${ico('shirt')}<span>Réguliers</span></button>
+            <button class="profile-option ${p.clothing==='high'?'on':''}" data-profile-clothing="high" type="button">${ico('shopping')}<span>Assez fréquents</span></button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card profile-card">
+        <div class="profile-question">
+          <strong>Ton rythme de loisirs ?</strong>
+          <div class="profile-options">
+            <button class="profile-option ${p.leisure==='home'?'on':''}" data-profile-leisure="home" type="button">${ico('home')}<span>Plutôt maison</span></button>
+            <button class="profile-option ${p.leisure==='balanced'?'on':''}" data-profile-leisure="balanced" type="button">${ico('movement')}<span>Équilibré</span></button>
+            <button class="profile-option ${p.leisure==='active'?'on':''}" data-profile-leisure="active" type="button">${ico('fun')}<span>Sorties fréquentes</span></button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card profile-card">
+        <div class="profile-question">
+          <strong>Quand il reste de la marge, qu’est-ce qui compte le plus ?</strong>
+          <span>Choisis jusqu’à 3 priorités. Elles départagent seulement les dépenses flexibles.</span>
+          <div class="profile-options five">
+            <button class="profile-option ${hasPriority('home')?'on':''}" data-profile-priority="home" type="button">${ico('home')}<span>Maison</span></button>
+            <button class="profile-option ${hasPriority('fun')?'on':''}" data-profile-priority="fun" type="button">${ico('fun')}<span>Sorties</span></button>
+            <button class="profile-option ${hasPriority('travel')?'on':''}" data-profile-priority="travel" type="button">${ico('vacation')}<span>Voyages</span></button>
+            <button class="profile-option ${hasPriority('shopping')?'on':''}" data-profile-priority="shopping" type="button">${ico('treat')}<span>Achats plaisir</span></button>
+            <button class="profile-option ${hasPriority('sport')?'on':''}" data-profile-priority="sport" type="button">${ico('fun')}<span>Sport / activités</span></button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card profile-card">
+        <div class="profile-question">
+          <strong>Quelle marge veux-tu garder ?</strong>
+          <span>En plus de ta réserve d’imprévus, B² peut éviter d’attribuer chaque euro aux enveloppes.</span>
+          <div class="profile-options">
+            <button class="profile-option ${p.cushion==='tight'?'on':''}" data-profile-cushion="tight" type="button">${ico('money')}<span>Répartir presque tout</span></button>
+            <button class="profile-option ${p.cushion==='balanced'?'on':''}" data-profile-cushion="balanced" type="button">${ico('shield')}<span>Garder un peu de marge</span></button>
+            <button class="profile-option ${p.cushion==='safe'?'on':''}" data-profile-cushion="safe" type="button">${ico('shield')}<span>Garder une vraie marge</span></button>
+          </div>
+        </div>
+      </div>
+
+      <div class="profile-note"><strong>Ce que B² fera avec tout ça :</strong> il ajustera ses recommandations d’enveloppes, leur poids de départ, les charges mises en avant et la part qu’il laisse volontairement disponible. Dès que tu utilises l’app, tes vraies habitudes prennent progressivement le dessus sur ce questionnaire.</div>
 
       ${wizard.type==='shared'?`<div class="section-title"><h3>Membres du compte</h3></div><div class="card flat"><div class="help" style="margin:0 0 10px">Ce sont les personnes qui auront accès à ce compte partagé.</div><div id="memberList">${wizard.members.map(memberRow).join('')}</div><button class="btn btn-white btn-full" id="addMember" type="button">＋ Ajouter un membre</button></div>`:''}`
   }
@@ -6828,10 +7010,44 @@ function wireWizard(){
   $$('[data-edit-variable]',c).forEach(x=>x.addEventListener('click',()=>{const e=wizard.envelopes.find(e=>e.id===x.dataset.editVariable);openVariable(e.name,e.icon,e.id)}));
   $$('[data-accountkind]',c).forEach(x=>x.addEventListener('click',()=>{wizard.accountKind=x.dataset.accountkind;renderWizard()}));
   $$('[data-wtype]',c).forEach(x=>x.addEventListener('click',()=>{captureWizard();if(x.dataset.wtype==='shared'&&!isPlus()){openPlus('Mon budget partagé',()=>{wizard.type='shared';if(!wizard.members.length)wizard.members=[{id:uid(),name:'Moi',contribution:0,current:true,status:'joined',role:'owner',recipient:''}];renderWizard()});return}wizard.type=x.dataset.wtype;if(wizard.type==='shared'&&!wizard.members.length)wizard.members=[{id:uid(),name:'Moi',contribution:0,current:true,status:'joined',role:'owner',recipient:''}];renderWizard()}));
-  $$('[data-count]',c).forEach(x=>x.addEventListener('click',()=>{const key=x.dataset.count==='wAdults'?'adults':'children',min=num(x.dataset.min),d=num(x.dataset.delta);wizard.household[key]=Math.max(min,wizard.household[key]+d);renderWizard()}));
-  $$('[data-profile-meals]',c).forEach(x=>x.addEventListener('click',()=>{wizard.budgetProfile=budgetProfileOf(wizard);wizard.budgetProfile.meals=x.dataset.profileMeals;wizard._allocated=false;wizard._situationChanged=true;saveWizardDraft();renderWizard()}));
-  $$('[data-profile-mobility]',c).forEach(x=>x.addEventListener('click',()=>{wizard.budgetProfile=budgetProfileOf(wizard);wizard.budgetProfile.mobility=x.dataset.profileMobility;wizard._allocated=false;wizard._situationChanged=true;saveWizardDraft();renderWizard()}));
-  $$('[data-profile-focus]',c).forEach(x=>x.addEventListener('click',()=>{wizard.budgetProfile=budgetProfileOf(wizard);wizard.budgetProfile.focus=x.dataset.profileFocus;wizard._allocated=false;saveWizardDraft();renderWizard()}));
+  $$('[data-count]',c).forEach(x=>x.addEventListener('click',()=>{
+    const key=x.dataset.count==='wAdults'?'adults':'children',min=num(x.dataset.min),d=num(x.dataset.delta);
+    wizard.household[key]=Math.max(min,wizard.household[key]+d);
+    wizard.budgetProfile=budgetProfileOf(wizard);
+    if(key==='children'&&wizard.household.children===0){wizard.budgetProfile.childStages=[];wizard.budgetProfile.childNeeds=[]}
+    wizard._allocated=false;wizard._situationChanged=true;saveWizardDraft();renderWizard()
+  }));
+  const setProfile=(key,value)=>{
+    wizard.budgetProfile=budgetProfileOf(wizard);wizard.budgetProfile[key]=value;
+    wizard._allocated=false;wizard._situationChanged=true;saveWizardDraft();renderWizard()
+  };
+  $$('[data-profile-meals]',c).forEach(x=>x.addEventListener('click',()=>setProfile('meals',x.dataset.profileMeals)));
+  $$('[data-profile-mobility]',c).forEach(x=>x.addEventListener('click',()=>setProfile('mobility',x.dataset.profileMobility)));
+  $$('[data-profile-housing]',c).forEach(x=>x.addEventListener('click',()=>setProfile('housing',x.dataset.profileHousing)));
+  $$('[data-profile-pets]',c).forEach(x=>x.addEventListener('click',()=>setProfile('pets',x.dataset.profilePets)));
+  $$('[data-profile-clothing]',c).forEach(x=>x.addEventListener('click',()=>setProfile('clothing',x.dataset.profileClothing)));
+  $$('[data-profile-leisure]',c).forEach(x=>x.addEventListener('click',()=>setProfile('leisure',x.dataset.profileLeisure)));
+  $$('[data-profile-cushion]',c).forEach(x=>x.addEventListener('click',()=>setProfile('cushion',x.dataset.profileCushion)));
+  $$('[data-profile-childstage]',c).forEach(x=>x.addEventListener('click',()=>{
+    wizard.budgetProfile=budgetProfileOf(wizard);
+    const k=x.dataset.profileChildstage,arr=[...(wizard.budgetProfile.childStages||[])],i=arr.indexOf(k);
+    if(i>=0)arr.splice(i,1);else arr.push(k);
+    wizard.budgetProfile.childStages=arr;wizard._allocated=false;wizard._situationChanged=true;saveWizardDraft();renderWizard()
+  }));
+  $$('[data-profile-childneed]',c).forEach(x=>x.addEventListener('click',()=>{
+    wizard.budgetProfile=budgetProfileOf(wizard);
+    const k=x.dataset.profileChildneed,arr=[...(wizard.budgetProfile.childNeeds||[])],i=arr.indexOf(k);
+    if(i>=0)arr.splice(i,1);else arr.push(k);
+    wizard.budgetProfile.childNeeds=arr;wizard._allocated=false;wizard._situationChanged=true;saveWizardDraft();renderWizard()
+  }));
+  $$('[data-profile-priority]',c).forEach(x=>x.addEventListener('click',()=>{
+    wizard.budgetProfile=budgetProfileOf(wizard);
+    const k=x.dataset.profilePriority,arr=[...(wizard.budgetProfile.priorities||[])],i=arr.indexOf(k);
+    if(i>=0)arr.splice(i,1);
+    else if(arr.length>=3){showToast('Choisis jusqu’à 3 priorités.');return}
+    else arr.push(k);
+    wizard.budgetProfile.priorities=arr;wizard._allocated=false;saveWizardDraft();renderWizard()
+  }));
   $('#addMember')?.addEventListener('click',()=>openSimple('Ajouter un membre','',`<div class="field"><label for="simpleName">Prénom / nom</label><input id="simpleName" autocomplete="off"></div>`,()=>{const n=$('#simpleName').value.trim();if(!n)return false;wizard.members.push({id:uid(),name:n,contribution:0,current:false,status:'pending',role:'member',recipient:''});return true}));
   $$('[data-remove-member]',c).forEach(x=>x.addEventListener('click',()=>{wizard.members=wizard.members.filter(m=>m.id!==x.dataset.removeMember);renderWizard()}));
   $$('[data-startsign]',c).forEach(x=>x.addEventListener('click',()=>{
@@ -7017,7 +7233,7 @@ function nextWizard(){
 }
 function prevWizard(){captureWizard();saveWizardDraft();if(!v11WizardCreatingBudget&&wizardStep===2){wizardStep=0;renderWizard();wizardTop();return}if(wizardStep>0){wizardStep=wizardStep===6?4:wizardStep-1;renderWizard();wizardTop()}}
 function autoAllocateWizard(){
-  const capacity=Math.max(0,wizardPlanningPool(wizard)),plan=smartEnvelopeTargets(wizard,capacity);
+  const capacity=Math.max(0,wizardPlanningPool(wizard)*profileAllocationShare(wizard)),plan=smartEnvelopeTargets(wizard,capacity);
   wizard.envelopes.forEach(e=>{
     const minimum=wizardEditId?spentFor(wizard,e.id):0;
     if(e.locked)e.amount=Math.max(minimum,num(e.amount));
@@ -7345,7 +7561,7 @@ function makeBlankAccountV11(groupId,name='Compte principal',shared=false){
   return normalizeBudget({
     id:uid(),name,budgetGroupId:groupId,type:shared?'shared':'personal',accountKind:'personal',active:false,
     startMode:'now',nextIncomeDate:addMonthsISO(todayISO(),1),cycleStart:todayISO(),cycleEnd:addMonthsISO(todayISO(),1),
-    startBalance:0,household:{adults:1,children:0},budgetProfile:{meals:'mixed',mobility:'regular',focus:'none'},members:shared?[{id:uid(),name:'Moi',contribution:0,current:true,status:'joined',role:'owner',recipient:''}]:[],
+    startBalance:0,household:{adults:1,children:0},budgetProfile:{meals:'mixed',mobility:'regular',housing:'tenant',pets:'none',clothing:'regular',leisure:'balanced',cushion:'balanced',childStages:[],childNeeds:[],priorities:[]},members:shared?[{id:uid(),name:'Moi',contribution:0,current:true,status:'joined',role:'owner',recipient:''}]:[],
     incomeMode:'global',income:0,incomeSources:[],fixed:[],oneOffs:[],exceptionalIncomes:[],provisions:[],provisionHistory:[],savings:[],reserve:0,buildMode:'manual',lifestyle:[],
     envelopes:[],transactions:[]
   })
