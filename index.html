@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#075a4d">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<title>B² v12.89 — saisie vocale</title>
+<title>B² v12.91 — saisie vocale sémantique et apprenante</title>
 <style>
 :root{
   --brand:#075a4d;--brand2:#0a7965;--brand3:#0f8f72;--lime:#b9ef68;
@@ -1840,7 +1840,7 @@ const CATEGORY_RULES={
   },
   'Loisirs & sorties':{
     strong:['restaurant','au resto','sortie resto','boire un verre','verre au bar','place de cinéma','place de cinema','billet concert','sortie cinéma','sortie cinema','escape game','parc attraction','parc d attraction'],
-    merchant:['mcdonald','mcdo','burger king','quick','kfc','subway','dominos','domino s','pizza hut','buffalo grill','courtepaille','flunch','cinéville','cineville','pathé','pathe','ugc','cgr','gaumont','bowling','laser game','basic fit','fitness park'],
+    merchant:['mcdonald','mcdonald s','mcdonalds','mc donald','mc donald s','mcdo','macdo','mac donald','mac donald s','burger king','quick','kfc','subway','dominos','domino s','pizza hut','buffalo grill','courtepaille','flunch','cinéville','cineville','pathé','pathe','ugc','cgr','gaumont','bowling','laser game','basic fit','fitness park'],
     words:['resto','restaurant','bar','cinéma','cinema','sortie','concert','spectacle','festival','bowling','karaoké','karaoke','escape','laser game','discothèque','discotheque','boîte de nuit','boite de nuit','bière','biere','cocktail','apéro','apero','fast food','burger','pizza','kebab','tacos','sushi','brasserie','bistrot']
   },
   'Maison & entretien':{
@@ -2150,6 +2150,7 @@ function normalizeBudget(b){
     bankNotifications:Array.isArray(b.bankNotifications)?b.bankNotifications.map(n=>({id:n.id||uid(),type:n.type==='income'?'income':'expense',amount:Math.abs(num(n.amount)),merchant:n.merchant||'',rawText:n.rawText||'',sourceApp:n.sourceApp||'',createdAt:n.createdAt||Date.now(),status:n.status||'pending',candidateId:n.candidateId||null,matchedTxId:n.matchedTxId||null,kind:n.kind||'payment',matchKind:n.matchKind||null,plannedKind:n.plannedKind||null,plannedId:n.plannedId||null,suggestedCategoryId:n.suggestedCategoryId||null,confidence:n.confidence||'low',reason:n.reason||'',duplicateOfNotificationId:n.duplicateOfNotificationId||null})):[],
     shareInvites:Array.isArray(b.shareInvites)?b.shareInvites.map(i=>({id:i.id||uid(),memberId:i.memberId||null,recipient:i.recipient||'',token:i.token||'',status:i.status||'pending',createdAt:i.createdAt||Date.now()})):[],
     history:Array.isArray(b.history)?b.history:[],healthHistory:Array.isArray(b.healthHistory)?b.healthHistory.slice(-40):[],
+    voiceLearning:normalizeVoiceLearning(b.voiceLearning),
     advisorPrefs:{
       rebalanceAccepted:Math.max(0,Math.round(num(b.advisorPrefs?.rebalanceAccepted))),
       savingsReliefAccepted:Math.max(0,Math.round(num(b.advisorPrefs?.savingsReliefAccepted))),
@@ -4944,7 +4945,7 @@ function openTx(type,prefill={}){
   const existing=prefill.editId?b.transactions.find(t=>String(t.id)===String(prefill.editId)):null;
   const realType=existing?.type||type;
   if(realType==='transfer'&&!existing&&accountsForBudget(b.budgetGroupId).filter(a=>String(a.id)!==String(b.id)).length===0){showToast('Ajoute un autre compte à ce budget pour faire un transfert.');return}
-  txDraft={type:realType,kind:existing?.kind||prefill.kind||'normal',memberId:existing?.memberId||(b.type==='shared'?(b.members.find(m=>m.current)?.id||b.members.find(m=>m.status==='joined')?.id||null):null),pendingBankId:prefill.pendingBankId||null,editId:existing?.id||null,linkedTxId:existing?.linkedTxId||null,transferAccountId:existing?.transferAccountId||null};
+  txDraft={type:realType,kind:existing?.kind||prefill.kind||'normal',memberId:existing?.memberId||(b.type==='shared'?(b.members.find(m=>m.current)?.id||b.members.find(m=>m.status==='joined')?.id||null):null),pendingBankId:prefill.pendingBankId||null,editId:existing?.id||null,linkedTxId:existing?.linkedTxId||null,transferAccountId:existing?.transferAccountId||null,voiceOrigin:prefill.voiceOrigin||null,voiceConceptId:prefill.voiceConceptId||null,voiceMerchantKey:prefill.voiceMerchantKey||null,voiceSuggestedCategoryId:prefill.voiceSuggestedCategoryId||null};
   $('#txTitle').textContent=existing?(realType==='income'?'Modifier le mouvement':realType==='transfer'?'Transfert':'Modifier la dépense'):(realType==='income'?'Ajouter un revenu':realType==='transfer'?'Faire un transfert':'Ajouter une dépense');
   $('#txLead').textContent=(b.type==='shared'?'Budget partagé · ':'')+b.name;
   $('#txAmount').value=existing?.amount??prefill.amount??'';
@@ -4984,10 +4985,11 @@ function saveTx(){
   const e=b.envelopes.find(x=>String(x.id)===String($('#txCategory').value));if(!e){showToast('Choisis une enveloppe.');return}
   if(existing){
     const before={...existing};existing.amount=r2(amount);existing.label=label||e.name;existing.categoryId=e.id;existing.category=e.name;existing.date=date;existing.memberId=chosenMember;
+    if(existing.source==='voice'){const learnedConcept=detectVoiceConcept(existing.label);learnVoiceChoice(b,{merchantKey:voiceMerchantKey(existing.label),conceptId:learnedConcept?.id||null,label:existing.label,suggestedCategoryId:before.categoryId},e.id)}
     closeModal('transactionModal');save();showToast('Dépense modifiée.','Annuler',()=>{Object.assign(existing,before);save();showToast('Modification annulée.')});return
   }
-  const tx={id:uid(),type:'expense',kind:'normal',direction:null,amount:r2(amount),label:label||e.name,categoryId:e.id,category:e.name,date,createdAt:Date.now(),memberId:chosenMember,source:'manual',bankVerified:false,bankNotificationId:null,plannedKind:null,plannedId:null,plannedSnapshot:null,linkedTxId:null,transferId:null,transferAccountId:null};
-  const finishExpense=()=>{b.transactions.push(tx);if(txDraft.pendingBankId){const n=(b.bankNotifications||[]).find(x=>x.id===txDraft.pendingBankId);if(n)linkBankNotification(b,n,tx)}else matchPendingBankToTransaction(b,tx);closeModal('transactionModal');const rem=envRemain(b,e);save();if(rem<-.01){overspendCtx={budgetId:b.id,envId:e.id};$('#overspendLead').textContent=`${e.name} dépasse de ${euro(Math.abs(rem))}. Que veux-tu faire ?`;$('#overspendReserve').disabled=b.reserve<Math.abs(rem)-.01;openModal('overspendModal')}else if(state.settings.afterExpense)showToast(tx.bankVerified?`${euro(amount)} · ${e.name} · rapproché avec la banque.`:`${euro(amount)} · ${e.name} · ${euro(rem)} restants.`)};
+  const tx={id:uid(),type:'expense',kind:'normal',direction:null,amount:r2(amount),label:label||e.name,categoryId:e.id,category:e.name,date,createdAt:Date.now(),memberId:chosenMember,source:txDraft.voiceOrigin?'voice':'manual',bankVerified:false,bankNotificationId:null,plannedKind:null,plannedId:null,plannedSnapshot:null,linkedTxId:null,transferId:null,transferAccountId:null};
+  const finishExpense=()=>{b.transactions.push(tx);if(txDraft.voiceOrigin)learnVoiceChoice(b,{merchantKey:txDraft.voiceMerchantKey||voiceMerchantKey(tx.label),conceptId:txDraft.voiceConceptId||detectVoiceConcept(tx.label)?.id||null,label:tx.label,suggestedCategoryId:txDraft.voiceSuggestedCategoryId||null},e.id);if(txDraft.pendingBankId){const n=(b.bankNotifications||[]).find(x=>x.id===txDraft.pendingBankId);if(n)linkBankNotification(b,n,tx)}else matchPendingBankToTransaction(b,tx);closeModal('transactionModal');const rem=envRemain(b,e);save();if(rem<-.01){overspendCtx={budgetId:b.id,envId:e.id};$('#overspendLead').textContent=`${e.name} dépasse de ${euro(Math.abs(rem))}. Que veux-tu faire ?`;$('#overspendReserve').disabled=b.reserve<Math.abs(rem)-.01;openModal('overspendModal')}else if(state.settings.afterExpense)showToast(tx.bankVerified?`${euro(amount)} · ${e.name} · rapproché avec la banque.`:`${euro(amount)} · ${e.name} · ${euro(rem)} restants.`)};
   const dup=findRecordedBankDuplicate(b,tx);if(dup){askPossibleDuplicate(dup,tx,finishExpense);return}finishExpense()
 }
 function normalizeSpeechText(s){return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[’']/g,' ').replace(/&/g,' et ').replace(/[^a-z0-9+.,€ -]/g,' ').replace(/\s+/g,' ').trim()}
@@ -5055,12 +5057,213 @@ function extractVoiceAmount(text){
   }
   return 0;
 }
+function normalizeVoiceLearning(v){
+  const safeMap=(x,limit)=>{
+    const src=x&&typeof x==='object'&&!Array.isArray(x)?x:{},out={};
+    Object.entries(src).sort((a,z)=>num(z[1]?.lastAt)-num(a[1]?.lastAt)).slice(0,limit).forEach(([k,val])=>{
+      if(!k||!val?.categoryId)return;
+      out[k]={categoryId:String(val.categoryId),count:clamp(Math.round(num(val.count)||1),1,50),lastAt:num(val.lastAt)||Date.now()}
+    });
+    return out
+  };
+  return {merchants:safeMap(v?.merchants,140),concepts:safeMap(v?.concepts,40)}
+}
+function voiceMerchantKey(label){
+  let low=normalizeSpeechText(label).replace(/\b(chez|au|aux|pour|paiement|achat)\b/g,' ').replace(/\s+/g,' ').trim();
+  const aliases=[
+    [/^(?:mcdonald s|mcdonalds|mc donald s|mc donald|mcdo|macdo|mac donald s|mac donald)$/,'mcdonalds'],
+    [/^(?:burger king|bk)$/,'burger king'],
+    [/^(?:e leclerc|leclerc)$/,'leclerc'],
+    [/^(?:intermarche|inter marche)$/,'intermarche'],
+    [/^(?:total energies|totalenergies|total access)$/,'totalenergies']
+  ];
+  for(const [rx,key] of aliases)if(rx.test(low))return key;
+  return low.slice(0,80)
+}
+const VOICE_CONCEPTS=[
+  {id:'dining',specific:['restaurant','restaurants','resto','restos','repas dehors','repas exterieur','manger dehors','fast food','pizzeria','bouffe plaisir'],
+    fallback:['loisirs sorties','petits plaisirs'],
+    strong:['restaurant','au resto','sortie resto','fast food','repas au restaurant','repas dehors','manger au restaurant','pizzeria','kebab','tacos'],
+    merchant:['mcdonald','mcdonald s','mcdonalds','mc donald','mc donald s','mcdo','macdo','mac donald','burger king','quick','kfc','subway','dominos','domino s','pizza hut','buffalo grill','courtepaille','flunch'],
+    words:['resto','restaurant','brasserie','bistrot','burger','pizza','sushi','kebab','tacos','sandwich dehors']},
+  {id:'groceries',specific:['courses','alimentation','alimentaire','courses quotidien','quotidien','supermarche','epicerie','nourriture maison'],
+    fallback:['courses quotidien'],
+    strong:['courses alimentaires','faire les courses','supermarche','hypermarche','epicerie','drive courses','marche alimentaire'],
+    merchant:['leclerc','lidl','aldi','intermarche','carrefour','carrefour market','carrefour city','auchan','super u','hyper u','u express','monoprix','franprix','casino','spar','netto','grand frais','picard','biocoop','naturalia'],
+    words:['courses','alimentaire','nourriture','pain','baguette','viande','poisson','legumes','fruits','lait','oeufs','lessive','menage']},
+  {id:'fuel',specific:['carburant','essence','gasoil','diesel','transport','deplacements','voiture','mobilite'],
+    fallback:['carburant deplacements'],
+    strong:['plein essence','plein de carburant','plein de gasoil','plein diesel','station service','essence','gasoil','diesel','carburant'],
+    merchant:['totalenergies','esso','shell','avia','bp','dyneff','leclerc carburant','carrefour carburant'],
+    words:['sp95','sp98','e10','sans plomb','station']},
+  {id:'mobility',specific:['transport','deplacements','mobilite','train','bus','parking'],
+    fallback:['carburant deplacements'],
+    strong:['ticket de train','billet de train','ticket de bus','billet de bus','peage autoroute','parking','taxi','covoiturage'],
+    merchant:['sncf','ouigo','trainline','flixbus','blablacar','uber','bolt','indigo','effia','vinci autoroutes','aprr','area'],
+    words:['train','bus','tram','metro','taxi','uber','peage','parking','autoroute']},
+  {id:'children',specific:['enfants','enfant','ecole','scolaire','famille enfants'],
+    fallback:['enfants'],
+    strong:['cantine scolaire','garderie scolaire','fournitures scolaires','sortie scolaire','activite enfant','centre de loisirs','colonie de vacances'],
+    merchant:['oxybul','king jouet','joueclub','smyths toys','la grande recre','vertbaudet','orchestra','okaidi','jacadi'],
+    words:['enfant','enfants','ecole','cantine','garderie','creche','nounou','jouet','periscolaire']},
+  {id:'pets',specific:['animaux','animal','chien','chat'],
+    fallback:['animaux'],
+    strong:['veterinaire','croquettes chien','croquettes chat','nourriture chien','nourriture chat','toilettage chien','toilettage chat'],
+    merchant:['maxi zoo','zooplus','animalis','jardiland','truffaut','wanimo'],
+    words:['chien','chat','veto','veterinaire','croquette','litiere','animal','toilettage']},
+  {id:'clothing',specific:['vetements','habillement','fringues','chaussures','mode'],
+    fallback:['vetements'],
+    strong:['achat vetement','achat chaussures','vetements'],
+    merchant:['zara','h et m','h&m','uniqlo','kiabi','celio','jules','zalando','asos','primark','decathlon'],
+    words:['vetement','vetements','pantalon','jean','pull','manteau','chaussure','chaussures','robe','chemise']},
+  {id:'beauty',specific:['soins beaute','beaute','coiffeur','coiffure','esthetique'],
+    fallback:['soins beaute'],
+    strong:['coiffeur','coiffure','institut de beaute','estheticienne','parfumerie'],
+    merchant:['sephora','marionnaud','nocibe','yves rocher'],
+    words:['beaute','maquillage','parfum','coiffeur','coiffure','esthetique','cosmetique']},
+  {id:'health',specific:['sante','medical','medicaments','pharmacie'],
+    fallback:['sante'],
+    strong:['pharmacie','medecin','dentiste','opticien','consultation medicale'],
+    merchant:['doctolib','optical center','afflelou','krys','grand optical'],
+    words:['sante','medicament','medicaments','pharmacie','medecin','dentiste','optique','lunettes']},
+  {id:'leisure',specific:['loisirs','sorties','cinema','sport','activites','culture'],
+    fallback:['loisirs sorties'],
+    strong:['place de cinema','billet concert','sortie cinema','escape game','parc attraction','concert','bowling'],
+    merchant:['cineville','pathe','ugc','cgr','gaumont','bowling','laser game','basic fit','fitness park'],
+    words:['cinema','sortie','concert','spectacle','festival','bowling','karaoke','escape','laser game','discotheque','sport']},
+  {id:'treats',specific:['petits plaisirs','plaisirs','gouter','cafe'],
+    fallback:['petits plaisirs'],
+    strong:['cafe plaisir','patisserie plaisir','gouter dehors'],
+    merchant:['starbucks','columbus cafe','amorino','haagen dazs'],
+    words:['glace','cafe','patisserie','gouter','plaisir']},
+  {id:'home',specific:['maison','entretien maison','deco','decoration','equipement maison'],
+    fallback:['maison entretien'],
+    strong:['achat meuble','meubles maison','decoration maison','entretien maison','petit equipement maison'],
+    merchant:['ikea','but','conforama','maisons du monde','alinea','jysk','centrakor','gifi'],
+    words:['maison','meuble','decoration','luminaire','ampoule','rideau','coussin','jardin','rangement']},
+  {id:'diy',specific:['travaux','bricolage','renovation','materiaux'],
+    fallback:['travaux'],
+    strong:['travaux maison','materiel bricolage','peinture mur','outillage','materiaux','renovation maison'],
+    merchant:['leroy merlin','castorama','brico depot','bricomarche','mr bricolage','weldom','lapeyre'],
+    words:['travaux','bricolage','peinture','outillage','materiaux','renovation']},
+  {id:'gifts',specific:['cadeaux','cadeau','evenements','anniversaires'],
+    fallback:['cadeaux evenements'],
+    strong:['cadeau anniversaire','cadeau noel','cadeau mariage','cadeau'],
+    merchant:[],
+    words:['cadeau','cadeaux','anniversaire','noel','mariage','fete']}
+];
+function detectVoiceConcept(text){
+  const low=normalizeSpeechText(text);if(!low)return null;
+  const ranked=VOICE_CONCEPTS.map(c=>{
+    let score=0,hits=[];
+    (c.strong||[]).forEach(k=>{if(phraseHit(low,k)){score+=14;hits.push(k)}});
+    (c.merchant||[]).forEach(k=>{if(phraseHit(low,k)){score+=11;hits.push(k)}});
+    (c.words||[]).forEach(k=>{if(phraseHit(low,k)){score+=5;hits.push(k)}});
+    return {...c,score,hits}
+  }).sort((a,z)=>z.score-a.score);
+  const top=ranked[0],second=ranked[1]||{score:0};
+  if(!top||top.score<=0)return null;
+  return {...top,confidence:top.score>=11&&top.score-second.score>=4?'high':top.score>=8?'medium':'low',gap:top.score-second.score}
+}
+function envelopeConceptNameScore(env,concept){
+  if(!env||!concept)return 0;
+  const name=normalizeSpeechText(env.name);
+  let score=0;
+  for(const a of concept.specific||[]){
+    const n=normalizeSpeechText(a);
+    if(name===n)score=Math.max(score,56);
+    else if(name.includes(n)||n.includes(name))score=Math.max(score,44);
+  }
+  for(const a of concept.fallback||[]){
+    const n=normalizeSpeechText(a);
+    if(name===n)score=Math.max(score,28);
+    else if(name.includes(n)||n.includes(name))score=Math.max(score,22);
+  }
+  return score
+}
+function explicitVoiceEnvelope(text,b){
+  const low=normalizeSpeechText(text),envs=b?.envelopes||[];
+  let best=null,bestScore=0;
+  for(const env of envs){
+    const n=normalizeSpeechText(env.name);if(!n||n.length<3)continue;
+    let score=0;
+    if(low===n)score=100;
+    else if(phraseHit(low,n))score=92;
+    else{
+      const useful=cleanWords(n).filter(w=>w.length>=4);
+      const hits=useful.filter(w=>phraseHit(low,w)).length;
+      if(useful.length&&hits===useful.length)score=82;
+    }
+    if(score>bestScore){best=env;bestScore=score}
+  }
+  return best?{env:best,score:bestScore}:null
+}
+function learnedVoiceEntry(b,map,key){
+  const l=normalizeVoiceLearning(b?.voiceLearning);
+  const x=l?.[map]?.[key];if(!x)return null;
+  const env=(b.envelopes||[]).find(e=>String(e.id)===String(x.categoryId));
+  return env?{env,count:num(x.count),lastAt:num(x.lastAt)}:null
+}
+function inferVoiceEnvelope(text,label,b,concept){
+  const envs=b?.envelopes||[];
+  if(!envs.length)return {env:null,confidence:false,level:'none',score:0,alternatives:[]};
+  const explicit=explicitVoiceEnvelope(text,b);
+  const merchantKey=voiceMerchantKey(label);
+  const learnedMerchant=merchantKey?learnedVoiceEntry(b,'merchants',merchantKey):null;
+  const learnedConcept=concept?.id?learnedVoiceEntry(b,'concepts',concept.id):null;
+  const base=inferCategory(label||text,b);
+  const ranked=envs.map(env=>{
+    let score=0,reasons=[];
+    if(explicit&&String(explicit.env.id)===String(env.id)){score+=explicit.score;reasons.push('enveloppe dite')}
+    if(learnedMerchant&&String(learnedMerchant.env.id)===String(env.id)){score+=68+Math.min(12,learnedMerchant.count*2);reasons.push('habitude commerçant')}
+    if(learnedConcept&&String(learnedConcept.env.id)===String(env.id)){score+=45+Math.min(10,learnedConcept.count);reasons.push('habitude catégorie')}
+    const semantic=envelopeConceptNameScore(env,concept);if(semantic){score+=semantic;reasons.push('sens de l’enveloppe')}
+    if(base?.env&&String(base.env.id)===String(env.id)){score+=Math.min(34,8+num(base.score)*2);reasons.push('mots-clés/historique')}
+    return {env,score,reasons}
+  }).sort((a,z)=>z.score-a.score);
+  const top=ranked[0],second=ranked[1]||{score:0};
+  if(!top||top.score<=0)return {env:null,confidence:false,level:'none',score:0,alternatives:[]};
+  const gap=top.score-second.score;
+  const level=top.score>=55&&gap>=9?'high':top.score>=32&&gap>=5?'medium':'low';
+  return {env:top.env,confidence:level!=='low',level,score:top.score,alternatives:ranked.slice(1,3).filter(x=>x.score>0).map(x=>({env:x.env,score:x.score})),reasons:top.reasons}
+}
+function learnVoiceChoice(b,ctx,categoryId){
+  if(!b||!categoryId)return;
+  const current=normalizeVoiceLearning(b.voiceLearning),now=Date.now();
+  const bump=(map,key)=>{
+    if(!key)return;
+    const prev=current[map][key];
+    current[map][key]={categoryId:String(categoryId),count:prev&&String(prev.categoryId)===String(categoryId)?Math.min(50,num(prev.count)+1):1,lastAt:now}
+  };
+  bump('merchants',ctx?.merchantKey||voiceMerchantKey(ctx?.label||''));
+  bump('concepts',ctx?.conceptId||null);
+  b.voiceLearning=normalizeVoiceLearning(current)
+}
+function cleanVoiceLabel(text){
+  let s=String(text||'').trim();
+  if(!s)return '';
+  s=s.replace(/^\s*(?:j['’ ]?ai\s+(?:d[eé]pens[eé]|pay[eé]|mis)|je\s+(?:d[eé]pense|paye)|d[eé]pense|paiement|achat|ajoute|ajouter)\s+/i,'');
+  s=s.replace(/^\s*(?:\+|plus\s+)?\d+(?:[.,]\d{1,2})?\s*(?:€|euros?|euro)(?:\s+\d{1,2})?(?:\s*centimes?)?\s*/i,'');
+  s=s.replace(/^\s*(?:\+|plus\s+)?\d+(?:[.,]\d{1,2})?\s*/i,'');
+  s=s.replace(/^\s*(?:chez|au|aux|a|à|pour|de|du)\s+/i,'');
+  s=s.replace(/\s+/g,' ').replace(/^[,;:.\-–—\s]+|[,;:.\-–—\s]+$/g,'').trim();
+  return s;
+}
 function parseVoicePhrase(text){
-  const b=active();if(!b)return null;const low=normalizeSpeechText(text).replace(',','.');
+  const b=active();if(!b)return null;
+  const low=normalizeSpeechText(text).replace(',','.');
   const amount=extractVoiceAmount(text);if(!(amount>0))return null;
   const income=/^\s*\+|\bplus\s+(?:\d|un|une|deux|trois|quatre|cinq|six|sept|huit|neuf|dix)|\bj ai recu\b|\brecu\b|\bencaisse\b|\brevenu\b|\bsalaire\b|\bprime\b|\bremboursement\b|\bvente\b|\bvendu\b|\bvinted\b|\bleboncoin\b|\bpaypal recu\b/.test(low);
-  const inf=income?{env:null,confidence:true,level:'high',score:10,alternatives:[]}:inferCategory(low,b);
-  return {type:income?'income':'expense',amount,label:text.trim(),categoryId:inf.env?.id||null,categoryName:inf.env?.name||'',confidence:inf.confidence,confidenceLevel:inf.level,alternatives:inf.alternatives||[]}
+  let label=cleanVoiceLabel(text);
+  if(!label)label=income?'Revenu':'Dépense';
+  let inf,concept=null;
+  if(income){
+    inf={env:null,confidence:true,level:'high',score:10,alternatives:[]};
+  }else{
+    concept=detectVoiceConcept(`${label} ${low}`)||detectVoiceConcept(label);
+    inf=inferVoiceEnvelope(low,label,b,concept);
+  }
+  return {type:income?'income':'expense',amount,label,categoryId:inf.env?.id||null,categoryName:inf.env?.name||'',confidence:inf.confidence,confidenceLevel:inf.level,alternatives:inf.alternatives||[],conceptId:concept?.id||null,merchantKey:voiceMerchantKey(label),reason:inf.reasons||[]}
 }
 function analyseVoice(text){
   const spoken=String(text||'').trim(),r=parseVoicePhrase(spoken);
@@ -5071,26 +5274,28 @@ function analyseVoice(text){
     return;
   }
   closeModal('voiceModal');
-  if(!state.settings.voiceConfirm && (r.type==='income' || (r.type==='expense' && r.categoryId && r.confidence))){saveVoiceDirect(r,spoken);return}
-  openTx(r.type,{amount:r.amount,label:spoken,categoryId:r.categoryId});
+  if(!state.settings.voiceConfirm && (r.type==='income' || (r.type==='expense' && r.categoryId && r.confidence))){saveVoiceDirect(r,r.label);return}
+  openTx(r.type,{amount:r.amount,label:r.label,categoryId:r.categoryId,voiceOrigin:spoken,voiceConceptId:r.conceptId,voiceMerchantKey:r.merchantKey,voiceSuggestedCategoryId:r.categoryId});
   if(r.type==='expense'&&!r.categoryId)showToast('Choisis simplement la catégorie avant d’enregistrer.');
   else if(r.type==='expense'&&r.confidenceLevel==='low')showToast('Vérifie la catégorie, B² n’est pas totalement sûr.');
 }
 function saveVoiceDirect(r,text){
   const b=active(); if(!b)return;
   const memberId=b.type==='shared'?(b.members.find(m=>m.current)?.id||b.members[0]?.id||null):null;
+  const cleanLabel=String(r.label||text||'').trim();
   if(r.type==='income'){
-    const tx={id:uid(),type:'income',amount:r2(r.amount),label:text||'Revenu',categoryId:null,category:'',date:todayISO(),createdAt:Date.now(),memberId,source:'voice',bankVerified:false,bankNotificationId:null,plannedKind:null,plannedId:null,plannedSnapshot:null};
+    const tx={id:uid(),type:'income',amount:r2(r.amount),label:cleanLabel||'Revenu',categoryId:null,category:'',date:todayISO(),createdAt:Date.now(),memberId,source:'voice',bankVerified:false,bankNotificationId:null,plannedKind:null,plannedId:null,plannedSnapshot:null};
     const finish=()=>{b.transactions.push(tx);matchPendingBankToTransaction(b,tx);save();showToast(tx.bankVerified?`${euro(r.amount)} reconnu aussi par la banque. Aucun doublon.`:`${euro(r.amount)} ajoutés. À répartir quand tu veux.`)};
     const dup=findRecordedBankDuplicate(b,tx);if(dup){askPossibleDuplicate(dup,tx,finish);return}finish();return;
   }
-  const e=b.envelopes.find(x=>x.id===r.categoryId); if(!e){openTx('expense',{amount:r.amount,label:text});return}
-  const tx={id:uid(),type:'expense',amount:r2(r.amount),label:text||e.name,categoryId:e.id,category:e.name,date:todayISO(),createdAt:Date.now(),memberId,source:'voice',bankVerified:false,bankNotificationId:null,plannedKind:null,plannedId:null,plannedSnapshot:null};
+  const e=b.envelopes.find(x=>x.id===r.categoryId); if(!e){openTx('expense',{amount:r.amount,label:cleanLabel});return}
+  const tx={id:uid(),type:'expense',amount:r2(r.amount),label:cleanLabel||e.name,categoryId:e.id,category:e.name,date:todayISO(),createdAt:Date.now(),memberId,source:'voice',bankVerified:false,bankNotificationId:null,plannedKind:null,plannedId:null,plannedSnapshot:null};
   const finish=()=>{b.transactions.push(tx);matchPendingBankToTransaction(b,tx);const remAfter=r2(e.amount-(spentFor(b,e.id)));save();if(remAfter<-.01){overspendCtx={budgetId:b.id,envId:e.id};$('#overspendLead').textContent=`${e.name} dépasse de ${euro(Math.abs(remAfter))}. Que veux-tu faire ?`;$('#overspendReserve').disabled=b.reserve<Math.abs(remAfter)-.01;openModal('overspendModal')}else showToast(tx.bankVerified?`${euro(r.amount)} · ${e.name} · rapproché avec la banque, aucun doublon.`:`${euro(r.amount)} · ${e.name} · enregistré.`)};
   const dup=findRecordedBankDuplicate(b,tx);if(dup){askPossibleDuplicate(dup,tx,finish);return}finish();
 }
-/* v12.89 — saisie vocale : moteur Android natif si présent + secours Web Speech */
+/* v12.90 — saisie vocale Android plus tolérante aux hésitations */
 let recognition=null,recognitionActive=false,voiceText='',voiceEngine='';
+let nativeVoiceSilenceTimer=null,nativeVoiceMaxTimer=null,nativeVoiceFinalized=false;
 function nativeSpeechPlugin(){
   try{
     const cap=window.Capacitor;if(!cap)return null;
@@ -5105,17 +5310,45 @@ function voiceSetListening(on,label){
   $('#voiceOrb')?.setAttribute('aria-label',on?'Arrêter le micro':'Démarrer le micro');
   if(label!==undefined&&$('#voiceLive'))$('#voiceLive').textContent=label;
 }
+function clearNativeVoiceTimers(){
+  if(nativeVoiceSilenceTimer){clearTimeout(nativeVoiceSilenceTimer);nativeVoiceSilenceTimer=null}
+  if(nativeVoiceMaxTimer){clearTimeout(nativeVoiceMaxTimer);nativeVoiceMaxTimer=null}
+}
+async function finalizeNativeVoice(p){
+  if(nativeVoiceFinalized)return;
+  nativeVoiceFinalized=true;clearNativeVoiceTimers();
+  try{await p?.stop?.()}catch(e){}
+  try{await p?.removeAllListeners?.()}catch(e){}
+  voiceSetListening(false);
+  const spoken=String(voiceText||'').trim();
+  if(spoken){
+    $('#voiceLive').textContent=`« ${spoken} »`;
+    setTimeout(()=>analyseVoice(spoken),180);
+  }else{
+    $('#voiceHint').className='status warn compact';
+    $('#voiceHint').textContent='Je n’ai rien entendu. Appuie sur le micro pour réessayer.';
+  }
+}
+function armNativeSilenceTimer(p){
+  if(nativeVoiceSilenceTimer)clearTimeout(nativeVoiceSilenceTimer);
+  nativeVoiceSilenceTimer=setTimeout(()=>finalizeNativeVoice(p),2200);
+}
 async function stopVoiceRecognition(){
   if(voiceEngine==='native'){
-    try{const p=nativeSpeechPlugin();await p?.stop?.()}catch(e){}
+    const p=nativeSpeechPlugin();nativeVoiceFinalized=true;clearNativeVoiceTimers();
+    try{await p?.stop?.()}catch(e){}
+    try{await p?.removeAllListeners?.()}catch(e){}
     voiceSetListening(false);
+    const spoken=String(voiceText||'').trim();
+    if(spoken)setTimeout(()=>analyseVoice(spoken),120);
     return;
   }
   try{recognition&&recognition.stop()}catch(e){}
 }
 function resetVoiceModal(){
   try{recognition&&recognition.abort()}catch(e){}
-  try{const p=nativeSpeechPlugin();p?.stop?.()}catch(e){}
+  try{const p=nativeSpeechPlugin();p?.stop?.();p?.removeAllListeners?.()}catch(e){}
+  clearNativeVoiceTimers();nativeVoiceFinalized=false;
   recognition=null;recognitionActive=false;voiceText='';voiceEngine='';
   $('#voiceOrb')?.classList.remove('listening');$('#voiceOrb')?.setAttribute('aria-label','Démarrer le micro');
   if($('#voiceLive'))$('#voiceLive').textContent='Appuie sur le micro et parle.';
@@ -5130,19 +5363,42 @@ async function startNativeVoice(){
       const req=await p.requestPermissions?.();
       if(req&&req.speechRecognition!=='granted')throw new Error('permission-denied');
     }
-    voiceEngine='native';voiceText='';voiceSetListening(true,'B² écoute…');
+    try{await p.removeAllListeners?.()}catch(e){}
+    voiceEngine='native';voiceText='';nativeVoiceFinalized=false;clearNativeVoiceTimers();
+    voiceSetListening(true,'B² écoute… prends ton temps.');
     $('#voiceHint').className='status info compact hidden';$('#voiceHint').textContent='';
-    const result=await p.start({language:currentLanguage().speech,maxResults:3,prompt:'Parle à B²',partialResults:false,popup:true});
-    const spoken=String(result?.matches?.[0]||'').trim();
-    voiceSetListening(false);
-    if(spoken){voiceText=spoken;$('#voiceLive').textContent=`« ${spoken} »`;setTimeout(()=>analyseVoice(spoken),120)}
-    else{$('#voiceHint').className='status warn compact';$('#voiceHint').textContent='Je n’ai rien entendu. Appuie sur le micro pour réessayer.'}
+
+    await p.addListener?.('partialResults',data=>{
+      if(nativeVoiceFinalized)return;
+      const spoken=String(data?.matches?.[0]||'').trim();
+      if(spoken){
+        voiceText=spoken;
+        $('#voiceLive').textContent=`« ${spoken} »`;
+        armNativeSilenceTimer(p);
+      }
+    });
+    await p.addListener?.('listeningState',data=>{
+      if(nativeVoiceFinalized)return;
+      if(data?.status==='started'){
+        voiceSetListening(true,voiceText?`« ${voiceText} »`:'B² écoute… prends ton temps.');
+      }else if(data?.status==='stopped'){
+        if(voiceText){
+          if(nativeVoiceSilenceTimer)clearTimeout(nativeVoiceSilenceTimer);
+          nativeVoiceSilenceTimer=setTimeout(()=>finalizeNativeVoice(p),650);
+        }else{
+          setTimeout(()=>{if(!nativeVoiceFinalized&&!voiceText)finalizeNativeVoice(p)},500);
+        }
+      }
+    });
+
+    await p.start({language:currentLanguage().speech,maxResults:5,prompt:'Parle à B²',partialResults:true,popup:false});
+    nativeVoiceMaxTimer=setTimeout(()=>finalizeNativeVoice(p),10000);
     return true;
   }catch(e){
-    voiceSetListening(false);
+    clearNativeVoiceTimers();nativeVoiceFinalized=true;voiceSetListening(false);
+    try{await p?.removeAllListeners?.()}catch(_){}
     const msg=String(e?.message||e||'').toLowerCase();
     if(msg.includes('permission')){$('#voiceHint').className='status warn compact';$('#voiceHint').textContent='Autorise le microphone dans les réglages de B² pour utiliser la saisie vocale.';return true}
-    // Si le pont natif existe mais que le plugin n'est pas installé, on retombe sur le moteur web.
     return false;
   }
 }
