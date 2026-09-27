@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#075a4d">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<title>B² v12.94 — notifications bancaires Android intelligentes</title>
+<title>B² v12.97 — parrainage sécurisé, 1 mois chacun</title>
 <style>
 :root{
   --brand:#075a4d;--brand2:#0a7965;--brand3:#0f8f72;--lime:#b9ef68;
@@ -22,7 +22,30 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,B
 button,input,select,textarea{font:inherit}button{cursor:pointer}button:disabled{opacity:.45;cursor:not-allowed}input,select,textarea{font-size:16px;color:var(--text)}
 .app{max-width:580px;margin:0 auto;min-height:100vh;padding-bottom:90px}.page{display:none}.page.show{display:block}.hidden{display:none!important}
 .hero{position:relative;overflow:hidden;background:linear-gradient(145deg,#06483f,#07604f 55%,#08745e);color:white;padding:20px 18px 27px;border-radius:0 0 30px 30px}
-.hero:after{content:"";position:absolute;right:-22px;top:12px;width:142px;height:142px;opacity:.10;background:linear-gradient(90deg,transparent 48%,#fff 49% 51%,transparent 52%),linear-gradient(transparent 48%,#fff 49% 51%,transparent 52%);background-size:44px 44px;transform:rotate(8deg);filter:blur(1.2px);animation:b2HeroSquares 5.4s ease-in-out infinite;pointer-events:none}@keyframes b2HeroSquares{0%,100%{opacity:.07;filter:blur(1.7px);transform:rotate(8deg) scale(.985)}42%{opacity:.15;filter:blur(.25px);transform:rotate(8deg) scale(1)}68%{opacity:.10;filter:blur(.9px);transform:rotate(8deg) scale(.992)}}@media(prefers-reduced-motion:reduce){.hero:after{animation:none;opacity:.10;filter:none}}
+.hero:before{
+content:"";position:absolute;right:-58px;top:-68px;width:205px;height:205px;border-radius:46%;
+border:1px solid rgba(185,239,104,.12);box-shadow:inset 0 0 0 18px rgba(255,255,255,.018);
+transform:rotate(18deg);pointer-events:none;opacity:.72
+}
+.hero:after{
+content:"";position:absolute;right:15px;top:18px;width:122px;height:108px;pointer-events:none;opacity:.64;
+background:
+ radial-gradient(circle at 18% 30%,rgba(185,239,104,.70) 0 2px,transparent 3px),
+ radial-gradient(circle at 53% 18%,rgba(255,255,255,.48) 0 1.5px,transparent 2.5px),
+ radial-gradient(circle at 76% 49%,rgba(185,239,104,.50) 0 2px,transparent 3px),
+ radial-gradient(circle at 37% 73%,rgba(255,255,255,.38) 0 1.5px,transparent 2.5px),
+ radial-gradient(circle at 88% 83%,rgba(185,239,104,.40) 0 1.5px,transparent 2.5px),
+ linear-gradient(24deg,transparent 0 31%,rgba(255,255,255,.10) 32% 32.8%,transparent 33.5% 100%),
+ linear-gradient(145deg,transparent 0 45%,rgba(185,239,104,.10) 46% 46.7%,transparent 47.5% 100%);
+filter:drop-shadow(0 0 8px rgba(185,239,104,.06));
+animation:b2HeroSignal 8.2s ease-in-out infinite
+}
+@keyframes b2HeroSignal{
+0%,100%{opacity:.50;transform:translate3d(0,0,0) scale(.985)}
+45%{opacity:.72;transform:translate3d(-2px,1px,0) scale(1)}
+72%{opacity:.58;transform:translate3d(1px,-1px,0) scale(.993)}
+}
+@media(prefers-reduced-motion:reduce){.hero:after{animation:none;opacity:.58}}
 .brandbar{position:relative;z-index:1;display:flex;align-items:center;gap:12px}.brandbar>div:nth-child(2){min-width:0;flex:1}.logo{position:relative;width:56px;height:56px;border-radius:17px;display:flex;align-items:center;justify-content:center;font-size:39px;font-weight:950;letter-spacing:-2px;background:linear-gradient(145deg,#0ca07b,#043c37);box-shadow:0 8px 20px rgba(0,31,28,.28);flex:0 0 56px;overflow:visible}.logo sup{font-size:17px;color:var(--lime);margin-left:2px;margin-top:-23px;letter-spacing:0}.logo .plus-mark{display:none;position:absolute;right:-5px;top:-8px;width:21px;height:21px;border-radius:7px;background:var(--lime);color:#06483f;border:2px solid #075a4d;align-items:center;justify-content:center;font-size:13px;line-height:1;font-weight:950;letter-spacing:0;box-shadow:0 6px 14px rgba(0,31,28,.24)}.logo.plus .plus-mark{display:flex}.slogan{font-size:15px;font-weight:800;line-height:1.2;white-space:nowrap}.brand-sub{font-size:11px;opacity:.76;margin-top:4px}.budget-switch{margin-left:auto;position:relative;z-index:2;border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.12);color:#fff;border-radius:999px;padding:8px 10px;font-size:11px;font-weight:850;max-width:42%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .home-controls{display:flex;align-items:center;gap:10px;margin-top:18px;position:relative;z-index:3}
 .home-controls .budget-switch{margin-left:0;flex:0 1 auto;width:fit-content;max-width:calc(100% - 62px)}
@@ -1299,6 +1322,42 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}button:disabled{
   .home-square-stage{width:82px;height:82px}
   .home-square-scale{transform:scale(1.27)}
 }
+
+/* v12.95 — password visibility */
+.password-field{position:relative}
+.password-field input{width:100%;padding-right:48px}
+.password-eye{position:absolute;right:7px;top:50%;transform:translateY(-50%);width:36px;height:36px;border:0;background:transparent;color:#758388;border-radius:10px;display:flex;align-items:center;justify-content:center}
+.password-eye:hover,.password-eye:focus-visible{background:#eef4f3;color:var(--brand);outline:none}
+.password-eye svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+
+/* v12.95 — cleaner plan card */
+.offer-card{overflow:hidden;position:relative}
+.offer-kicker{font-size:8px;font-weight:950;letter-spacing:.12em;color:#839095;text-transform:uppercase}
+.offer-name{font-size:19px;font-weight:950;margin-top:3px;color:var(--text)}
+.offer-copy{font-size:10px;line-height:1.48;color:var(--muted);margin-top:7px;max-width:92%}
+.offer-card:after{content:"";position:absolute;right:-34px;top:-34px;width:96px;height:96px;border-radius:50%;border:14px solid rgba(7,90,77,.045);pointer-events:none}
+
+/* v12.95 — referral */
+.referral-hero{background:linear-gradient(145deg,#073f38,#08705d);color:#fff;border-radius:22px;padding:18px;position:relative;overflow:hidden;margin-bottom:12px}
+.referral-hero:after{content:"B²+";position:absolute;right:-8px;bottom:-17px;font-size:58px;font-weight:950;color:rgba(255,255,255,.055)}
+.referral-kicker{font-size:8.5px;font-weight:950;letter-spacing:.1em;opacity:.72}
+.referral-hero h3{margin:6px 0 5px;font-size:21px}
+.referral-hero p{margin:0;max-width:84%;font-size:10.5px;line-height:1.5;color:rgba(255,255,255,.80)}
+.referral-reward{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:14px}
+.referral-month{height:8px;border-radius:999px;background:rgba(255,255,255,.14);overflow:hidden}
+.referral-month.on{background:var(--lime)}
+.referral-progress-label{display:flex;justify-content:space-between;gap:10px;margin-top:7px;font-size:8.5px;color:rgba(255,255,255,.72)}
+.referral-methods{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.referral-methods .btn{min-width:0}
+.referral-code{display:flex;align-items:center;justify-content:space-between;gap:10px;background:#f4f8f7;border:1px solid var(--line);border-radius:14px;padding:10px 11px;margin-top:10px}
+.referral-code strong{font-size:12px;letter-spacing:.05em}
+.referral-code span{font-size:8.5px;color:var(--muted)}
+.referral-stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.referral-stat{background:#f5f8f8;border-radius:14px;padding:11px}
+.referral-stat span{display:block;font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.referral-stat strong{display:block;font-size:18px;margin-top:4px}
+.referral-note{font-size:9px;line-height:1.45;color:var(--muted);margin-top:10px}
+
 </style>
 </head>
 <body>
@@ -1310,7 +1369,9 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}button:disabled{
     <h2 id="authTitle">Créer mon compte</h2>
     <div class="field" id="authNameWrap"><label for="authName">Identifiant</label><input id="authName" autocomplete="username" placeholder="Ex. Hades43"></div>
     <div class="field"><label for="authEmail">E-mail</label><input id="authEmail" type="email" autocomplete="email" placeholder="nom@exemple.fr"></div>
-    <div class="field"><label for="authPassword">Mot de passe</label><input id="authPassword" type="password" autocomplete="new-password" placeholder="8 caractères minimum"></div>
+    <div class="field"><label for="authPassword">Mot de passe</label><div class="password-field"><input id="authPassword" type="password" autocomplete="new-password" placeholder="8 caractères minimum"><button class="password-eye" type="button" data-password-toggle="authPassword" aria-label="Afficher le mot de passe">
+<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.8 12s3.2-5.2 9.2-5.2S21.2 12 21.2 12 18 17.2 12 17.2 2.8 12 2.8 12Z"/><circle cx="12" cy="12" r="2.4"/></svg>
+</button></div></div>
 
     <div class="auth-security">
       <div class="switch-row">
@@ -1360,7 +1421,7 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}button:disabled{
       <button class="more-card" id="economiesCard" type="button"><span class="big-icon"><span class="ui-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="16" cy="7" r="3"/><path d="M5 13h4l2 2h4.5a2 2 0 0 1 0 4H10l-3-2H4"/><path d="M4 11v8"/></svg></span></span><strong>Mes économies</strong><span>Repérer où réduire les charges si tu le souhaites.</span></button>
       <button class="more-card" id="accountCard" type="button"><span class="big-icon"><span class="ui-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.2"/><path d="M5.5 19a6.5 6.5 0 0 1 13 0"/></svg></span></span><strong>Mon profil</strong><span>Identifiant, e-mail, mot de passe et sécurité.</span></button><button class="more-card" id="settingsCard" type="button"><span class="big-icon"><span class="ui-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 8.5a3.5 3.5 0 1 0 0 7a3.5 3.5 0 0 0 0-7Z"/><path d="M19 12a7.6 7.6 0 0 0-.08-1l2.03-1.57-2-3.46-2.47 1a8.33 8.33 0 0 0-1.72-1L14.4 3h-4.8l-.36 2.97c-.6.24-1.18.57-1.72 1l-2.47-1-2 3.46L5.08 11a8.6 8.6 0 0 0 0 2l-2.03 1.57 2 3.46 2.47-1c.54.43 1.12.76 1.72 1L9.6 21h4.8l.36-2.97c.6-.24 1.18-.57 1.72-1l2.47 1 2-3.46L18.92 13c.05-.33.08-.67.08-1Z"/></svg></span></span><strong>Réglages</strong><span>Alertes, saisie vocale et préférences.</span></button>
       <div class="more-ad-slot" id="moreAdSlot"></div>
-      <button class="more-card" id="referralCard" type="button"><span class="big-icon"><span class="ui-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="8" cy="9" r="2.3"/><circle cx="16" cy="9" r="2.3"/><circle cx="12" cy="7" r="2.3"/><path d="M4.8 18a3.6 3.6 0 0 1 6.4-2.2"/><path d="M12.8 15.8A3.6 3.6 0 0 1 19.2 18"/><path d="M8 18a4 4 0 0 1 8 0"/></svg></span></span><strong>Parrainage</strong><span>Inviter un proche. Le programme arrive bientôt.</span></button>
+      <button class="more-card" id="referralCard" type="button"><span class="big-icon"><span class="ui-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="8" cy="9" r="2.3"/><circle cx="16" cy="9" r="2.3"/><circle cx="12" cy="7" r="2.3"/><path d="M4.8 18a3.6 3.6 0 0 1 6.4-2.2"/><path d="M12.8 15.8A3.6 3.6 0 0 1 19.2 18"/><path d="M8 18a4 4 0 0 1 8 0"/></svg></span></span><strong>Parrainage</strong><span>1 proche actif = 1 mois de B²+ pour chacun · jusqu’à 3 mois pour toi.</span></button>
       <button class="more-card premium-card" id="plusCard" type="button"><span class="big-icon"><span class="ui-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 4 13.8 8.2 18 10l-4.2 1.8L12 16l-1.8-4.2L6 10l4.2-1.8L12 4Z"/></svg></span></span><strong id="plusCardTitle">B²+</strong><span id="plusCardCopy">Analyses intelligentes dans le temps, budget partagé, objectifs avancés et zéro publicité.</span></button>
       <button class="more-card hidden" id="analysisCard" type="button"><span class="big-icon"><span class="ui-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 19V12M10 19V8M15 19v-5M20 19V5"/><path d="M4 19h17"/></svg></span></span><strong>Analyse <span class="plus-badge">B²+</span></strong><span>Graphiques, tendances et recommandations dans le temps.</span></button>
     </div>
@@ -1475,9 +1536,15 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}button:disabled{
 
 <div class="section-title"><h3>Mot de passe</h3></div>
 <div class="card flat">
-  <div class="field"><label for="accountCurrentPassword">Mot de passe actuel</label><input id="accountCurrentPassword" type="password" autocomplete="current-password"></div>
-  <div class="field"><label for="accountNewPassword">Nouveau mot de passe</label><input id="accountNewPassword" type="password" autocomplete="new-password" placeholder="8 caractères minimum"></div>
-  <div class="field"><label for="accountConfirmPassword">Confirmer le nouveau mot de passe</label><input id="accountConfirmPassword" type="password" autocomplete="new-password"></div>
+  <div class="field"><label for="accountCurrentPassword">Mot de passe actuel</label><div class="password-field"><input id="accountCurrentPassword" type="password" autocomplete="current-password"><button class="password-eye" type="button" data-password-toggle="accountCurrentPassword" aria-label="Afficher le mot de passe">
+<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.8 12s3.2-5.2 9.2-5.2S21.2 12 21.2 12 18 17.2 12 17.2 2.8 12 2.8 12Z"/><circle cx="12" cy="12" r="2.4"/></svg>
+</button></div></div>
+  <div class="field"><label for="accountNewPassword">Nouveau mot de passe</label><div class="password-field"><input id="accountNewPassword" type="password" autocomplete="new-password" placeholder="8 caractères minimum"><button class="password-eye" type="button" data-password-toggle="accountNewPassword" aria-label="Afficher le mot de passe">
+<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.8 12s3.2-5.2 9.2-5.2S21.2 12 21.2 12 18 17.2 12 17.2 2.8 12 2.8 12Z"/><circle cx="12" cy="12" r="2.4"/></svg>
+</button></div></div>
+  <div class="field"><label for="accountConfirmPassword">Confirmer le nouveau mot de passe</label><div class="password-field"><input id="accountConfirmPassword" type="password" autocomplete="new-password"><button class="password-eye" type="button" data-password-toggle="accountConfirmPassword" aria-label="Afficher le mot de passe">
+<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.8 12s3.2-5.2 9.2-5.2S21.2 12 21.2 12 18 17.2 12 17.2 2.8 12 2.8 12Z"/><circle cx="12" cy="12" r="2.4"/></svg>
+</button></div></div>
   <button class="btn btn-white btn-full" id="changeAccountPassword" type="button">Changer mon mot de passe</button>
   <button class="btn-link" id="forgotPasswordAccount" type="button" style="margin-top:10px">Mot de passe oublié ?</button>
 </div>
@@ -1882,6 +1949,148 @@ const B2_SITE_URL='https://luimem43.github.io/Mon-budget/';
 const B2_REMEMBER_KEY='B2_CLOUD_REMEMBER_V1';
 const B2_LAST_EMAIL_KEY='B2_CLOUD_LAST_EMAIL_V1';
 const B2_SESSION_TAB_KEY='B2_CLOUD_SESSION_TAB_V1';
+
+const B2_REFERRAL_PENDING_KEY='B2_REFERRAL_PENDING_V1';
+const B2_REFERRAL_INVITES_KEY='B2_REFERRAL_INVITES_V1';
+
+const B2_REFERRAL_STATUS_CACHE_KEY='B2_REFERRAL_STATUS_V3';
+const B2_INSTALLATION_ID_KEY='B2_INSTALLATION_ID_V1';
+let b2ReferralRefreshing=false,b2ReferralEvaluating=false;
+
+function b2InstallationId(){
+  try{
+    let id=localStorage.getItem(B2_INSTALLATION_ID_KEY);
+    if(id)return id;
+    id=(window.crypto?.randomUUID?.()||('b2-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,14)));
+    localStorage.setItem(B2_INSTALLATION_ID_KEY,id);
+    return id
+  }catch(e){
+    return 'b2-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,14)
+  }
+}
+function emptyReferralStatus(){
+  return {
+    ready:false,referralCode:'',sentCount:0,pendingCount:0,confirmedCount:0,totalConfirmed:0,
+    rewardMonths:0,plusUntil:null,active:false,welcomeGranted:false,ownReferralStatus:'none'
+  }
+}
+function loadReferralStatusCache(){
+  try{
+    const raw=JSON.parse(localStorage.getItem(B2_REFERRAL_STATUS_CACHE_KEY)||'null');
+    if(!raw||typeof raw!=='object')return emptyReferralStatus();
+    return {
+      ready:false,
+      referralCode:String(raw.referralCode||''),
+      sentCount:Math.max(0,Math.round(num(raw.sentCount))),
+      pendingCount:Math.max(0,Math.round(num(raw.pendingCount))),
+      confirmedCount:clamp(Math.round(num(raw.confirmedCount)),0,3),
+      totalConfirmed:Math.max(0,Math.round(num(raw.totalConfirmed))),
+      rewardMonths:clamp(Math.round(num(raw.rewardMonths)),0,3),
+      plusUntil:raw.plusUntil||null,
+      active:!!raw.active,
+      welcomeGranted:!!raw.welcomeGranted,
+      ownReferralStatus:String(raw.ownReferralStatus||'none')
+    }
+  }catch(e){return emptyReferralStatus()}
+}
+let b2ReferralStatus=loadReferralStatusCache();
+
+function persistReferralStatus(){
+  try{localStorage.setItem(B2_REFERRAL_STATUS_CACHE_KEY,JSON.stringify(b2ReferralStatus))}catch(e){}
+}
+function clearReferralStatus(){
+  b2ReferralStatus=emptyReferralStatus();
+  try{localStorage.removeItem(B2_REFERRAL_STATUS_CACHE_KEY)}catch(e){}
+}
+function referralPlusUntilMs(){
+  const t=Date.parse(b2ReferralStatus?.plusUntil||'');
+  return Number.isFinite(t)?t:0
+}
+function hasReferralPlus(){return referralPlusUntilMs()>Date.now()}
+function referralPlusDateText(){
+  const t=referralPlusUntilMs();if(!t)return '';
+  return new Intl.DateTimeFormat('fr-FR',{day:'numeric',month:'long',year:'numeric'}).format(new Date(t))
+}
+async function registerReferralDevice(){
+  if(!b2supabase||!cloudSession?.user)return false;
+  try{
+    const {error}=await b2supabase.rpc('b2_referral_register_device',{p_install_id:b2InstallationId()});
+    if(error)throw error;
+    return true
+  }catch(err){
+    console.warn('B² referral device registration unavailable',err);
+    return false
+  }
+}
+function applyReferralStatusPayload(x={}){
+  b2ReferralStatus={
+    ready:true,
+    referralCode:String(x.referral_code||''),
+    sentCount:Math.max(0,Math.round(num(x.sent_count))),
+    pendingCount:Math.max(0,Math.round(num(x.pending_count))),
+    confirmedCount:clamp(Math.round(num(x.rewarded_count??x.confirmed_count)),0,3),
+    totalConfirmed:Math.max(0,Math.round(num(x.total_confirmed))),
+    rewardMonths:clamp(Math.round(num(x.reward_months??x.rewarded_count)),0,3),
+    plusUntil:x.plus_until||null,
+    active:!!x.active,
+    welcomeGranted:!!x.welcome_granted,
+    ownReferralStatus:String(x.own_referral_status||'none')
+  };
+  persistReferralStatus();
+  return b2ReferralStatus
+}
+async function refreshReferralStatus({render=true,silent=true}={}){
+  if(b2ReferralRefreshing||!b2supabase||!cloudSession?.user)return b2ReferralStatus;
+  b2ReferralRefreshing=true;
+  try{
+    await registerReferralDevice();
+    const {data,error}=await b2supabase.rpc('b2_referral_status');
+    if(error)throw error;
+    applyReferralStatusPayload(data&&typeof data==='object'?data:{});
+    if(render){
+      ensurePlusBill(active());
+      renderAll();
+      if(currentPage==='referral')renderReferral();
+      if(currentPage==='settings')renderSettings()
+    }
+    return b2ReferralStatus
+  }catch(err){
+    console.warn('B² referral status unavailable',err);
+    if(!silent)showToast('Le statut de parrainage sera resynchronisé dès que possible.');
+    return b2ReferralStatus
+  }finally{b2ReferralRefreshing=false}
+}
+async function evaluateReferralActivation({silent=true}={}){
+  if(b2ReferralEvaluating||!b2supabase||!cloudSession?.user)return null;
+  b2ReferralEvaluating=true;
+  const wasReferralPlus=hasReferralPlus();
+  try{
+    await registerReferralDevice();
+    const {data,error}=await b2supabase.rpc('b2_referral_evaluate',{p_install_id:b2InstallationId()});
+    if(error)throw error;
+    if(data?.state==='confirmed'||data?.state==='rejected'){
+      await refreshReferralStatus({render:true,silent:true});
+      if(data.state==='confirmed'&&!wasReferralPlus&&hasReferralPlus()){
+        showToast('Parrainage validé · 1 mois de B²+ offert.')
+      }
+    }
+    return data||null
+  }catch(err){
+    console.warn('B² referral evaluation unavailable',err);
+    if(!silent)showToast('Le parrainage sera revérifié automatiquement.');
+    return null
+  }finally{b2ReferralEvaluating=false}
+}
+
+function captureIncomingReferral(){
+  try{
+    const code=new URLSearchParams(location.search).get('ref');
+    if(code&&/^[A-Z0-9_-]{4,24}$/i.test(code))localStorage.setItem(B2_REFERRAL_PENDING_KEY,code.toUpperCase())
+  }catch(e){}
+}
+function pendingReferralCode(){try{return localStorage.getItem(B2_REFERRAL_PENDING_KEY)||''}catch(e){return ''}}
+captureIncomingReferral();
+
 let authMode='signup',cloudSession=null,cloudReady=false,cloudSaveTimer=null,cloudSaving=false,cloudRecoveryMode=false;
 const b2supabase=(window.supabase&&window.supabase.createClient)?window.supabase.createClient(B2_SUPABASE_URL,B2_SUPABASE_PUBLISHABLE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}}):null;
 
@@ -1959,7 +2168,8 @@ async function cloudUpsertNow(){
   try{
     const payload=JSON.parse(JSON.stringify(state));
     const {error}=await b2supabase.from('b2_backups').upsert({user_id:cloudSession.user.id,data:payload,schema_version:Number(state.version)||14},{onConflict:'user_id'});
-    if(error)throw error
+    if(error)throw error;
+    await evaluateReferralActivation({silent:true})
   }catch(err){console.error('B² cloud save',err);showToast('Sauvegarde cloud momentanément indisponible. Les données restent sur cet appareil.')}
   finally{cloudSaving=false}
 }
@@ -1979,6 +2189,10 @@ async function loadCloudBackupOrSeed(){
     cloudReady=false
   }
   cloudReady=true;
+  await registerReferralDevice();
+  await evaluateReferralActivation({silent:true});
+  await refreshReferralStatus({render:false,silent:true});
+  ensurePlusBill(active());
   renderHeaderAccount();renderAll();showPage(currentPage||'home')
 }
 async function finishCloudLogin(session,message='Connexion réussie.'){
@@ -1999,8 +2213,9 @@ async function submitAuth(){
   try{
     storeRemember(rememberChoice());localStorage.setItem(B2_LAST_EMAIL_KEY,email);
     if(authMode==='signup'){
-      const {data,error}=await b2supabase.auth.signUp({email,password,options:{data:{username:username||email.split('@')[0]},emailRedirectTo:B2_SITE_URL}});
+      const {data,error}=await b2supabase.auth.signUp({email,password,options:{data:{username:username||email.split('@')[0],referred_by:pendingReferralCode()||null},emailRedirectTo:B2_SITE_URL}});
       if(error)throw error;
+      try{localStorage.removeItem(B2_REFERRAL_PENDING_KEY)}catch(e){}
       if(data.session){await finishCloudLogin(data.session,'Compte créé. Bienvenue dans B².');return}
       setAuthMode('login');$('#authEmail').value=email;authFeedback('Compte créé. Vérifie ton e-mail et clique sur le lien de confirmation pour ouvrir B².','ok');return
     }
@@ -2015,7 +2230,7 @@ async function submitAuth(){
 async function logoutAuth(){
   const email=cloudSession?.user?.email||'';
   if(b2supabase)try{await b2supabase.auth.signOut()}catch(e){}
-  cloudSession=null;cloudReady=false;renderHeaderAccount();setAuthMode('login');
+  cloudSession=null;cloudReady=false;clearReferralStatus();renderHeaderAccount();setAuthMode('login');
   if($('#authEmail'))$('#authEmail').value=email;if($('#authPassword'))$('#authPassword').value='';showAuth();showToast('Tu es déconnecté.')
 }
 function openAccountModal(){
@@ -2210,7 +2425,8 @@ function save(){
   renderAll();
   if(healthNotice&&state.settings.essential)setTimeout(()=>showToast(healthNotice),850)
 }
-function isPlus(){return state.plan?.tier==='plus'}
+function hasPaidPlus(){return state.plan?.tier==='plus'}
+function isPlus(){return hasPaidPlus()||hasReferralPlus()}
 function freeAccount(){
   if(isPlus())return null;
   let b=state.plan?.freeAccountId?byId(state.plan.freeAccountId):null;
@@ -2244,11 +2460,12 @@ function founderRemaining(){
 }
 function founderOfferAvailable(){return billingCatalog().founderAvailable}
 function hasFounderRate(){
-  return isPlus()&&(state.plan?.subscriptionOffer===B2_PLUS_FOUNDER_ID||
+  return hasPaidPlus()&&(state.plan?.subscriptionOffer===B2_PLUS_FOUNDER_ID||
     (!state.plan?.subscriptionOffer&&state.plan?.subscriptionPrice==null));
 }
 function currentPlusPrice(){
-  if(isPlus()){
+  if(hasReferralPlus()&&!hasPaidPlus())return 0;
+  if(hasPaidPlus()){
     if(Number.isFinite(Number(state.plan?.subscriptionPrice))&&Number(state.plan.subscriptionPrice)>0)return num(state.plan.subscriptionPrice);
     if(hasFounderRate())return B2_PLUS_FOUNDER_PRICE;
   }
@@ -2261,7 +2478,11 @@ function founderOfferText(){
   return left===1?'Plus qu’une place au tarif fondateur.':`${left} places restantes au tarif fondateur.`
 }
 function ensurePlusBill(candidate=active()){
-  if(!isPlus())return;
+  if(!hasPaidPlus()){
+    state.budgets.forEach(b=>{b.fixed=(b.fixed||[]).filter(x=>x.systemKey!=='b2plus')});
+    if(state.plan)state.plan.billingAccountId=null;
+    return
+  }
   let target=state.plan?.billingAccountId?byId(state.plan.billingAccountId):null;
   if(!target&&candidate){target=candidate;state.plan.billingAccountId=candidate.id}
   if(!target)return;
@@ -4546,19 +4767,7 @@ function addBankIncome(id){
   const b=active(),n=(b?.bankNotifications||[]).find(x=>String(x.id)===String(id));if(!b||!n)return;
   openTx('income',{amount:n.amount,label:n.merchant||'Revenu',date:bankISO(n.createdAt),pendingBankId:n.id})
 }
-function openBankNotificationTest(){
-  openSimple('Tester une notification bancaire','Simule ce que B² recevra depuis Android.',`
-    <div class="field"><label for="bankTestType">Type</label><select id="bankTestType"><option value="expense">Dépense</option><option value="income">Revenu</option></select></div>
-    <div class="field"><label for="bankTestAmount">Montant</label><input id="bankTestAmount" type="number" step="0.01" inputmode="decimal" placeholder="Ex. 50"></div>
-    <div class="field"><label for="bankTestMerchant">Commerçant / libellé</label><input id="bankTestMerchant" autocomplete="off" placeholder="Ex. EDF ou Le Bistrot"></div>
-    <div class="field"><label for="bankTestRaw">Texte brut de la notification <span class="muted">(facultatif)</span></label><input id="bankTestRaw" autocomplete="off" placeholder="Ex. Paiement de 50,00 € chez Le Bistrot"></div>`,
-    ()=>{
-      const raw=$('#bankTestRaw').value.trim(),parsed=parseBankNotificationText(raw),amount=num($('#bankTestAmount').value)||parsed.amount,merchant=$('#bankTestMerchant').value.trim()||parsed.merchant,type=$('#bankTestType').value||parsed.type;
-      if(amount<=0){showToast('Indique un montant ou colle une notification contenant le montant.');return false}
-      registerBankNotification({type,amount,merchant,rawText:raw,sourceApp:'simulation'},{force:true});return true
-    })
-}
-let toastAction=null;
+
 function showToast(t,actionLabel=null,actionFn=null){
   const el=$('#toast');clearTimeout(toastTimer);toastAction=actionFn||null;
   el.classList.toggle('has-action',!!actionLabel);
@@ -4666,6 +4875,7 @@ async function chooseBankAssist(enabled){
 }
 window.chooseBankAssist=chooseBankAssist;
 window.addEventListener('focus',()=>{if(state?.settings?.bankAssist===true)setTimeout(()=>importNativeBankNotifications({silent:false}),450)});
+window.addEventListener('focus',()=>{if(cloudSession?.user)setTimeout(()=>refreshReferralStatus({render:true,silent:true}),650)});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&state?.settings?.bankAssist===true)setTimeout(()=>importNativeBankNotifications({silent:true}),500)});
 setTimeout(async()=>{
   if(state?.settings?.bankAssist===true&&active()){
@@ -4715,8 +4925,9 @@ function renderPlanBrand(){
   const t=$('#plusCardTitle'),copy=$('#plusCardCopy');
   if(t)t.textContent=isPlus()?'B²+ actif':'B²+';
   if(copy){
-    if(isPlus()&&hasFounderRate())copy.textContent='Tarif fondateur 1,99 €/mois conservé · sans publicité.';
-    else if(isPlus())copy.textContent=`Abonnement ${euro(currentPlusPrice())}/mois · sans publicité.`;
+    if(hasReferralPlus()&&!hasPaidPlus())copy.textContent=`B²+ offert jusqu’au ${referralPlusDateText()} · sans publicité.`;
+    else if(hasPaidPlus()&&hasFounderRate())copy.textContent='Tarif fondateur 1,99 €/mois conservé · sans publicité.';
+    else if(hasPaidPlus())copy.textContent=`Abonnement ${euro(currentPlusPrice())}/mois · sans publicité.`;
     else copy.textContent=founderOfferAvailable()?'Tarif fondateur 1,99 €/mois · réservé aux 500 premiers abonnés.':'B²+ · 2,99 €/mois · plusieurs budgets, partage et zéro publicité.'
   }
 }
@@ -4728,7 +4939,7 @@ function renderMore(){
 }
 function adCard(slot){
   if(isPlus())return '';
-  const labels={home:'accueil',movements:'mouvements',pilot:'pilotage',more:'plus'};
+  const labels={home:'accueil',movements:'mouvements',pilot:'pilotage',budgets:'budgets',more:'plus'};
   return `<div class="ad-card" data-ad-card="${slot}"><div class="ad-top"><span class="ad-label">SPONSORISÉ</span><span class="ad-slot">${labels[slot]||'annonce'}</span></div><div class="ad-body"><div class="ad-icon">${ico('spark')}</div><div class="ad-copy"><strong>Emplacement publicitaire natif</strong><span>Une annonce intégrée au contenu, sans bloquer l’utilisation de B².</span></div><button class="ad-cta" data-ad-demo type="button">Voir</button></div><button class="ad-plus-note" data-ad-plus type="button" aria-label="Découvrir B²+ sans publicité"><b>B²+</b> · Sans publicité</button></div>`;
 }
 function wireAds(root=document){
@@ -4736,6 +4947,9 @@ function wireAds(root=document){
   $$('[data-ad-plus]',root).forEach(x=>x.addEventListener('click',()=>openPlus('B²+')))
 }
 function openPlus(context='B²+',after=null){
+  if(hasReferralPlus()&&!hasPaidPlus()){
+    plusAfterAction=null;showPage('referral');showToast(`B²+ est offert jusqu’au ${referralPlusDateText()}.`);return
+  }
   plusAfterAction=typeof after==='function'?after:null;
   $('#plusContext').textContent=context==='B²+'?'Ton budget apprend de tes habitudes.':`${context} est inclus dans B²+.`;
   const btn=$('#plusPrimary'),note=$('#plusBillingNote'),secondary=$('#plusSecondary');
@@ -4784,7 +4998,8 @@ function openPlus(context='B²+',after=null){
   openModal('plusModal');
 }
 function activatePlusDemo(){
-  if(isPlus()){closeModal('plusModal');openSubscriptionManager();return}
+  if(hasReferralPlus()&&!hasPaidPlus()){closeModal('plusModal');showPage('referral');return}
+  if(hasPaidPlus()){closeModal('plusModal');openSubscriptionManager();return}
   const founder=founderOfferAvailable();
   state.plan={...(state.plan||{}),tier:'plus',plusSince:Date.now(),freeBudgetId:state.plan?.freeBudgetId||activeBudgetGroup()?.id||null,
     subscriptionOffer:founder?B2_PLUS_FOUNDER_ID:'standard',
@@ -4799,7 +5014,8 @@ function activatePlusDemo(){
 }
 function deactivatePlusDemo(){openCancelPlus()}
 function openSubscriptionManager(){
-  if(!isPlus()){openPlus('B²+');return}
+  if(hasReferralPlus()&&!hasPaidPlus()){showPage('referral');return}
+  if(!hasPaidPlus()){openPlus('B²+');return}
   const sel=$('#subscriptionBillingAccount'),price=currentPlusPrice(),founder=hasFounderRate();
   sel.innerHTML=state.budgets.map(a=>`<option value="${a.id}">${esc(budgetById(a.budgetGroupId)?.name||'Budget')} · ${esc(a.name)}</option>`).join('');
   const current=byId(state.plan?.billingAccountId)||active()||state.budgets[0];if(current)sel.value=current.id;
@@ -4999,11 +5215,16 @@ function renderMovements(){
 function renderBudgets(){
   const c=$('#budgetsContent');
   if(!state.budgetGroups.length){
-    c.innerHTML=`<div class="card"><div class="empty"><div class="big">${ico('grid')}</div><strong>Aucun budget pour le moment.</strong><p class="small">Ton premier budget est gratuit et peut contenir plusieurs comptes.</p><button class="btn btn-primary" id="emptyNewBudget" type="button">Créer mon budget</button></div></div><button class="choice locked-feature" id="emptySharedBudget" type="button"><span class="choice-icon">${ico('group')}</span><div><strong>Mon budget partagé <span class="plus-badge">B²+</span></strong><span>Un même budget géré à plusieurs.</span></div></button>`;
-    $('#emptyNewBudget').addEventListener('click',()=>startNewBudget(false));$('#emptySharedBudget').addEventListener('click',startSharedBudget);return
+    c.innerHTML=`<div class="card"><div class="empty"><div class="big">${ico('grid')}</div><strong>Aucun budget pour le moment.</strong><p class="small">Commence par créer ton budget principal.</p><button class="btn btn-primary" id="emptyNewBudget" type="button">Créer mon budget</button></div></div><button class="choice locked-feature" id="emptySharedBudget" type="button"><span class="choice-icon">${ico('group')}</span><div><strong>Mon budget partagé <span class="plus-badge">B²+</span></strong><span>Un même budget géré à plusieurs.</span></div></button>${adCard('budgets')}`;
+    $('#emptyNewBudget').addEventListener('click',()=>startNewBudget(false));
+    $('#emptySharedBudget').addEventListener('click',startSharedBudget);
+    wireAds(c);return
   }
-  c.innerHTML=`<button class="choice ${isPlus()?'':'locked-feature'}" id="extraBudgetShortcut" type="button" style="margin-bottom:10px"><span class="choice-icon">${ico('grid')}</span><div><strong>Créer un autre budget <span class="plus-badge">B²+</span></strong><span>${isPlus()?'Perso, pro, projet… garde chaque univers séparé.':'Ton premier budget reste gratuit. B²+ débloque les suivants.'}</span></div></button><button class="choice ${isPlus()?'':'locked-feature'}" id="sharedBudgetShortcut" type="button" style="margin-bottom:12px"><span class="choice-icon">${ico('group')}</span><div><strong>Mon budget partagé <span class="plus-badge">B²+</span></strong><span>${isPlus()?'Crée un budget à gérer à plusieurs.':'Un budget commun, avec plusieurs comptes si besoin.'}</span></div></button>${state.budgetGroups.map(g=>{const a=accountsForBudget(g.id),locked=!canUseBudgetGroup(g),cur=byId(g.activeAccountId)||a[0];return `<div class="budget-row ${g.active?'active':''} ${locked?'locked-feature':''}"><div class="budget-main"><div class="budget-icon">${ico(g.type==='shared'?'group':'grid')}</div><div class="budget-copy"><strong>${esc(g.name)}${locked?' <span class="plus-badge">B²+</span>':''}</strong><span>${g.type==='shared'?'Partagé':'Personnel'} · ${a.length} compte${a.length>1?'s':''}${cur?` · ${esc(cur.name)} actif`:''}</span></div><span class="badge ${g.type==='shared'?'shared':''}">${g.active?'ACTIF':locked?'B²+':g.type==='shared'?'PARTAGÉ':'BUDGET'}</span><button class="dots" data-menu-budget="${g.id}" type="button">•••</button></div><div class="action-menu" id="menu-${g.id}">${!g.active&&!locked?`<button data-activate="${g.id}" type="button">✓ Utiliser ce budget</button>`:locked?`<button data-unlock-budget="${g.id}" type="button">Débloquer avec B²+</button>`:''}<button data-open-budget="${g.id}" type="button">Voir le budget</button><button data-rename-budget="${g.id}" type="button">Renommer</button>${g.type!=='shared'?`<button data-share-budget="${g.id}" type="button" ${!isPlus()?'disabled':''}>Partager ce budget <span class="plus-badge">B²+</span></button>`:''}<button data-duplicate="${g.id}" type="button" ${!isPlus()?'disabled':''}>Dupliquer le budget <span class="plus-badge">B²+</span></button><button class="danger" data-delete-budget="${g.id}" type="button">Supprimer le budget</button></div></div>`}).join('')}`;
-  $('#extraBudgetShortcut').addEventListener('click',()=>startNewBudget(false));$('#sharedBudgetShortcut').addEventListener('click',startSharedBudget);wireBudgetActions(c)
+  const budgetsHtml=state.budgetGroups.map(g=>{const a=accountsForBudget(g.id),locked=!canUseBudgetGroup(g),cur=byId(g.activeAccountId)||a[0];return `<div class="budget-row ${g.active?'active':''} ${locked?'locked-feature':''}"><div class="budget-main"><div class="budget-icon">${ico(g.type==='shared'?'group':'grid')}</div><div class="budget-copy"><strong>${esc(g.name)}${locked?' <span class="plus-badge">B²+</span>':''}</strong><span>${g.type==='shared'?'Partagé':'Personnel'} · ${a.length} compte${a.length>1?'s':''}${cur?` · ${esc(cur.name)} actif`:''}</span></div><span class="badge ${g.type==='shared'?'shared':''}">${g.active?'ACTIF':locked?'B²+':g.type==='shared'?'PARTAGÉ':'BUDGET'}</span><button class="dots" data-menu-budget="${g.id}" type="button">•••</button></div><div class="action-menu" id="menu-${g.id}">${!g.active&&!locked?`<button data-activate="${g.id}" type="button">✓ Utiliser ce budget</button>`:locked?`<button data-unlock-budget="${g.id}" type="button">Débloquer avec B²+</button>`:''}<button data-open-budget="${g.id}" type="button">Voir le budget</button><button data-rename-budget="${g.id}" type="button">Renommer</button>${g.type!=='shared'?`<button data-share-budget="${g.id}" type="button" ${!isPlus()?'disabled':''}>Partager ce budget <span class="plus-badge">B²+</span></button>`:''}<button data-duplicate="${g.id}" type="button" ${!isPlus()?'disabled':''}>Dupliquer le budget <span class="plus-badge">B²+</span></button><button class="danger" data-delete-budget="${g.id}" type="button">Supprimer le budget</button></div></div>`}).join('');
+  c.innerHTML=`<button class="choice ${isPlus()?'':'locked-feature'}" id="extraBudgetShortcut" type="button" style="margin-bottom:10px"><span class="choice-icon">${ico('grid')}</span><div><strong>Créer un autre budget <span class="plus-badge">B²+</span></strong><span>${isPlus()?'Perso, pro, projet… garde chaque univers séparé.':'B²+ permet de séparer plusieurs univers de budget.'}</span></div></button><button class="choice ${isPlus()?'':'locked-feature'}" id="sharedBudgetShortcut" type="button" style="margin-bottom:12px"><span class="choice-icon">${ico('group')}</span><div><strong>Mon budget partagé <span class="plus-badge">B²+</span></strong><span>${isPlus()?'Crée un budget à gérer à plusieurs.':'Un budget commun à gérer ensemble.'}</span></div></button>${adCard('budgets')}${budgetsHtml}`;
+  $('#extraBudgetShortcut').addEventListener('click',()=>startNewBudget(false));
+  $('#sharedBudgetShortcut').addEventListener('click',startSharedBudget);
+  wireBudgetActions(c);wireAds(c)
 }
 function wireBudgetActions(root){
   $$('[data-menu-budget]',root).forEach(x=>x.addEventListener('click',()=>{$$('.action-menu',root).forEach(m=>m.classList.toggle('show',m.id==='menu-'+x.dataset.menuBudget&&!m.classList.contains('show')))}));
@@ -5025,11 +5246,221 @@ function renderEconomies(){
 }
 function renderSettings(){
   const s=state.settings;
-  $('#settingsContent').innerHTML=`<div class="card"><div class="card-title"><h3>Mon offre</h3><span class="${isPlus()?'plus-badge':'badge'}">${isPlus()?'B²+ ACTIF':'GRATUIT'}</span></div><div class="small muted">${isPlus()?'Fonctions premium actives. Aucune publicité.':'1 budget est inclus gratuitement, avec autant de comptes que nécessaire. B²+ débloque plusieurs budgets et Mon budget partagé.'}</div><button class="btn ${isPlus()?'btn-soft':'btn-primary'} btn-full" id="managePlus" type="button" style="margin-top:12px">${isPlus()?'Gérer mon abonnement':'Voir les avantages B²+'}</button></div><div class="card"><button class="choice" id="languageSetting" type="button" style="width:100%;margin:0"><span class="choice-icon">${ico('globe')}</span><div style="min-width:0;flex:1;text-align:left"><strong>Langue</strong><span>${currentLanguage().native}</span></div><span style="font-size:18px;color:var(--muted)">›</span></button></div><div class="card"><div class="card-title"><h3>Alertes B²</h3></div>${switchHTML('essential','Alertes essentielles','Dépassement, budget à rééquilibrer, fin de période.',s.essential)}${switchHTML('afterExpense','Après chaque dépense','Afficher ce qu’il reste dans l’enveloppe.',s.afterExpense)}${switchHTML('thresholds','Seuils d’enveloppe','Signaler 75 %, 90 % et 100 %.',s.thresholds)}${switchHTML('weekly','Résumé hebdomadaire','Un point simple sur le budget.',s.weekly)}</div><div class="card"><div class="card-title"><h3>Saisie vocale</h3></div>${switchHTML('voiceConfirm','Confirmer avant d’enregistrer','Recommandé tant que B² apprend tes habitudes.',s.voiceConfirm)}<div class="help">Le micro se lance depuis le + central.</div></div><div class="card"><div class="card-title"><h3>Notifications bancaires</h3><span class="badge">ANDROID</span></div>${switchHTML('bankAssist','Aider B² à repérer mes dépenses','B² rapproche les notifications avec tes charges, tes dépenses et tes revenus.',s.bankAssist===true)}<div class="small muted" style="margin-top:8px">Sur Android, B² peut lire uniquement les notifications qui ressemblent à des mouvements financiers, puis comparer montant, libellé, date, charges prévues et historique. En cas de doute, il demande confirmation. Les retraits au distributeur ne sont pas comptés comme une nouvelle dépense.</div><button class="btn btn-white btn-full" id="testBankNotification" type="button" style="margin-top:12px" ${s.bankAssist===true?'':'disabled'}>Tester une notification bancaire</button></div><div class="card"><div class="card-title"><h3>Cloud <span class="plus-badge">B²+</span></h3></div><div class="small muted">Synchronisation multi-appareils et sauvegarde sécurisée seront branchées avec les budgets B² et le backend. Ce prototype reste local au navigateur.</div></div>`;
-  $$('[data-setting]',$('#settingsContent')).forEach(x=>x.addEventListener('click',async()=>{const k=x.dataset.setting;state.settings[k]=!state.settings[k];save();if(k==='bankAssist'){const on=state.settings[k]===true;await setNativeBankCapture(on);if(on&&nativeBankPlugin()&&!await nativeBankAccessGranted()){showToast('Active B² dans l’accès aux notifications Android.');setTimeout(()=>openNativeBankAccess(),250)}else showToast(on?'Notifications bancaires activées.':'Notifications bancaires désactivées.');renderSettings();return}showToast('Préférence enregistrée.')}));$('#managePlus').addEventListener('click',()=>isPlus()?openSubscriptionManager():openPlus('B²+'));$('#testBankNotification')?.addEventListener('click',openBankNotificationTest);$('#languageSetting')?.addEventListener('click',openLanguageModal)
+  $('#settingsContent').innerHTML=`
+    <div class="card offer-card">
+      <div class="card-title">
+        <div><div class="offer-kicker">MON OFFRE</div><div class="offer-name">${isPlus()?'B²+':'Version gratuite'}</div></div>
+        <span class="${isPlus()?'plus-badge':'badge'}">${isPlus()?'ACTIF':'GRATUIT'}</span>
+      </div>
+      <div class="offer-copy">${hasReferralPlus()&&!hasPaidPlus()?`B²+ t’est offert jusqu’au ${referralPlusDateText()} grâce au parrainage. Toutes les fonctions premium sont actives et l’application est sans publicité.`:hasPaidPlus()?'Toutes les fonctions B²+ sont actives et l’application est sans publicité.':'L’essentiel pour préparer, suivre et ajuster ton budget au quotidien.'}</div>
+      <button class="btn ${isPlus()?'btn-soft':'btn-primary'} btn-full" id="managePlus" type="button" style="margin-top:12px">${hasReferralPlus()&&!hasPaidPlus()?'Voir mon parrainage':hasPaidPlus()?'Gérer mon abonnement':'Voir les avantages B²+'}</button>
+    </div>
+    <div class="card">
+      <button class="choice" id="languageSetting" type="button" style="width:100%;margin:0"><span class="choice-icon">${ico('globe')}</span><div style="min-width:0;flex:1;text-align:left"><strong>Langue</strong><span>${currentLanguage().native}</span></div><span style="font-size:18px;color:var(--muted)">›</span></button>
+    </div>
+    <div class="card"><div class="card-title"><h3>Alertes B²</h3></div>
+      ${switchHTML('essential','Alertes essentielles','Dépassement, budget à rééquilibrer, fin de période.',s.essential)}
+      ${switchHTML('afterExpense','Après chaque dépense','Afficher ce qu’il reste dans l’enveloppe.',s.afterExpense)}
+      ${switchHTML('thresholds','Seuils d’enveloppe','Signaler 75 %, 90 % et 100 %.',s.thresholds)}
+      ${switchHTML('weekly','Résumé hebdomadaire','Un point simple sur le budget.',s.weekly)}
+    </div>
+    <div class="card"><div class="card-title"><h3>Saisie vocale</h3></div>
+      ${switchHTML('voiceConfirm','Confirmer avant d’enregistrer','Recommandé tant que B² apprend tes habitudes.',s.voiceConfirm)}
+      <div class="help">Le micro se lance depuis le + central.</div>
+    </div>
+    <div class="card"><div class="card-title"><h3>Notifications bancaires</h3><span class="badge">ANDROID</span></div>
+      ${switchHTML('bankAssist','Aider B² à repérer mes dépenses','B² rapproche les notifications avec tes charges, tes dépenses et tes revenus.',s.bankAssist===true)}
+      <div class="small muted" style="margin-top:8px">B² analyse uniquement les notifications qui ressemblent à un mouvement financier. Rien n’est ajouté au budget sans rapprochement ou confirmation.</div>
+    </div>
+    <div class="card"><div class="card-title"><h3>Sauvegarde cloud</h3><span class="badge">ACTIVE</span></div>
+      <div class="small muted">Ton budget est sauvegardé avec ton compte B² et se recharge lorsque tu te reconnectes sur un autre appareil.</div>
+    </div>`;
+  $$('[data-setting]',$('#settingsContent')).forEach(x=>x.addEventListener('click',async()=>{
+    const k=x.dataset.setting;state.settings[k]=!state.settings[k];save();
+    if(k==='bankAssist'){
+      const on=state.settings[k]===true;await setNativeBankCapture(on);
+      if(on&&nativeBankPlugin()&&!await nativeBankAccessGranted()){
+        showToast('Active B² dans l’accès aux notifications Android.');setTimeout(()=>openNativeBankAccess(),250)
+      }else showToast(on?'Notifications bancaires activées.':'Notifications bancaires désactivées.');
+      renderSettings();return
+    }
+    showToast('Préférence enregistrée.')
+  }));
+  $('#managePlus').addEventListener('click',()=>hasReferralPlus()&&!hasPaidPlus()?showPage('referral'):hasPaidPlus()?openSubscriptionManager():openPlus('B²+'));
+  $('#languageSetting')?.addEventListener('click',openLanguageModal)
 }
+function setPasswordVisibility(inputId,show){
+  const input=document.getElementById(inputId),btn=document.querySelector(`[data-password-toggle="${CSS.escape(inputId)}"]`);
+  if(!input)return;
+  input.type=show?'text':'password';
+  if(btn){
+    btn.dataset.visible=show?'1':'0';
+    btn.setAttribute('aria-label',show?'Masquer le mot de passe':'Afficher le mot de passe');
+    btn.innerHTML=show
+      ?'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3 21 21"/><path d="M10.6 6.9A9.8 9.8 0 0 1 12 6.8c6 0 9.2 5.2 9.2 5.2a15.4 15.4 0 0 1-2.8 3.3"/><path d="M6.2 6.2A15 15 0 0 0 2.8 12S6 17.2 12 17.2c1 0 1.9-.1 2.7-.4"/><path d="M10.3 10.3a2.4 2.4 0 0 0 3.4 3.4"/></svg>'
+      :'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.8 12s3.2-5.2 9.2-5.2S21.2 12 21.2 12 18 17.2 12 17.2 2.8 12 2.8 12Z"/><circle cx="12" cy="12" r="2.4"/></svg>';
+  }
+}
+document.addEventListener('click',e=>{
+  const btn=e.target.closest('[data-password-toggle]');if(!btn)return;
+  e.preventDefault();
+  const id=btn.dataset.passwordToggle,input=document.getElementById(id);
+  if(input)setPasswordVisibility(id,input.type==='password')
+});
+
 function switchHTML(key,title,sub,on){return `<div class="switch-row"><div class="switch-copy"><strong>${esc(title)}</strong><span>${esc(sub)}</span></div><button class="switch ${on?'on':''}" data-setting="${key}" type="button"><i></i></button></div>`}
-function renderReferral(){$('#referralContent').innerHTML=`<div class="card"><div class="card-title"><h3>Parrainer un proche</h3></div><div class="small muted">Le programme de parrainage arrivera plus tard. L'avantage sera affiché ici dès qu'il sera défini.</div></div><div class="card"><div class="fund-row"><div class="fund-top"><strong>${ico('group')} Invitation au budget partagé</strong></div><div class="fund-sub">Donne accès au même budget. Ce n'est pas un parrainage.</div></div><div class="fund-row"><div class="fund-top"><strong>${ico('spark')} Parrainage</strong></div><div class="fund-sub">Invite quelqu'un à créer son propre compte B².</div></div></div>`}
+function referralCode(){
+  if(b2ReferralStatus?.referralCode)return b2ReferralStatus.referralCode;
+  const id=String(cloudSession?.user?.id||authData()?.userId||'B2').replace(/[^a-z0-9]/gi,'').toUpperCase();
+  return `B2${(id||'INVITE').slice(0,8)}`
+}
+function referralLink(){return `${B2_SITE_URL}?ref=${encodeURIComponent(referralCode())}`}
+function referralStoreKey(){return `${B2_REFERRAL_INVITES_KEY}:${cloudSession?.user?.id||'local'}`}
+function referralInvites(){
+  try{const x=JSON.parse(localStorage.getItem(referralStoreKey())||'[]');return Array.isArray(x)?x:[]}catch(e){return []}
+}
+async function saveReferralInvite(channel,target){
+  try{
+    const rows=referralInvites();
+    rows.unshift({id:uid(),channel,target:String(target||'').trim(),createdAt:Date.now(),status:'sent'});
+    localStorage.setItem(referralStoreKey(),JSON.stringify(rows.slice(0,50)))
+  }catch(e){}
+  if(b2supabase&&cloudSession?.user){
+    try{
+      const {error}=await b2supabase.rpc('b2_log_referral_invite',{p_channel:String(channel||'share')});
+      if(error)throw error;
+      b2ReferralStatus.sentCount=Math.max(num(b2ReferralStatus.sentCount)+1,referralInvites().length);
+      persistReferralStatus()
+    }catch(e){console.warn('B² referral invite log',e)}
+  }
+}
+function confirmedReferralCount(){
+  return clamp(Math.round(num(b2ReferralStatus?.confirmedCount)),0,3)
+}
+function referralMessage(){
+  return `Je teste B², une appli simple pour préparer et suivre son budget. Si tu veux l’essayer, voici mon lien : ${referralLink()}`
+}
+async function copyReferralLink(){
+  try{await navigator.clipboard.writeText(referralLink());showToast('Lien de parrainage copié.')}
+  catch(e){showToast('Impossible de copier automatiquement le lien.')}
+}
+async function inviteReferralByEmail(){
+  const el=$('#referralEmail'),email=String(el?.value||'').trim();
+  if(!email||!email.includes('@')){showToast('Indique une adresse e-mail valide.');return}
+  await saveReferralInvite('email',email);
+  location.href=`mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent('Je t’invite à découvrir B²')}&body=${encodeURIComponent(referralMessage())}`;
+  setTimeout(renderReferral,250)
+}
+async function inviteReferralBySms(){
+  const el=$('#referralPhone'),raw=String(el?.value||'').trim(),phone=raw.replace(/[^\d+]/g,'');
+  if(phone.replace(/\D/g,'').length<8){showToast('Indique un numéro de téléphone valide.');return}
+  await saveReferralInvite('sms',phone);
+  location.href=`sms:${phone}?body=${encodeURIComponent(referralMessage())}`;
+  setTimeout(renderReferral,250)
+}
+async function shareReferralNative(){
+  if(navigator.share){
+    try{
+      await navigator.share({title:'Découvrir B²',text:'Je t’invite à découvrir B².',url:referralLink()});
+      await saveReferralInvite('share','partage système');renderReferral();return
+    }catch(e){if(e?.name==='AbortError')return}
+  }
+  copyReferralLink()
+}
+function renderReferral(){
+  const c=$('#referralContent'),
+    confirmed=confirmedReferralCount(),
+    pending=Math.max(0,Math.round(num(b2ReferralStatus?.pendingCount))),
+    sent=Math.max(referralInvites().length,Math.round(num(b2ReferralStatus?.sentCount))),
+    code=referralCode();
+
+  if(cloudSession?.user&&!b2ReferralRefreshing){
+    setTimeout(()=>refreshReferralStatus({render:false,silent:true}).then(()=>{
+      if(currentPage==='referral')renderReferral()
+    }),0)
+  }
+
+  const rewardStatus=hasReferralPlus()
+    ?`B²+ actif jusqu’au ${referralPlusDateText()}`
+    :(confirmed>=3?'3 mois gagnés · plafond atteint':confirmed?`${confirmed} mois gagné${confirmed>1?'s':''}`:'Aucun mois débloqué pour l’instant');
+
+  c.innerHTML=`
+    <div class="referral-hero">
+      <div class="referral-kicker">PARRAINAGE B²</div>
+      <h3>1 proche actif = 1 mois pour chacun</h3>
+      <p>Ton proche découvre B²+ pendant 1 mois et tu gagnes toi aussi 1 mois. Tu peux cumuler jusqu’à 3 mois offerts en parrainant.</p>
+      <div class="referral-reward">
+        <i class="referral-month ${confirmed>=1?'on':''}"></i>
+        <i class="referral-month ${confirmed>=2?'on':''}"></i>
+        <i class="referral-month ${confirmed>=3?'on':''}"></i>
+      </div>
+      <div class="referral-progress-label"><span>${confirmed}/3 mois gagnés</span><span>Maximum 3 mois pour toi</span></div>
+      <div class="referral-progress-label" style="margin-top:9px"><span>${esc(rewardStatus)}</span><span>${pending?`${pending} en attente`:''}</span></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><h3>Quand le parrainage est-il validé ?</h3></div>
+      <div class="fund-row">
+        <div class="fund-top"><strong>${ico('check')} Compte confirmé</strong></div>
+        <div class="fund-sub">Ton proche confirme son adresse e-mail.</div>
+      </div>
+      <div class="fund-row">
+        <div class="fund-top"><strong>${ico('grid')} Premier budget créé</strong></div>
+        <div class="fund-sub">Il configure réellement son premier budget B².</div>
+      </div>
+      <div class="fund-row">
+        <div class="fund-top"><strong>${ico('movement')} B² commencé pour de vrai</strong></div>
+        <div class="fund-sub">3 mouvements enregistrés, ou 1 mouvement réellement rapproché avec une notification bancaire.</div>
+      </div>
+      <div class="small muted" style="margin-top:10px">La validation est automatique dès que ces conditions sont remplies. Pour éviter les faux comptes, le parrain et le filleul doivent utiliser deux installations B² différentes.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><h3>Inviter un proche</h3></div>
+      <div class="small muted">La personne reçoit ton lien personnel. Le code de parrainage est attaché automatiquement à son nouveau compte.</div>
+
+      <div class="field" style="margin-top:13px">
+        <label for="referralEmail">Par e-mail</label>
+        <input id="referralEmail" type="email" autocomplete="email" placeholder="nom@exemple.fr">
+      </div>
+      <button class="btn btn-primary btn-full" id="referralEmailSend" type="button">Inviter par e-mail</button>
+
+      <div class="field" style="margin-top:14px">
+        <label for="referralPhone">Par téléphone</label>
+        <input id="referralPhone" type="tel" autocomplete="tel" inputmode="tel" placeholder="06 12 34 56 78">
+      </div>
+      <button class="btn btn-white btn-full" id="referralSmsSend" type="button">Inviter par SMS</button>
+
+      <div class="referral-methods">
+        <button class="btn btn-soft" id="referralShare" type="button">Partager</button>
+        <button class="btn btn-soft" id="referralCopy" type="button">Copier le lien</button>
+      </div>
+
+      <div class="referral-code">
+        <div><span>TON CODE</span><strong>${esc(code)}</strong></div>
+        <button class="btn-link" id="referralCopyCode" type="button">Copier</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><h3>Mon parrainage</h3></div>
+      <div class="referral-stat-grid" style="grid-template-columns:repeat(3,1fr)">
+        <div class="referral-stat"><span>Invitations</span><strong>${sent}</strong></div>
+        <div class="referral-stat"><span>En attente</span><strong>${pending}</strong></div>
+        <div class="referral-stat"><span>Validés</span><strong>${confirmed}/3</strong></div>
+      </div>
+      <div class="referral-note">Un filleul ne peut déclencher qu’une seule récompense. Le même compte ne peut avoir qu’un seul parrain. Les récompenses du parrain sont plafonnées à 3 mois.</div>
+    </div>`;
+
+  $('#referralEmailSend')?.addEventListener('click',inviteReferralByEmail);
+  $('#referralSmsSend')?.addEventListener('click',inviteReferralBySms);
+  $('#referralShare')?.addEventListener('click',shareReferralNative);
+  $('#referralCopy')?.addEventListener('click',copyReferralLink);
+  $('#referralCopyCode')?.addEventListener('click',async()=>{
+    try{await navigator.clipboard.writeText(code);showToast('Code copié.')}
+    catch(e){showToast(`Code : ${code}`)}
+  })
+}
 function analysisSnapshot(b){
   const tx=(b.transactions||[]), envs=(b.envelopes||[]).map(e=>({name:e.name,icon:e.icon||'💶',budget:num(e.amount),spent:e.spent!=null?num(e.spent):tx.filter(t=>t.type==='expense'&&String(t.categoryId)===String(e.id)).reduce((s,t)=>s+num(t.amount),0)}));
   return {cycleStart:b.cycleStart,cycleEnd:b.cycleEnd,expenses:b.expenses!=null?num(b.expenses):tx.filter(t=>t.type==='expense').reduce((s,t)=>s+num(t.amount),0),income:b.income!=null?num(b.income):plannedIncome(b)+extraIncome(b),provisions:b.provisionsTotal!=null?num(b.provisionsTotal):provisionsThisCycle(b),savings:b.savingsTotal!=null?num(b.savingsTotal):savingsThisCycle(b),reserve:num(b.reserve),envelopes:envs};
