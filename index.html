@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#075a4d">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<title>B² v13.01 — charges mensuelles temporaires</title>
+<title>B² v13.02 — disponible intégral, marge claire et prochaine période</title>
 <style>
 :root{
   --brand:#075a4d;--brand2:#0a7965;--brand3:#0f8f72;--lime:#b9ef68;
@@ -1413,6 +1413,21 @@ animation:b2HeroSquares 7.6s ease-in-out infinite
   .b2-final-overview{grid-template-columns:1fr 1fr}
 }
 
+
+/* v13.02 — marge visible + prochaine période */
+.b2-allocation-notice{margin:12px 0 14px!important}
+.b2-allocation-notice.urgent{border-color:rgba(183,74,56,.22);background:rgba(255,245,242,.96)}
+.b2-allocation-notice.calm{background:rgba(4,116,94,.045)}
+.b2-allocation-notice .btn{margin-top:10px}
+.b2-next-card{margin:12px 0 16px!important}
+.b2-next-card .card-title{align-items:center}
+.b2-next-card .card-title>span{font-size:12px;color:var(--muted);font-weight:750}
+.b2-next-main{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:10px}
+.b2-next-main>div{background:var(--soft);border-radius:14px;padding:11px 12px}
+.b2-next-main span{display:block;color:var(--muted);font-size:11px;margin-bottom:4px}
+.b2-next-main strong{font-size:16px}
+.b2-next-ended{margin-top:9px;padding:9px 10px;border-radius:12px;background:rgba(185,239,104,.15);font-size:12px;font-weight:700;color:var(--green)}
+
 </style>
 </head>
 <body>
@@ -2406,7 +2421,7 @@ function normalizeBudget(b){
       pets:['none','one','several'].includes(b.budgetProfile?.pets)?b.budgetProfile.pets:'none',
       clothing:['low','regular','high'].includes(b.budgetProfile?.clothing)?b.budgetProfile.clothing:'regular',
       leisure:['home','balanced','active'].includes(b.budgetProfile?.leisure)?b.budgetProfile.leisure:'balanced',
-      cushion:['tight','balanced','safe'].includes(b.budgetProfile?.cushion)?b.budgetProfile.cushion:'balanced',
+      cushion:b.budgetProfile?.cushion==='tight'?'full':(['full','balanced','safe'].includes(b.budgetProfile?.cushion)?b.budgetProfile.cushion:'balanced'),
       childStages:Array.isArray(b.budgetProfile?.childStages)?b.budgetProfile.childStages.filter(x=>['baby','school','teen'].includes(x)):[],
       childNeeds:Array.isArray(b.budgetProfile?.childNeeds)?b.budgetProfile.childNeeds.filter(x=>['canteen','childcare','activities'].includes(x)):[],
       priorities:Array.isArray(b.budgetProfile?.priorities)
@@ -2803,6 +2818,13 @@ function wizardUsesUpcomingIncomePlan(b){
   return num(ctx.cashNow)<=.01 || num(living.predictedBeforeIncome)<-.01
 }
 function wizardPlanningPool(b){
+  // Première période : le budget courant reste basé sur l'argent réellement
+  // disponible avant le prochain revenu. La paie suivante est montrée séparément
+  // dans l'aperçu "Prochaine période".
+  if(b?.startMode==='now'){
+    const current=r2(Math.max(0,pool(b)));
+    if(current>.01)return current;
+  }
   if(wizardUsesUpcomingIncomePlan(b)){
     const ctx=shortTermMoneyContext(b),living=estimatedLivingNeedUntilIncome(b,ctx),recovery=nextCycleRecoveryPlan(b,ctx,living);
     return r2(recovery.availableCapacity)
@@ -5244,24 +5266,168 @@ function renderHome(){
 }
 function envMini(b,e){const spent=spentFor(b,e.id),rem=envRemain(b,e),pct=e.amount?clamp(spent/e.amount*100,0,100):0;return `<div class="env-mini"><div class="env-icon">${ico(e.icon)}</div><div class="env-copy"><strong>${esc(e.name)}</strong><span>${Math.round(pct)} % utilisé</span><div class="progress ${rem<0?'over':''}"><i style="width:${pct}%"></i></div></div><div class="env-rem ${rem<0?'bad':''}"><small>${rem<0?'dépassé':'reste'}</small>${euro(Math.abs(rem))}</div></div>`}
 function txMini(t){const b=active(),pos=transactionPositive(t);return `<div class="tx-mini"><div class="tx-icon ${pos?'income':''}">${ico(transactionIcon(t))}</div><div class="tx-copy"><strong>${esc(t.label||t.category||'Mouvement')}</strong><span>${t.type==='transfer'?transactionSubtitle(b,t):fmtDate(t.date)+(t.kind==='refund'?' · remboursement':'')+(t.bankVerified?' · vérifié':'')}</span></div><div class="tx-amount ${pos?'income':''}">${transactionSign(t)} ${euro(t.amount)}</div></div>`}
+function nextPeriodForecast(b){
+  if(!b)return null;
+  const primary=primaryIncomeSource(b);
+  const start=primary?.nextDate||b.cycleEnd||addMonthsISO(todayISO(),1);
+  const sim=normalizeBudget(JSON.parse(JSON.stringify(b)));
+  sim.startMode='next';
+  sim.cycleStart=start;
+  sim.cycleEnd=addMonthsISO(start,1);
+  sim.startBalance=0;
+  sim.startCash=0;
+  sim.transactions=[];
+  sim.bankNotifications=[];
+  sim.oneOffs=[];
+  sim.exceptionalIncomes=[];
+
+  // Ce qui sera réellement encore actif après la clôture actuelle.
+  sim.fixed.forEach(x=>{
+    if(fixedDurationMode(x)==='months'&&x.dueThisCycle!==false){
+      x.remainingPayments=Math.max(0,Math.round(num(x.remainingPayments))-1)
+    }
+    x.dueThisCycle=true
+  });
+  sim.fixed=sim.fixed.filter(x=>{
+    const mode=fixedDurationMode(x);
+    if(mode==='months')return Math.round(num(x.remainingPayments))>0;
+    if(mode==='date')return fixedActiveInWindow(x,sim.cycleStart,sim.cycleEnd);
+    return true
+  });
+
+  sim.provisions.forEach((p,i)=>{
+    const original=(b.provisions||[]).find(x=>String(x.id)===String(p.id));
+    if(original?.status==='active'){
+      p.savedAmount=r2(Math.min(p.targetAmount,num(p.savedAmount)+provisionContribution(original,b)))
+    }
+    p.periodContributionDone=false;
+    p.cycleReduction=0
+  });
+  sim.savings.forEach(g=>{g.dueThisCycle=true;g.cycleReduction=0});
+  sim.reserve=r2(num(sim.reserveTarget||sim.reserve));
+  sim.reserveUsedThisCycle=0;
+
+  const income=normalCycleIncome(sim);
+  const protectedPart=normalCycleProtected(sim);
+  const variable=normalVariableCapacity(sim);
+  const share=profileAllocationShare(sim);
+  const envelopes=r2(variable*share);
+  const margin=r2(Math.max(0,variable-envelopes));
+  const plan=smartEnvelopeTargets(sim,envelopes);
+
+  const ended=(b.fixed||[]).filter(x=>!(sim.fixed||[]).some(y=>String(y.id)===String(x.id)));
+  return {start,end:sim.cycleEnd,income,protected:protectedPart,variable,envelopes,margin,plan,sim,ended}
+}
+function nextPeriodCard(b){
+  const f=nextPeriodForecast(b);if(!f)return '';
+  const primary=primaryIncomeSource(b);
+  return `<div class="card b2-next-card">
+    <div class="card-title"><h3>Prochaine période</h3><span>${fmtDate(f.start)}</span></div>
+    <div class="b2-next-main">
+      <div><span>Revenus prévus</span><strong>＋ ${euro(f.income)}</strong></div>
+      <div><span>Pour les enveloppes</span><strong>≈ ${euro(f.envelopes)}</strong></div>
+    </div>
+    <div class="small muted" style="line-height:1.45;margin-top:8px">
+      Après environ ${euro(f.protected.total)} de charges, épargne et sommes à protéger.
+      ${f.margin>.01?` B² prévoit aussi ${euro(f.margin)} de marge.`:' Tout le disponible restant sera réparti.'}
+    </div>
+    ${f.ended.length?`<div class="b2-next-ended">✓ ${f.ended.length===1?`« ${esc(f.ended[0].name)} » s’arrête`:`${f.ended.length} charges temporaires s’arrêtent`} avant ou pendant cette nouvelle période.</div>`:''}
+    <button class="btn btn-white btn-full" id="pilotNextPeriod" type="button" style="margin-top:10px">Voir la projection</button>
+  </div>`
+}
+function openNextPeriodPreview(b){
+  const f=nextPeriodForecast(b);if(!f)return;
+  const rows=(b.envelopes||[]).map(e=>{
+    const amount=r2(num(f.plan?.targets?.[e.id]));
+    return `<div class="b2-details-row"><span>${ico(e.icon)} ${esc(e.name)}</span><b>≈ ${euro(amount)}</b></div>`
+  }).join('')||'<div class="help">Aucune enveloppe sélectionnée.</div>';
+
+  openSimple(
+    'Ta prochaine période',
+    `À partir du ${fmtDateFull(f.start)}, B² repartira avec ton nouveau revenu et les charges encore actives.`,
+    `<div class="card flat">
+      <div class="summary-line"><span>Revenus habituels</span><strong>＋ ${euro(f.income)}</strong></div>
+      <div class="summary-line"><span>Charges + épargne + sommes protégées</span><strong>− ${euro(f.protected.total)}</strong></div>
+      <div class="summary-line"><span>Disponible variable</span><strong>${euro(f.variable)}</strong></div>
+      <div class="summary-line"><span>Proposé dans les enveloppes</span><strong>${euro(f.envelopes)}</strong></div>
+      ${f.margin>.01?`<div class="summary-line"><span>Marge volontaire</span><strong>${euro(f.margin)}</strong></div>`:''}
+    </div>
+    <div class="section-title"><h3>Répartition envisagée</h3></div>
+    <div class="card flat">${rows}</div>
+    <div class="status info"><strong>Au changement de période</strong><br>B² te proposera de garder cette répartition ou d’ajuster directement tes enveloppes avant de démarrer la nouvelle période.</div>`,
+    ()=>true
+  );
+  $('#simpleSave').textContent='Compris'
+}
 function renderPilot(){
   const b=active(),c=$('#pilotContent');if(!b){c.innerHTML=`<div class="card"><div class="empty">Crée d’abord un compte.</div></div>`;return}
   syncProvisionStatuses(b);
-  const tabs=`<div class="pilot-tabs"><button class="pilot-tab ${pilotTab==='envelopes'?'on':''}" data-ptab="envelopes" type="button">Mes enveloppes</button><button class="pilot-tab ${pilotTab==='charges'?'on':''}" data-ptab="charges" type="button">Mes charges</button><button class="pilot-tab ${pilotTab==='aside'?'on':''}" data-ptab="aside" type="button">À préparer</button><button class="pilot-tab ${pilotTab==='savings'?'on':''}" data-ptab="savings" type="button">Épargne</button></div>`;
-  let body='';
-  if(pilotTab==='envelopes')body=`<div class="pilot-section-head"><div><strong>Mes enveloppes</strong><span>Verrouille celles auxquelles B² ne doit pas toucher automatiquement.</span></div></div>${b.envelopes.map(e=>envelopeCard(b,e)).join('')||'<div class="card"><div class="empty">Aucune enveloppe pour l’instant.</div></div>'}${b.envelopes.length&&Math.abs(unallocated(b))>.01?`<div class="status info">${unallocated(b)>0?`${euro(unallocated(b))} restent libres.`:`${euro(-unallocated(b))} à récupérer.`}</div><button class="btn btn-white btn-full" id="pilotBalance" type="button">${unallocated(b)>0?'Répartir le montant libre':'Rééquilibrer les dépenses'}</button>`:''}`;
 
-  if(pilotTab==='charges')body=`<div class="card"><div class="card-title"><h3>Mes charges</h3><button class="btn-link" id="pilotEditExpenses" type="button">Modifier</button></div>${[...b.fixed.map(x=>({...x,_fixed:true})),...b.oneOffs].map(x=>`<div class="fund-row"><div class="fund-top"><strong>${ico(billIconForName(x.name))} ${esc(x.name)}</strong><b>${euro(x.amount)}</b></div><div class="fund-sub">${x._fixed?fixedTimingText(b,x):'Paiement prévu et protégé par B²'}</div></div>`).join('')||'<div class="empty">Aucune charge prévue.</div>'}</div>`;
+  const tabs=`<div class="pilot-tabs"><button class="pilot-tab ${pilotTab==='envelopes'?'on':''}" data-ptab="envelopes" type="button">Mes enveloppes</button><button class="pilot-tab ${pilotTab==='charges'?'on':''}" data-ptab="charges" type="button">Mes charges</button><button class="pilot-tab ${pilotTab==='aside'?'on':''}" data-ptab="aside" type="button">À préparer</button><button class="pilot-tab ${pilotTab==='savings'?'on':''}" data-ptab="savings" type="button">Épargne</button></div>`;
+
+  const free=r2(unallocated(b));
+  const mode=profileCushionMode(b);
+  const targetMargin=intentionalMarginTarget(b);
+  const surplus=r2(free-targetMargin);
+
+  let allocationNotice='';
+  if(pilotTab==='envelopes'&&free>.01){
+    if(mode==='full'){
+      allocationNotice=`<div class="card b2-allocation-notice urgent">
+        <div class="status-icon-row"><div class="status-icon">${ico('money')}</div><div class="square-copy">
+          <strong>${euro(free)} à répartir</strong>
+          <span>Tu as choisi d’utiliser tout ton disponible : cette somme ne doit pas rester sans enveloppe.</span>
+        </div></div>
+        <button class="btn btn-primary btn-full" id="pilotUseAll" type="button">Répartir maintenant</button>
+      </div>`
+    }else if(surplus>2){
+      allocationNotice=`<div class="card b2-allocation-notice">
+        <div class="status-icon-row"><div class="status-icon">${ico('shield')}</div><div class="square-copy">
+          <strong>${euro(free)} non répartis</strong>
+          <span>Ta ${mode==='safe'?'marge confortable':'petite marge'} prévue est d’environ ${euro(targetMargin)}. Il reste donc ${euro(surplus)} de plus à répartir.</span>
+        </div></div>
+        <button class="btn btn-white btn-full" id="pilotRestoreMargin" type="button">Répartir le surplus</button>
+      </div>`
+    }else{
+      allocationNotice=`<div class="card b2-allocation-notice calm">
+        <div class="status-icon-row"><div class="status-icon">${ico('shield')}</div><div class="square-copy">
+          <strong>${euro(free)} de marge volontaire</strong>
+          <span>Tu as choisi de garder ${mode==='safe'?'une marge confortable':'une petite marge'} hors de tes enveloppes.</span>
+        </div></div>
+        <button class="btn btn-soft btn-full" id="pilotUseMargin" type="button">Utiliser aussi cette marge</button>
+      </div>`
+    }
+  }
+  if(pilotTab==='envelopes'&&free<-.01){
+    allocationNotice=`<div class="card b2-allocation-notice urgent">
+      <div class="status-icon-row"><div class="status-icon">${ico('warning')}</div><div class="square-copy">
+        <strong>${euro(-free)} à récupérer</strong>
+        <span>Les enveloppes dépassent le montant réellement disponible.</span>
+      </div></div>
+      <button class="btn btn-primary btn-full" id="pilotBalance" type="button">Rééquilibrer</button>
+    </div>`
+  }
+
+  let body='';
+  if(pilotTab==='envelopes')body=`<div class="pilot-section-head"><div><strong>Mes enveloppes</strong><span>Verrouille celles auxquelles B² ne doit pas toucher automatiquement.</span></div></div>${b.envelopes.map(e=>envelopeCard(b,e)).join('')||'<div class="card"><div class="empty">Aucune enveloppe pour l’instant.</div></div>'}`;
+
+  if(pilotTab==='charges')body=`<div class="card"><div class="card-title"><h3>Mes charges</h3><button class="btn-link" id="pilotEditExpenses" type="button">Modifier</button></div>${[...b.fixed.map(x=>({...x,_fixed:true})),...b.oneOffs].map(x=>`<div class="fund-row"><div class="fund-top"><strong>${ico(billIconForName(x.name))} ${esc(x.name)}</strong><b>${euro(x.amount)}</b></div><div class="fund-sub">${x._fixed?`${fixedTimingText(b,x)} · ${fixedDurationShort(x)}`:'Paiement prévu et protégé par B²'}</div></div>`).join('')||'<div class="empty">Aucune charge prévue.</div>'}</div>`;
 
   if(pilotTab==='aside')body=`<div class="card"><div class="card-title"><h3>À préparer pour plus tard</h3><button class="btn-link" id="pilotEditBudgetAside" type="button">Modifier</button></div>${b.provisions.length?b.provisions.map(p=>fundProvision(b,p)).join(''):'<div class="empty">Rien à préparer pour l’instant.</div>'}</div><div class="card flat"><div class="status-icon-row"><div class="status-icon">${ico('shield')}</div><div class="square-copy"><strong>${euro(provisionsThisCycle(b))} protégés pour cette période</strong><span>Cet argent est déjà réservé pour ces dépenses futures.</span></div></div></div>`;
-  if(pilotTab==='savings')body=`<div class="card"><div class="card-title"><h3>Mon épargne</h3><button class="btn-link" id="pilotEditBudgetSaving" type="button">Modifier</button></div>${b.savings.length?b.savings.map(fundSaving).join(''):'<div class="empty">Aucune épargne prévue.</div>'}</div>${b.savings.length?`<div class="card flat"><div class="status-icon-row"><div class="status-icon">${ico('target')}</div><div class="square-copy"><strong>${euro(savingsThisCycle(b))} réservés à l’épargne pour cette période</strong><span>B² ne les compte pas dans l’argent à dépenser.</span></div></div></div>`:''}<div class="card"><div class="card-title"><h3>Réserve de sécurité</h3><strong>${euro(b.reserve)}</strong></div><div class="small muted">Disponible seulement si tu décides de l’utiliser pour un imprévu. Elle n’entre jamais dans la marge quotidienne.</div></div>`
+
+  if(pilotTab==='savings')body=`<div class="card"><div class="card-title"><h3>Mon épargne</h3><button class="btn-link" id="pilotEditBudgetSaving" type="button">Modifier</button></div>${b.savings.length?b.savings.map(fundSaving).join(''):'<div class="empty">Aucune épargne prévue.</div>'}</div>${b.savings.length?`<div class="card flat"><div class="status-icon-row"><div class="status-icon">${ico('target')}</div><div class="square-copy"><strong>${euro(savingsThisCycle(b))} réservés à l’épargne pour cette période</strong><span>B² ne les compte pas dans l’argent à dépenser.</span></div></div></div>`:''}<div class="card"><div class="card-title"><h3>Réserve de sécurité</h3><strong>${euro(b.reserve)}</strong></div><div class="small muted">Disponible seulement si tu décides de l’utiliser pour un imprévu. Elle n’entre jamais dans la marge quotidienne.</div></div>`;
+
   const now=pilotTab==='envelopes'?pilotNowCard(b):'';
-  c.innerHTML=`<div class="pilot-hero"><div class="pilot-total"><div><span>DISPONIBLE À UTILISER</span><br><strong class="${remaining(b)<0?'bad':''}">${euro(remaining(b))}</strong></div><div style="text-align:right"><span>${householdLabel(b)}</span><br><span>${b.type==='shared'?'Budget partagé':'Budget personnel'}</span></div></div>${tabs}</div>${now}${body}`;
+  const future=pilotTab==='envelopes'?nextPeriodCard(b):'';
+
+  c.innerHTML=`<div class="pilot-hero"><div class="pilot-total"><div><span>DISPONIBLE À UTILISER</span><br><strong class="${remaining(b)<0?'bad':''}">${euro(remaining(b))}</strong></div><div style="text-align:right"><span>${householdLabel(b)}</span><br><span>${b.type==='shared'?'Budget partagé':'Budget personnel'}</span></div></div>${tabs}</div>${now}${allocationNotice}${future}${body}`;
+
   const pilotAd=adCard('pilot');
   if(pilotAd){
     const anchor=pilotTab==='envelopes'?c.querySelector('.envelope-card'):c.querySelector('.pilot-hero + .card');
     (anchor||c.querySelector('.pilot-hero'))?.insertAdjacentHTML('afterend',pilotAd)
   }
+
   wireAds(c);
   $$('[data-ptab]',c).forEach(x=>x.addEventListener('click',()=>{pilotTab=x.dataset.ptab;state.ui.pilotTab=pilotTab;renderPilot()}));
   $$('[data-toggle-env-lock]',c).forEach(x=>x.addEventListener('click',ev=>{ev.stopPropagation();const e=b.envelopes.find(v=>String(v.id)===String(x.dataset.toggleEnvLock));if(!e)return;e.locked=!e.locked;save();showToast(e.locked?`${e.name} : protection activée.`:`${e.name} : B² peut de nouveau l’ajuster.`);renderPilot()}));
@@ -5273,12 +5439,20 @@ function renderPilot(){
   $('#pilotNowBalance')?.addEventListener('click',()=>openBalanceAssistant('auto'));
   $('#pilotNowInbox')?.addEventListener('click',()=>openNotificationCenter());
   $('#pilotNowMovements')?.addEventListener('click',()=>showPage('movements'));
+  $('#pilotNextPeriod')?.addEventListener('click',()=>openNextPeriodPreview(b));
+  $('#pilotUseAll')?.addEventListener('click',()=>{autoBalance(b,1);renderPilot()});
+  $('#pilotUseMargin')?.addEventListener('click',()=>{autoBalance(b,1);renderPilot()});
+  $('#pilotRestoreMargin')?.addEventListener('click',()=>{autoBalance(b,profileAllocationShare(b));renderPilot()});
   $$('[data-pilot-focus]',c).forEach(x=>x.addEventListener('click',()=>{
     const target=c.querySelector(`[data-env-card="${CSS.escape(String(x.dataset.pilotFocus))}"]`);
     target?.scrollIntoView({behavior:'smooth',block:'center'});
   }));
-  $('#pilotBalance')?.addEventListener('click',()=>openBalanceAssistant('auto'));$('#pilotEditBudgetAside')?.addEventListener('click',()=>startWizard(b.id,3));$('#pilotEditBudgetSaving')?.addEventListener('click',()=>startWizard(b.id,4));$$('[data-smart-saving]',c).forEach(x=>x.addEventListener('click',()=>openSmartSaving(x.dataset.smartSaving)));
+  $('#pilotBalance')?.addEventListener('click',()=>openBalanceAssistant('auto'));
+  $('#pilotEditBudgetAside')?.addEventListener('click',()=>startWizard(b.id,3));
+  $('#pilotEditBudgetSaving')?.addEventListener('click',()=>startWizard(b.id,4));
+  $$('[data-smart-saving]',c).forEach(x=>x.addEventListener('click',()=>openSmartSaving(x.dataset.smartSaving)));
 }
+
 function envelopeCard(b,e){const spent=spentFor(b,e.id),rem=envRemain(b,e),pct=e.amount?clamp(spent/e.amount*100,0,100):0;return `<div class="envelope-card ${rem<0?'over':''}" data-env-card="${e.id}"><div class="envelope-top"><div class="env-icon">${ico(e.icon)}</div><div class="envelope-title"><div class="envelope-title-line"><strong>${esc(e.name)}</strong><button class="env-lock-quick ${e.locked?'on':''}" data-toggle-env-lock="${e.id}" type="button" aria-label="${e.locked?'Déverrouiller':'Protéger'} ${esc(e.name)}" title="${e.locked?'Protégée : B² n’y touche pas':'Autoriser B² à protéger cette enveloppe'}">${e.locked?'🔒':'🔓'}</button></div><span>${Math.round(pct)} % utilisé${e.locked?' · protégée':''}</span></div><div class="envelope-amount"><strong class="${rem<0?'env-rem bad':''}">${euro(Math.abs(rem))}</strong><span>${rem<0?'dépassé':'restant'}</span></div></div><div class="progress ${rem<0?'over':''}" style="margin-top:9px"><i style="width:${pct}%"></i></div><div class="env-tags">${priorityTag(e)}<button class="adjust-btn" data-edit-env="${e.id}" type="button">Ajuster</button></div></div>`}
 function recurringLabel(p){return p.recurringMonths===12?'Chaque année':p.recurringMonths?`Tous les ${p.recurringMonths} mois`:''}
 function fundProvision(b,p){
@@ -6553,7 +6727,7 @@ function budgetProfileOf(b){
     pets:['none','one','several'].includes(p.pets)?p.pets:'none',
     clothing:['low','regular','high'].includes(p.clothing)?p.clothing:'regular',
     leisure:['home','balanced','active'].includes(p.leisure)?p.leisure:'balanced',
-    cushion:['tight','balanced','safe'].includes(p.cushion)?p.cushion:'balanced',
+    cushion:p.cushion==='tight'?'full':(['full','balanced','safe'].includes(p.cushion)?p.cushion:'balanced'),
     childStages:Array.isArray(p.childStages)?p.childStages.filter(x=>['baby','school','teen'].includes(x)):[],
     childNeeds:Array.isArray(p.childNeeds)?p.childNeeds.filter(x=>['canteen','childcare','activities'].includes(x)):[],
     priorities
@@ -6562,9 +6736,20 @@ function budgetProfileOf(b){
 function profileHas(p,key){return Array.isArray(p?.priorities)&&p.priorities.includes(key)}
 function profileChildStage(p,key){return Array.isArray(p?.childStages)&&p.childStages.includes(key)}
 function profileChildNeed(p,key){return Array.isArray(p?.childNeeds)&&p.childNeeds.includes(key)}
-function profileAllocationShare(b){
+function profileCushionMode(b){
   const p=budgetProfileOf(b);
-  return p.cushion==='tight'?.99:p.cushion==='safe'?.88:.94
+  return ['full','balanced','safe'].includes(p.cushion)?p.cushion:'balanced'
+}
+function profileAllocationShare(b){
+  const mode=profileCushionMode(b);
+  return mode==='full'?1:mode==='safe'?.88:.95
+}
+function profileMarginLabel(b){
+  const mode=profileCushionMode(b);
+  return mode==='full'?'Tout le disponible est réparti':mode==='safe'?'Marge confortable':'Petite marge'
+}
+function intentionalMarginTarget(b){
+  return r2(Math.max(0,pool(b)*(1-profileAllocationShare(b))))
 }
 function profileRecommendedCategories(b){
   const p=budgetProfileOf(b),h=b.household||{adults:1,children:0},out=[];
@@ -6680,8 +6865,10 @@ function allocationWeight(e,b){
 
   return Math.max(.35,w)*[1,1.65,2.3][priorityRank(e)]
 }
-function autoBalance(b){
-  const before=amountMap(b),target=Math.max(0,pool(b)*profileAllocationShare(b)),
+function autoBalance(b,shareOverride=null){
+  const before=amountMap(b);
+  const share=shareOverride==null?profileAllocationShare(b):clamp(num(shareOverride),0,1);
+  const target=Math.max(0,pool(b)*share),
     locked=b.envelopes.filter(e=>e.locked),free=b.envelopes.filter(e=>!e.locked);
   let lockedTotal=locked.reduce((s,e)=>s+Math.max(e.amount,spentFor(b,e.id)),0);
   if(lockedTotal>target+.01){showToast('Les enveloppes protégées dépassent déjà l’argent disponible.');return}
@@ -6693,12 +6880,11 @@ function autoBalance(b){
     a=Math.max(min,a);e.amount=a;assigned=r2(assigned+a)
   });
   save();
-  showToast('Répartition recalculée.','Annuler',()=>{
+  showToast(share>=.999?'Tout le disponible est réparti.':'Répartition recalculée.','Annuler',()=>{
     b.envelopes.forEach(e=>e.amount=before[e.id]??e.amount);
     save();showToast('Répartition annulée.')
   })
 }
-
 
 function sharedMemberCard(m){
   return `<div class="member-card"><div class="member-avatar">${esc((m.name||'?').trim().slice(0,1).toUpperCase())}</div><div class="member-main"><strong>${esc(m.name)}${m.current?' · vous':''}</strong><span>${m.role==='owner'?'Propriétaire du budget':'Membre du budget'}</span><span class="member-status ${m.status==='joined'?'joined':'pending'}">${memberStatusLabel(m)}</span></div>${m.contribution>0?`<strong>${euro(m.contribution)}</strong>`:''}</div>`
@@ -6994,11 +7180,11 @@ function renderWizardBase(){
       <div class="card profile-card">
         <div class="profile-question">
           <strong>Quelle marge veux-tu garder ?</strong>
-          <span>En plus de ta réserve d’imprévus, B² peut éviter d’attribuer chaque euro aux enveloppes.</span>
+          <span>Après tes charges, ton épargne et ta réserve, choisis ce que B² fait du reste disponible.</span>
           <div class="profile-options">
-            <button class="profile-option ${p.cushion==='tight'?'on':''}" data-profile-cushion="tight" type="button">${ico('money')}<span>Répartir presque tout</span></button>
-            <button class="profile-option ${p.cushion==='balanced'?'on':''}" data-profile-cushion="balanced" type="button">${ico('shield')}<span>Garder un peu de marge</span></button>
-            <button class="profile-option ${p.cushion==='safe'?'on':''}" data-profile-cushion="safe" type="button">${ico('shield')}<span>Garder une vraie marge</span></button>
+            <button class="profile-option ${p.cushion==='full'?'on':''}" data-profile-cushion="full" type="button">${ico('money')}<span>Utiliser tout mon disponible</span></button>
+            <button class="profile-option ${p.cushion==='balanced'?'on':''}" data-profile-cushion="balanced" type="button">${ico('shield')}<span>Garder une petite marge</span></button>
+            <button class="profile-option ${p.cushion==='safe'?'on':''}" data-profile-cushion="safe" type="button">${ico('shield')}<span>Garder une marge confortable</span></button>
           </div>
         </div>
       </div>
@@ -7071,11 +7257,11 @@ function renderWizardBase(){
       ${wizard.envelopes.length?`
         <div class="b2-final-overview">
           <div><span>Dans tes enveloppes</span><strong>${euro(allocated(wizard))}</strong></div>
-          <div><span>Marge gardée</span><strong>${euro(margin)}</strong></div>
+          <div><span>${profileCushionMode(wizard)==='full'?'Reste à répartir':'Marge gardée'}</span><strong>${euro(margin)}</strong></div>
         </div>
 
         <div class="section-title"><h3>Tes enveloppes</h3></div>
-        <div class="b2-final-simple-note">${ico('spark')}<span>B² a réparti selon ton budget et ton quotidien. Modifie un montant si tu veux : rien n’est imposé.</span></div>
+        <div class="b2-final-simple-note">${ico('spark')}<span>${profileCushionMode(wizard)==='full'?'Tu as choisi d’utiliser tout le disponible restant.':`Tu as choisi de garder ${profileCushionMode(wizard)==='safe'?'une marge confortable':'une petite marge'} hors des enveloppes.`} B² a réparti le reste selon ton budget et ton quotidien.</span></div>
         <div class="b2-final-env-list" id="wAlloc">${wizard.envelopes.map(wizardFinalEnvelopeRow).join('')}</div>
       `:''}
 
@@ -7684,16 +7870,29 @@ function renderEndPeriodReview(){
   const c=$('#closingContent'),r=closingReview;if(!r)return;
   const expenseRows=r.oneOffs.map(x=>`<div class="summary-line"><span>${esc(x.name)}</span><strong>− ${euro(x.amount)}</strong></div>`).join('');
   const incomeRows=r.incomes.map(x=>`<div class="summary-line"><span>${esc(x.name)}</span><strong>＋ ${euro(x.amount)}</strong></div>`).join('');
-  const b=active(),learn=b?learningSuggestions(b):[];
+  const b=active(),learn=b?learningSuggestions(b):[],future=b?nextPeriodForecast(b):null;
+
   const learnHTML=learn.length?`<div class="section-title"><h3>Ce que B² a appris</h3></div><div class="card learn-card"><div class="small muted" style="line-height:1.45;margin-bottom:3px">Seulement des propositions pour la prochaine période. Rien ne change sans ton accord.</div>${learn.map(x=>{const applied=r.envelopeUpdates?.[x.envId]!=null;return `<div class="learn-row"><div class="learn-row-top"><div class="learn-row-main"><strong>${esc(x.name)}</strong><span>${x.periods===1?'Première période observée':`${x.periods} périodes observées`} · prévu ${euro(x.current)} · dépenses autour de ${euro(x.typical)}.</span></div></div><div class="learn-actions"><button class="${!applied?'on':''}" data-learn-keep="${x.envId}" type="button">Garder ${euro(x.current)}</button><button class="${applied?'on':''}" data-learn-apply="${x.envId}" data-value="${x.proposed}" type="button">${applied?'✓ ':''}Ajuster à ${euro(x.proposed)}</button></div></div>`}).join('')}</div>`:'';
-  c.innerHTML=`<div class="card"><div class="card-title"><h3>Avant de préparer la suite</h3></div><div class="small muted" style="line-height:1.5">Y a-t-il quelque chose de nouveau à prévoir ?</div></div>
+
+  const futureHTML=future?`<div class="card b2-next-card">
+    <div class="card-title"><h3>Ta nouvelle période</h3><span>${fmtDate(future.start)}</span></div>
+    <div class="b2-next-main">
+      <div><span>Revenus prévus</span><strong>＋ ${euro(future.income)}</strong></div>
+      <div><span>Enveloppes estimées</span><strong>≈ ${euro(future.envelopes)}</strong></div>
+    </div>
+    <div class="small muted" style="line-height:1.45;margin-top:8px">Après environ ${euro(future.protected.total)} de charges, épargne et sommes protégées.${future.margin>.01?` B² garderait ${euro(future.margin)} de marge.`:' Tout le disponible restant peut être réparti.'}</div>
+  </div>`:'';
+
+  c.innerHTML=`${futureHTML}
+  <div class="card"><div class="card-title"><h3>Avant de démarrer la suite</h3></div><div class="small muted" style="line-height:1.5">Ajoute ce qui change, puis choisis si tu veux reprendre directement tes enveloppes pour la nouvelle période.</div></div>
   <div class="choice-stack">
     <button class="choice" id="addNextExpense" type="button"><span class="choice-icon">${ico('calendar')}</span><div><strong>Nouvelle dépense exceptionnelle</strong><span>Ex. réparation, sortie, facture ponctuelle…</span></div></button>
     <button class="choice" id="addNextIncome" type="button"><span class="choice-icon">${ico('euro')}</span><div><strong>Nouveau revenu exceptionnel</strong><span>Ex. prime, remboursement, vente…</span></div></button>
-    <button class="choice ${r.editBudget?'on':''}" id="reviewBudgetNext" type="button"><span class="choice-icon">${ico('settings')}</span><div><strong>Revoir mon budget</strong><span>${r.editBudget?'B² ouvrira les réglages après cette étape.':'Revenus, charges, épargne ou enveloppes ont changé.'}</span></div></button>
+    <button class="choice ${r.editBudget?'on':''}" id="reviewBudgetNext" type="button"><span class="choice-icon">${ico('grid')}</span><div><strong>Ajuster mes enveloppes pour la nouvelle période</strong><span>${r.editBudget?'✓ B² ouvrira directement tes enveloppes après la clôture.':'Catégories, priorités et montants pourront être affinés avant de repartir.'}</span></div></button>
   </div>
   ${(r.oneOffs.length||r.incomes.length)?`<div class="section-title"><h3>Ajouté pour la suite</h3></div><div class="card flat">${expenseRows}${incomeRows}</div>`:''}${learnHTML}
-  <button class="btn btn-primary btn-full" id="finishPeriodReview" type="button" style="margin-top:12px">${r.editBudget?'Préparer puis revoir mon budget':'Préparer la suite'}</button>`;
+  <button class="btn btn-primary btn-full" id="finishPeriodReview" type="button" style="margin-top:12px">${r.editBudget?'Créer la période puis ajuster mes enveloppes':'Démarrer la nouvelle période'}</button>`;
+
   $('#addNextExpense').addEventListener('click',()=>openSimple('Dépense exceptionnelle','Elle sera prévue une seule fois dans la prochaine période.',`<div class="field"><label for="simpleName">Nom</label><input id="simpleName" placeholder="Ex. Réparation voiture"></div><div class="field"><label for="simpleAmount">Montant</label><input id="simpleAmount" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0,00"></div>`,()=>{const name=$('#simpleName').value.trim(),amount=num($('#simpleAmount').value);if(!name||amount<=0){showToast('Indique un nom et un montant.');return false}r.oneOffs.push({id:uid(),name,amount:r2(amount)});setTimeout(renderEndPeriodReview,0);return true}));
   $('#addNextIncome').addEventListener('click',()=>openSimple('Revenu exceptionnel','Il sera compté une seule fois dans la prochaine période.',`<div class="field"><label for="simpleName">Nom</label><input id="simpleName" placeholder="Ex. Prime"></div><div class="field"><label for="simpleAmount">Montant</label><input id="simpleAmount" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0,00"></div>`,()=>{const name=$('#simpleName').value.trim(),amount=num($('#simpleAmount').value);if(!name||amount<=0){showToast('Indique un nom et un montant.');return false}r.incomes.push({id:uid(),name,amount:r2(amount)});setTimeout(renderEndPeriodReview,0);return true}));
   $('#reviewBudgetNext').addEventListener('click',()=>{r.editBudget=!r.editBudget;renderEndPeriodReview()});
@@ -7737,7 +7936,7 @@ function finishCycle(carry,held,reserveRecovery=0,nextOneOffs=[],nextIncomes=[],
 
   // Une charge mensuelle temporaire avance d'un versement à chaque période clôturée.
   b.fixed.forEach(x=>{
-    if(fixedDurationMode(x)==='months')x.remainingPayments=Math.max(0,Math.round(num(x.remainingPayments))-1);
+    if(fixedDurationMode(x)==='months'&&x.dueThisCycle!==false)x.remainingPayments=Math.max(0,Math.round(num(x.remainingPayments))-1);
     x.dueThisCycle=true
   });
   b.fixed=b.fixed.filter(x=>{
@@ -7750,7 +7949,7 @@ function finishCycle(carry,held,reserveRecovery=0,nextOneOffs=[],nextIncomes=[],
   b.startMode='next';b.nextIncomeDate=b.cycleEnd;
   save();
   showToast('Nouvelle période prête. La précédente est archivée.');
-  if(editAfter){startWizard(b.id,2);return}
+  if(editAfter){startWizard(b.id,6);return}
   showPage('home');
 }
 function closeWizard(){captureWizard();if(wizard&&!wizardEditId)saveWizardDraft();if(confirm('Quitter la création maintenant ?'))showPage('budgets')}
