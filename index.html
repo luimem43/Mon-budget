@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#075a4d">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<title>B² v12.93 — compréhension vocale étendue et apprenante</title>
+<title>B² v12.94 — notifications bancaires Android intelligentes</title>
 <style>
 :root{
   --brand:#075a4d;--brand2:#0a7965;--brand3:#0f8f72;--lime:#b9ef68;
@@ -4256,16 +4256,34 @@ function findPlannedBankMatch(b,n){
   return {...top,ambiguous:!!second&&second.score>=top.score-2,confidence:bankConfidence(top.score)}
 }
 function parseBankNotificationText(raw){
-  const t=String(raw||'').trim(),low=normalizeSpeechText(t);
-  const amounts=[...t.matchAll(/([+-]?\s*\d{1,6}(?:[.,]\d{1,2})?)\s*(?:€|eur)\b/gi)];
-  let amount=0;if(amounts.length)amount=Math.abs(num(String(amounts[0][1]).replace(/\s/g,'').replace(',','.')));
-  let type=/\b(recu|reçu|credit|credite|crédité|virement recu|versement|salaire)\b/i.test(t)||/\+\s*\d/.test(t)?'income':'expense';
+  const t=String(raw||'').replace(/\s+/g,' ').trim(),low=normalizeSpeechText(t);
+  const amounts=[...t.matchAll(/([+-]?\s*\d{1,6}(?:[.,]\d{1,2})?)\s*(?:€|eur(?:os?)?)\b/gi)];
+  let amount=0;
+  if(amounts.length)amount=Math.abs(num(String(amounts[0][1]).replace(/\s/g,'').replace(',','.')));
+  if(!amount){
+    const m=t.match(/\b(?:montant|paiement|achat|transaction|debit|débit|credit|crédit)\s*[:\-]?\s*([+-]?\d{1,6}(?:[.,]\d{1,2})?)/i);
+    if(m)amount=Math.abs(num(String(m[1]).replace(',','.')))
+  }
+
+  const incomeRx=/\b(recu|reçu|credit|credite|crédité|virement recu|virement reçu|versement|salaire|remboursement reçu|remboursement recu)\b/i;
+  let type=incomeRx.test(t)||/\+\s*\d/.test(t)?'income':'expense';
+
   let merchant='';
-  const m=t.match(/\b(?:chez|commercant|commerçant|enseigne)\s*[:\-]?\s*([^,;|]+)/i);
-  if(m)merchant=m[1].trim();
-  if(!merchant){
-    const m2=t.match(/\b(?:a|à|au)\s+([A-Za-zÀ-ÿ0-9][^,;|]{2,40})/);
-    if(m2)merchant=m2[1].trim()
+  const patterns=[
+    /\b(?:chez|commercant|commerçant|enseigne|commerce|marchand)\s*[:\-]?\s*([^,;|]{2,60})/i,
+    /\b(?:paiement|achat|transaction)\s+(?:carte\s+)?(?:chez|à|a|au)\s+([^,;|]{2,60})/i,
+    /\b(?:à|a|au)\s+([A-Za-zÀ-ÿ0-9][^,;|]{2,50})/i
+  ];
+  for(const rx of patterns){
+    const m=t.match(rx);
+    if(m){merchant=m[1].trim();break}
+  }
+  if(merchant){
+    merchant=merchant
+      .replace(/\b(?:le|du|à|a)?\s*\d{1,2}[\/\-]\d{1,2}(?:[\/\-]\d{2,4})?.*$/i,'')
+      .replace(/\b(?:montant|solde|carte|visa|mastercard)\b.*$/i,'')
+      .replace(/\s{2,}/g,' ')
+      .trim();
   }
   return {type,amount,merchant,rawText:t}
 }
@@ -4292,6 +4310,13 @@ function settlePlannedOnExistingTx(b,n,tx){
     const i=(b.oneOffs||[]).findIndex(y=>String(y.id)===String(n.plannedId));
     if(i>=0){const snap={...b.oneOffs[i]};b.oneOffs.splice(i,1);learnBankAlias(snap,n.merchant);tx.plannedKind='oneoff';tx.plannedId=snap.id;tx.plannedSnapshot=snap}
   }
+}
+
+function inferBankEnvelope(n,b){
+  if(!n||!b)return {env:null,confidence:false,level:'none',score:0,alternatives:[]};
+  const text=`${n.merchant||''} ${n.rawText||''}`.trim();
+  const concept=detectVoiceConcept(text);
+  return inferVoiceEnvelope(text,n.merchant||text,b,concept)
 }
 function registerBankNotification(data,{silent=false,force=false}={}){
   const b=active();if(!b)return null;
@@ -4330,7 +4355,7 @@ function registerBankNotification(data,{silent=false,force=false}={}){
   }
 
   if(n.type==='expense'){
-    const inf=inferCategory(`${n.merchant} ${n.rawText}`,b);
+    const inf=inferBankEnvelope(n,b);
     if(inf?.env&&inf.level!=='low')n.suggestedCategoryId=inf.env.id;
     if(!n.matchKind&&n.suggestedCategoryId){
       n.matchKind='category';n.confidence=inf.level==='high'?'high':'medium';
@@ -4418,7 +4443,7 @@ function confirmPlannedBankMatch(id){
 let bankReviewId=null;
 function acceptBankNotification(id){
   const b=active(),n=(b?.bankNotifications||[]).find(x=>String(x.id)===String(id));if(!n)return;
-  bankReviewId=n.id;const inf=inferCategory(`${n.merchant||''} ${n.rawText||''}`,b);
+  bankReviewId=n.id;const inf=inferBankEnvelope(n,b);
   $('#bankReviewLead').textContent=`B² a repéré ${euro(n.amount)} chez ${n.merchant||'ce commerçant'}.`;
   $('#bankReviewAmount').value=n.amount;$('#bankReviewLabel').value=n.merchant||'';
   $('#bankReviewCategory').innerHTML=b.envelopes.map(e=>`<option value="${e.id}">${esc(e.name)}</option>`).join('');
@@ -4542,20 +4567,115 @@ function showToast(t,actionLabel=null,actionFn=null){
   $('#toastActionBtn')?.addEventListener('click',()=>{const fn=toastAction;toastAction=null;el.classList.remove('show');el.classList.remove('has-action');fn?.()});
   toastTimer=setTimeout(()=>{el.classList.remove('show');el.classList.remove('has-action');toastAction=null},4200)
 } function openModal(id){$('#'+id).classList.add('show')} function closeModal(id){$('#'+id).classList.remove('show')}
-function chooseBankAssist(enabled){
+
+let b2BankImportBusy=false,b2BankNativeCache=null;
+function nativeBankPlugin(){
+  try{
+    const cap=window.Capacitor;if(!cap)return null;
+    if(cap.Plugins?.B2BankNotifications)return cap.Plugins.B2BankNotifications;
+    if(typeof cap.registerPlugin==='function'){
+      if(!b2BankNativeCache)b2BankNativeCache=cap.registerPlugin('B2BankNotifications');
+      return b2BankNativeCache
+    }
+  }catch(e){}
+  return null
+}
+async function setNativeBankCapture(enabled){
+  try{
+    const p=nativeBankPlugin();if(!p)return false;
+    await p.setEnabled?.({enabled:!!enabled});
+    return true
+  }catch(e){
+    console.warn('B² native bank capture unavailable',e);
+    return false
+  }
+}
+async function openNativeBankAccess(){
+  try{
+    const p=nativeBankPlugin();if(!p)return false;
+    await p.openSettings?.();
+    return true
+  }catch(e){
+    console.warn('B² notification settings unavailable',e);
+    return false
+  }
+}
+async function nativeBankAccessGranted(){
+  try{
+    const p=nativeBankPlugin();if(!p)return false;
+    const r=await p.isEnabled?.();return !!r?.enabled
+  }catch(e){return false}
+}
+async function importNativeBankNotifications({silent=true}={}){
+  if(b2BankImportBusy||state?.settings?.bankAssist!==true||!active())return 0;
+  const p=nativeBankPlugin();if(!p)return 0;
+  b2BankImportBusy=true;
+  try{
+    await p.setEnabled?.({enabled:true});
+    const r=await p.getPending?.();
+    const items=Array.isArray(r?.items)?r.items:[];
+    let imported=0;
+    for(const item of items){
+      const raw=String(item?.rawText||'').trim();
+      if(!raw)continue;
+      const res=registerBankNotification({
+        rawText:raw,
+        sourceApp:String(item?.sourceApp||''),
+        createdAt:num(item?.createdAt)||Date.now()
+      },{silent:true,force:true});
+      if(res)imported++;
+    }
+    if(imported){
+      updateNotificationBell();
+      if($('#notificationCenterModal')?.classList.contains('show'))renderNotificationCenter();
+      if(!silent)showToast(`${imported} mouvement${imported>1?'s':''} bancaire${imported>1?'s':''} détecté${imported>1?'s':''}.`)
+    }
+    return imported
+  }catch(e){
+    console.warn('B² import notifications Android',e);
+    return 0
+  }finally{
+    b2BankImportBusy=false
+  }
+}
+async function chooseBankAssist(enabled){
   const modal=$('#bankAssistModal');
   if(modal)modal.classList.remove('show');
   try{
     if(!state.settings)state.settings={};
     state.settings.bankAssist=!!enabled;
     save();
-    showToast(enabled?'Aide par notifications bancaires activée.':'Tu pourras l’activer plus tard dans Réglages.');
+    await setNativeBankCapture(!!enabled);
+    if(enabled){
+      const native=nativeBankPlugin();
+      if(native){
+        const granted=await nativeBankAccessGranted();
+        if(!granted){
+          showToast('Android va ouvrir l’accès aux notifications. Active B².');
+          setTimeout(()=>openNativeBankAccess(),280)
+        }else{
+          showToast('Notifications bancaires activées.');
+          setTimeout(()=>importNativeBankNotifications({silent:false}),250)
+        }
+      }else showToast('Aide par notifications bancaires activée.');
+    }else showToast('Notifications bancaires désactivées.');
   }catch(err){
     console.error('B² bank-assist choice error',err);
     showToast('Choix enregistré pour cette session.');
   }
 }
 window.chooseBankAssist=chooseBankAssist;
+window.addEventListener('focus',()=>{if(state?.settings?.bankAssist===true)setTimeout(()=>importNativeBankNotifications({silent:false}),450)});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&state?.settings?.bankAssist===true)setTimeout(()=>importNativeBankNotifications({silent:true}),500)});
+setTimeout(async()=>{
+  if(state?.settings?.bankAssist===true&&active()){
+    await setNativeBankCapture(true);
+    if(nativeBankPlugin()&&!await nativeBankAccessGranted()){
+      showToast('Autorise B² à lire les notifications bancaires.','Autoriser',()=>openNativeBankAccess())
+    }else importNativeBankNotifications({silent:true})
+  }
+},1800);
+
 const B2_SQUARE_INTRO_KEY='b2_square_intro_v1';
 let squareLearningOverlay=false;
 function hasSeenSquareIntro(){try{return localStorage.getItem(B2_SQUARE_INTRO_KEY)==='1'}catch(e){return false}}
@@ -4905,8 +5025,8 @@ function renderEconomies(){
 }
 function renderSettings(){
   const s=state.settings;
-  $('#settingsContent').innerHTML=`<div class="card"><div class="card-title"><h3>Mon offre</h3><span class="${isPlus()?'plus-badge':'badge'}">${isPlus()?'B²+ ACTIF':'GRATUIT'}</span></div><div class="small muted">${isPlus()?'Fonctions premium actives. Aucune publicité.':'1 budget est inclus gratuitement, avec autant de comptes que nécessaire. B²+ débloque plusieurs budgets et Mon budget partagé.'}</div><button class="btn ${isPlus()?'btn-soft':'btn-primary'} btn-full" id="managePlus" type="button" style="margin-top:12px">${isPlus()?'Gérer mon abonnement':'Voir les avantages B²+'}</button></div><div class="card"><button class="choice" id="languageSetting" type="button" style="width:100%;margin:0"><span class="choice-icon">${ico('globe')}</span><div style="min-width:0;flex:1;text-align:left"><strong>Langue</strong><span>${currentLanguage().native}</span></div><span style="font-size:18px;color:var(--muted)">›</span></button></div><div class="card"><div class="card-title"><h3>Alertes B²</h3></div>${switchHTML('essential','Alertes essentielles','Dépassement, budget à rééquilibrer, fin de période.',s.essential)}${switchHTML('afterExpense','Après chaque dépense','Afficher ce qu’il reste dans l’enveloppe.',s.afterExpense)}${switchHTML('thresholds','Seuils d’enveloppe','Signaler 75 %, 90 % et 100 %.',s.thresholds)}${switchHTML('weekly','Résumé hebdomadaire','Un point simple sur le budget.',s.weekly)}</div><div class="card"><div class="card-title"><h3>Saisie vocale</h3></div>${switchHTML('voiceConfirm','Confirmer avant d’enregistrer','Recommandé tant que B² apprend tes habitudes.',s.voiceConfirm)}<div class="help">Le micro se lance depuis le + central.</div></div><div class="card"><div class="card-title"><h3>Notifications bancaires</h3><span class="badge">PROTOTYPE</span></div>${switchHTML('bankAssist','Aider B² à repérer mes dépenses','B² rapproche les notifications avec tes charges, tes dépenses et tes revenus.',s.bankAssist===true)}<div class="small muted" style="margin-top:8px">Dans l’app Android, B² comparera montant, libellé, date, charges prévues et historique. En cas de doute, il demandera confirmation. Les retraits au distributeur sont ignorés comme nouvelles dépenses.</div><button class="btn btn-white btn-full" id="testBankNotification" type="button" style="margin-top:12px" ${s.bankAssist===true?'':'disabled'}>Tester une notification bancaire</button></div><div class="card"><div class="card-title"><h3>Cloud <span class="plus-badge">B²+</span></h3></div><div class="small muted">Synchronisation multi-appareils et sauvegarde sécurisée seront branchées avec les budgets B² et le backend. Ce prototype reste local au navigateur.</div></div>`;
-  $$('[data-setting]',$('#settingsContent')).forEach(x=>x.addEventListener('click',()=>{const k=x.dataset.setting;state.settings[k]=!state.settings[k];save();showToast('Préférence enregistrée.');if(k==='bankAssist')renderSettings()}));$('#managePlus').addEventListener('click',()=>isPlus()?openSubscriptionManager():openPlus('B²+'));$('#testBankNotification')?.addEventListener('click',openBankNotificationTest);$('#languageSetting')?.addEventListener('click',openLanguageModal)
+  $('#settingsContent').innerHTML=`<div class="card"><div class="card-title"><h3>Mon offre</h3><span class="${isPlus()?'plus-badge':'badge'}">${isPlus()?'B²+ ACTIF':'GRATUIT'}</span></div><div class="small muted">${isPlus()?'Fonctions premium actives. Aucune publicité.':'1 budget est inclus gratuitement, avec autant de comptes que nécessaire. B²+ débloque plusieurs budgets et Mon budget partagé.'}</div><button class="btn ${isPlus()?'btn-soft':'btn-primary'} btn-full" id="managePlus" type="button" style="margin-top:12px">${isPlus()?'Gérer mon abonnement':'Voir les avantages B²+'}</button></div><div class="card"><button class="choice" id="languageSetting" type="button" style="width:100%;margin:0"><span class="choice-icon">${ico('globe')}</span><div style="min-width:0;flex:1;text-align:left"><strong>Langue</strong><span>${currentLanguage().native}</span></div><span style="font-size:18px;color:var(--muted)">›</span></button></div><div class="card"><div class="card-title"><h3>Alertes B²</h3></div>${switchHTML('essential','Alertes essentielles','Dépassement, budget à rééquilibrer, fin de période.',s.essential)}${switchHTML('afterExpense','Après chaque dépense','Afficher ce qu’il reste dans l’enveloppe.',s.afterExpense)}${switchHTML('thresholds','Seuils d’enveloppe','Signaler 75 %, 90 % et 100 %.',s.thresholds)}${switchHTML('weekly','Résumé hebdomadaire','Un point simple sur le budget.',s.weekly)}</div><div class="card"><div class="card-title"><h3>Saisie vocale</h3></div>${switchHTML('voiceConfirm','Confirmer avant d’enregistrer','Recommandé tant que B² apprend tes habitudes.',s.voiceConfirm)}<div class="help">Le micro se lance depuis le + central.</div></div><div class="card"><div class="card-title"><h3>Notifications bancaires</h3><span class="badge">ANDROID</span></div>${switchHTML('bankAssist','Aider B² à repérer mes dépenses','B² rapproche les notifications avec tes charges, tes dépenses et tes revenus.',s.bankAssist===true)}<div class="small muted" style="margin-top:8px">Sur Android, B² peut lire uniquement les notifications qui ressemblent à des mouvements financiers, puis comparer montant, libellé, date, charges prévues et historique. En cas de doute, il demande confirmation. Les retraits au distributeur ne sont pas comptés comme une nouvelle dépense.</div><button class="btn btn-white btn-full" id="testBankNotification" type="button" style="margin-top:12px" ${s.bankAssist===true?'':'disabled'}>Tester une notification bancaire</button></div><div class="card"><div class="card-title"><h3>Cloud <span class="plus-badge">B²+</span></h3></div><div class="small muted">Synchronisation multi-appareils et sauvegarde sécurisée seront branchées avec les budgets B² et le backend. Ce prototype reste local au navigateur.</div></div>`;
+  $$('[data-setting]',$('#settingsContent')).forEach(x=>x.addEventListener('click',async()=>{const k=x.dataset.setting;state.settings[k]=!state.settings[k];save();if(k==='bankAssist'){const on=state.settings[k]===true;await setNativeBankCapture(on);if(on&&nativeBankPlugin()&&!await nativeBankAccessGranted()){showToast('Active B² dans l’accès aux notifications Android.');setTimeout(()=>openNativeBankAccess(),250)}else showToast(on?'Notifications bancaires activées.':'Notifications bancaires désactivées.');renderSettings();return}showToast('Préférence enregistrée.')}));$('#managePlus').addEventListener('click',()=>isPlus()?openSubscriptionManager():openPlus('B²+'));$('#testBankNotification')?.addEventListener('click',openBankNotificationTest);$('#languageSetting')?.addEventListener('click',openLanguageModal)
 }
 function switchHTML(key,title,sub,on){return `<div class="switch-row"><div class="switch-copy"><strong>${esc(title)}</strong><span>${esc(sub)}</span></div><button class="switch ${on?'on':''}" data-setting="${key}" type="button"><i></i></button></div>`}
 function renderReferral(){$('#referralContent').innerHTML=`<div class="card"><div class="card-title"><h3>Parrainer un proche</h3></div><div class="small muted">Le programme de parrainage arrivera plus tard. L'avantage sera affiché ici dès qu'il sera défini.</div></div><div class="card"><div class="fund-row"><div class="fund-top"><strong>${ico('group')} Invitation au budget partagé</strong></div><div class="fund-sub">Donne accès au même budget. Ce n'est pas un parrainage.</div></div><div class="fund-row"><div class="fund-top"><strong>${ico('spark')} Parrainage</strong></div><div class="fund-sub">Invite quelqu'un à créer son propre compte B².</div></div></div>`}
@@ -4993,7 +5113,7 @@ function saveTx(){
     closeModal('transactionModal');save();showToast('Dépense modifiée.','Annuler',()=>{Object.assign(existing,before);save();showToast('Modification annulée.')});return
   }
   const tx={id:uid(),type:'expense',kind:'normal',direction:null,amount:r2(amount),label:label||e.name,categoryId:e.id,category:e.name,date,createdAt:Date.now(),memberId:chosenMember,source:txDraft.voiceOrigin?'voice':'manual',bankVerified:false,bankNotificationId:null,plannedKind:null,plannedId:null,plannedSnapshot:null,linkedTxId:null,transferId:null,transferAccountId:null};
-  const finishExpense=()=>{b.transactions.push(tx);if(txDraft.voiceOrigin)learnVoiceChoice(b,{merchantKey:txDraft.voiceMerchantKey||voiceMerchantKey(tx.label),conceptId:txDraft.voiceConceptId||detectVoiceConcept(tx.label)?.id||null,label:tx.label,suggestedCategoryId:txDraft.voiceSuggestedCategoryId||null},e.id);if(txDraft.pendingBankId){const n=(b.bankNotifications||[]).find(x=>x.id===txDraft.pendingBankId);if(n)linkBankNotification(b,n,tx)}else matchPendingBankToTransaction(b,tx);closeModal('transactionModal');const rem=envRemain(b,e);save();if(rem<-.01){overspendCtx={budgetId:b.id,envId:e.id};$('#overspendLead').textContent=`${e.name} dépasse de ${euro(Math.abs(rem))}. Que veux-tu faire ?`;$('#overspendReserve').disabled=b.reserve<Math.abs(rem)-.01;openModal('overspendModal')}else if(state.settings.afterExpense)showToast(tx.bankVerified?`${euro(amount)} · ${e.name} · rapproché avec la banque.`:`${euro(amount)} · ${e.name} · ${euro(rem)} restants.`)};
+  const finishExpense=()=>{b.transactions.push(tx);if(txDraft.voiceOrigin)learnVoiceChoice(b,{merchantKey:txDraft.voiceMerchantKey||voiceMerchantKey(tx.label),conceptId:txDraft.voiceConceptId||detectVoiceConcept(tx.label)?.id||null,label:tx.label,suggestedCategoryId:txDraft.voiceSuggestedCategoryId||null},e.id);if(txDraft.pendingBankId){const n=(b.bankNotifications||[]).find(x=>x.id===txDraft.pendingBankId);if(n){const c=detectVoiceConcept(`${n.merchant||''} ${n.rawText||''}`);learnVoiceChoice(b,{merchantKey:voiceMerchantKey(n.merchant||tx.label),conceptId:c?.id||null,label:n.merchant||tx.label,suggestedCategoryId:n.suggestedCategoryId||null},e.id);linkBankNotification(b,n,tx)}}else matchPendingBankToTransaction(b,tx);closeModal('transactionModal');const rem=envRemain(b,e);save();if(rem<-.01){overspendCtx={budgetId:b.id,envId:e.id};$('#overspendLead').textContent=`${e.name} dépasse de ${euro(Math.abs(rem))}. Que veux-tu faire ?`;$('#overspendReserve').disabled=b.reserve<Math.abs(rem)-.01;openModal('overspendModal')}else if(state.settings.afterExpense)showToast(tx.bankVerified?`${euro(amount)} · ${e.name} · rapproché avec la banque.`:`${euro(amount)} · ${e.name} · ${euro(rem)} restants.`)};
   const dup=findRecordedBankDuplicate(b,tx);if(dup){askPossibleDuplicate(dup,tx,finishExpense);return}finishExpense()
 }
 function normalizeSpeechText(s){return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[’']/g,' ').replace(/&/g,' et ').replace(/[^a-z0-9+.,€ -]/g,' ').replace(/\s+/g,' ').trim()}
