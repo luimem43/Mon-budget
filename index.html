@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#075a4d">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<title>B² v14.15 — salaire reçu intégré au départ de période</title>
+<title>B² v14.17 — apprentissage intelligent de la date du salaire</title>
 <style>
 :root{
   --brand:#075a4d;--brand2:#0a7965;--brand3:#0f8f72;--lime:#b9ef68;
@@ -3393,9 +3393,12 @@ function hydrateStateFromCloud(raw){
     state.budgetGroups=[g]
   }
   ensureActive();
+  const repairedOpeningIncome=repairLegacyOpeningIncomeV1416(state);
+  const repairedIncomeLearning=repairIncomeArrivalLearningV1417(state);
   state.settings.v11BudgetGroups=JSON.parse(JSON.stringify(state.budgetGroups||[]));
   pilotTab=state.ui?.pilotTab||'envelopes';movementFilter=state.ui?.movementFilter||'all';
   try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){}
+  if(repairedOpeningIncome||repairedIncomeLearning)setTimeout(()=>queueCloudSave(),0);
   return true
 }
 async function cloudUpsertNow(){
@@ -3590,6 +3593,7 @@ function normalizeBudget(b){
     id:b.id||uid(),name:b.name||'Compte principal',budgetGroupId:b.budgetGroupId||null,type:b.type==='shared'?'shared':'personal',accountKind:['personal','pro','other'].includes(b.accountKind)?b.accountKind:'personal',active:!!b.active,remoteSharedId:b.remoteSharedId||null,
     startMode:b.startMode==='now'?'now':'next',nextIncomeDate:b.nextIncomeDate||b.cycleEnd||addMonthsISO(todayISO(),1),
     cycleStart:b.cycleStart||todayISO(),cycleEnd:b.cycleEnd||addMonthsISO(todayISO(),1),startBalance:num(b.startBalance),startCash:Math.max(0,num(b.startCash)),heldAside:num(b.heldAside),
+    openingCarry:num(b.openingCarry),openingIncomeAmount:num(b.openingIncomeAmount),openingIncomeSourceId:b.openingIncomeSourceId||null,openingIncomeAt:b.openingIncomeAt||null,openingIncomeRepairV1416:b.openingIncomeRepairV1416===true,
     household:{adults:Math.max(1,Math.round(num(b.household?.adults)||1)),children:Math.max(0,Math.round(num(b.household?.children)||0))},
     budgetProfile:{
       meals:['cook','mixed','out'].includes(b.budgetProfile?.meals)?b.budgetProfile.meals:'mixed',
@@ -3607,7 +3611,17 @@ function normalizeBudget(b){
     },
     members:Array.isArray(b.members)?b.members.map((m,i)=>({id:m.id||uid(),userId:m.userId||null,name:m.name||`Membre ${i+1}`,contribution:num(m.contribution),current:!!m.current,status:m.status||(m.current?'joined':'pending'),role:m.role||(m.current?'owner':'member'),recipient:m.recipient||''})):[],
     incomeMode:b.incomeMode==='contributions'?'contributions':'global',income:num(b.income),
-    incomeSources:Array.isArray(b.incomeSources)?b.incomeSources.map((x,i)=>({id:x.id||uid(),name:x.name||`Revenu ${i+1}`,amount:Math.max(0,num(x.amount)),nextDate:x.nextDate||'',primary:!!x.primary,frequency:'monthly',bankAliases:Array.isArray(x.bankAliases)?x.bankAliases.slice(-8):[]})):[],
+    incomeSources:Array.isArray(b.incomeSources)?b.incomeSources.map((x,i)=>{
+      const fallbackDay=(()=>{try{return dateParts(x.nextDate||todayISO()).d}catch(e){return 1}})();
+      return {
+        id:x.id||uid(),name:x.name||`Revenu ${i+1}`,amount:Math.max(0,num(x.amount)),nextDate:x.nextDate||'',primary:!!x.primary,frequency:'monthly',
+        scheduledDay:clamp(Math.round(num(x.scheduledDay)||fallbackDay),1,31),
+        arrivalHistory:Array.isArray(x.arrivalHistory)?x.arrivalHistory.slice(-8).map(h=>({
+          expectedDate:h.expectedDate||'',actualDate:h.actualDate||'',offsetDays:Math.round(num(h.offsetDays))
+        })).filter(h=>h.actualDate):[],
+        bankAliases:Array.isArray(x.bankAliases)?x.bankAliases.slice(-8):[]
+      }
+    }):[],
     fixed:Array.isArray(b.fixed)?b.fixed.map(x=>{
       const durationMode=['unlimited','months','date'].includes(x.durationMode)?x.durationMode:(num(x.remainingPayments)>0?'months':x.endDate?'date':'unlimited');
       const remainingPayments=durationMode==='months'?Math.max(1,Math.round(num(x.remainingPayments||x.totalPayments||1))):null;
@@ -3724,7 +3738,49 @@ function restoreLastActiveBudgetSelection(){
   return true
 }
 
+
+function repairLegacyOpeningIncomeV1416(s){
+  let changed=false;
+  (s?.budgets||[]).forEach(b=>{
+    if(!b||b.openingIncomeRepairV1416===true||b.startMode!=='next')return;
+    const history=Array.isArray(b.history)?b.history:[];
+    const last=history[history.length-1];
+    const primary=primaryIncomeSource(b);
+    if(!last||!primary||!b.cycleStart||!last.cycleEnd||!primary.nextDate)return;
+
+    const closedRecently=Date.now()-num(last.closedAt)<7*86400000;
+    const earlyCloseDays=daysBetweenISO(b.cycleStart,last.cycleEnd);
+    const nextIncomeDays=daysBetweenISO(b.cycleStart,primary.nextDate);
+
+    // Ancienne anomalie : le salaire a été reçu avant la date prévue.
+    // La période a donc démarré avant l'ancienne cycleEnd, mais l'ancien code
+    // n'a gardé dans startBalance que le reliquat de la période précédente.
+    const exactLegacySignature=
+      closedRecently &&
+      earlyCloseDays>=1 && earlyCloseDays<=3 &&
+      nextIncomeDays>=26 && nextIncomeDays<=35 &&
+      num(primary.amount)>0;
+
+    if(!exactLegacySignature)return;
+
+    const oldCarry=r2(num(b.startBalance));
+    const income=r2(num(primary.amount));
+    b.openingCarry=oldCarry;
+    b.openingIncomeAmount=income;
+    b.openingIncomeSourceId=primary.id||null;
+    b.openingIncomeAt=b.cycleStart;
+    b.startBalance=r2(oldCarry+income);
+    b.startMode='now';
+    b.openingIncomeRepairV1416=true;
+    changed=true
+  });
+  return changed
+}
+
 let state=migrate(),plusAfterAction=null,currentPage='home',pilotTab=state.ui.pilotTab||'envelopes',movementFilter=state.ui.movementFilter||'all',txDraft={type:'expense'},overspendCtx=null,editEnvId=null,envMode='auto',envEditDraft=null,balanceMode='auto',balanceDraft=null,balanceReserveUse=0,balancePredictivePlan=null,detailId=null,wizard=null,wizardStep=0,wizardEditId=null,wizardBalanceMode='auto',billDraft={mode:'monthly',dueThisCycle:true},savingDraft={mode:'regular'},simpleSaveHandler=null,confirmHandler=null,closingStep=0,closingFree=0,closingReview=null,closingReason='manual',wizardAccountBalance=0,wizardCashExtra=0,toastTimer=null,toastAction=null;
+const b2OpeningIncomeRepaired=repairLegacyOpeningIncomeV1416(state);
+const b2IncomeLearningRepaired=repairIncomeArrivalLearningV1417(state);
+if(b2OpeningIncomeRepaired||b2IncomeLearningRepaired){try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){}}
 function save(){
   ensureActive();
   rememberActiveBudgetSelection();
@@ -4396,6 +4452,12 @@ function predictedSpendableBeforeIncome(b,living=null){
 function b2EstimateExplanationHTML(b,h){
   const ctx=shortTermMoneyContext(b),living=estimatedLivingNeedUntilIncome(b,ctx),a=adaptiveLearningSummary(b);
   const need=r2(living.variableNeed+living.obligations),projected=living.predictedBeforeIncome,spendable=predictedSpendableBeforeIncome(b,living),ready=living.canShowEssential;
+  const openingCarry=r2(num(b.openingCarry)),openingIncome=r2(num(b.openingIncomeAmount));
+  const openingBreakdown=(Math.abs(openingCarry)>.01||openingIncome>.01)
+    ?`<div class="b2-estimate-row"><span>Départ de cette période</span><strong>${euro(num(b.startBalance))}</strong></div>
+      ${openingIncome>.01?`<div class="b2-estimate-row"><span>↳ Salaire déjà reçu</span><strong>＋ ${euro(openingIncome)}</strong></div>`:''}
+      ${Math.abs(openingCarry)>.01?`<div class="b2-estimate-row"><span>↳ Report de la période précédente</span><strong>${openingCarry<0?'−':'＋'} ${euro(Math.abs(openingCarry))}</strong></div>`:''}`
+    :'';
   const rows=(living.breakdown||[]).filter(x=>num(x.amount)>.01).slice(0,5);
   const source=ready
     ?(a.historyPeriods>=3?'B² s’appuie surtout sur plusieurs périodes de dépenses réelles, tout en gardant ton budget comme garde-fou.':'B² combine maintenant ton budget avec les dépenses réellement observées. Le réel prendra encore plus de poids au fil des périodes.')
@@ -4409,7 +4471,7 @@ function b2EstimateExplanationHTML(b,h){
     ?'Cette estimation continuera d’évoluer : les périodes récentes comptent davantage que les anciennes.'
     :'B² n’affiche pas encore de besoin quotidien personnalisé : un chiffre précis donnerait une fausse impression de certitude.';
   const coverageNote=living.recentlyCovered>.5?` B² tient aussi compte d’environ ${euro(living.recentlyCovered)} de besoins déjà couverts par des dépenses récentes (par exemple courses ou carburant), au lieu de les compter une deuxième fois.`:'';
-  return `<details class="b2-estimate-details"><summary>Comment B² arrive à cette estimation ?</summary><div class="b2-estimate-explain"><div class="estimate-intro">${source}</div>${rowsHtml}${obligations}<div class="b2-estimate-total">${totalLabel}<br>Solde actuel : <strong>${ctx.cashNow<0?'−':''}${euro(Math.abs(ctx.cashNow))}</strong><br>Solde du compte estimé juste avant le prochain revenu : <strong>${projected<0?'−':''}${euro(Math.abs(projected))}</strong>${num(b.reserve)>0?`<br>Réserve protégée : <strong>${euro(b.reserve)}</strong><br>Disponible estimé après réserve : <strong>${spendable<0?'−':''}${euro(Math.abs(spendable))}</strong>`:''}</div><div class="b2-estimate-learning">${learningNote}${coverageNote} Le calendrier compte aussi : une journée sans dépense laisse un jour de moins à financer, tandis que les charges encore dues restent protégées.</div></div></details>`;
+  return `<details class="b2-estimate-details"><summary>Comment B² arrive à cette estimation ?</summary><div class="b2-estimate-explain"><div class="estimate-intro">${source}</div>${openingBreakdown}<div class="b2-estimate-row"><span>Argent disponible aujourd’hui</span><strong>${ctx.cashNow<0?'−':'＋'} ${euro(Math.abs(ctx.cashNow))}</strong></div>${obligations}${rowsHtml}<div class="b2-estimate-total">${totalLabel}<br>Projection avant le prochain revenu : <strong>${projected<0?'−':''}${euro(Math.abs(projected))}</strong>${num(b.reserve)>0?`<br>Réserve protégée : <strong>${euro(b.reserve)}</strong><br>Disponible après réserve : <strong>${spendable<0?'−':''}${euro(Math.abs(spendable))}</strong>`:''}</div><div class="b2-estimate-learning">${learningNote}${coverageNote} Le calendrier compte aussi : une journée sans dépense laisse un jour de moins à financer, tandis que les charges encore dues restent protégées.</div></div></details>`;
 }
 function b2LearningMaturity(b){
   const a=adaptiveLearningSummary(b),periods=a.historyPeriods,evidence=a.evidence,days=a.historyDays;
@@ -4945,6 +5007,92 @@ function nextExpectedIncome(b){
   const future=futureIncomeSources(b),primary=future.find(x=>x.primary);
   return primary||future[0]||null
 }
+function incomeScheduledDateForMonth(source,refDate=null){
+  const ref=refDate||source?.nextDate||todayISO();
+  const p=dateParts(ref);
+  const day=clamp(Math.round(num(source?.scheduledDay)||p.d||1),1,31);
+  const last=new Date(Date.UTC(p.y,p.m,0)).getUTCDate();
+  return `${p.y}-${String(p.m).padStart(2,'0')}-${String(Math.min(day,last)).padStart(2,'0')}`
+}
+function recordIncomeArrival(source,actualDate,expectedDate=null){
+  if(!source||!actualDate)return false;
+  source.scheduledDay=clamp(Math.round(num(source.scheduledDay)||dateParts(expectedDate||source.nextDate||actualDate).d),1,31);
+  const expected=expectedDate||incomeScheduledDateForMonth(source,source.nextDate||actualDate);
+  const offset=Math.round(daysBetweenISO(expected,actualDate));
+
+  // Au-delà de 5 jours, B² considère le décalage comme exceptionnel
+  // et ne l'utilise pas pour déplacer la date habituelle.
+  if(Math.abs(offset)>5)return false;
+
+  source.arrivalHistory=Array.isArray(source.arrivalHistory)?source.arrivalHistory:[];
+  if(source.arrivalHistory.some(h=>String(h.actualDate)===String(actualDate)))return false;
+  source.arrivalHistory.push({expectedDate:expected,actualDate,offsetDays:offset});
+  source.arrivalHistory=source.arrivalHistory.slice(-8);
+  return true
+}
+function incomeArrivalModel(source,nominalDate=null){
+  const nominal=nominalDate||incomeScheduledDateForMonth(source,source?.nextDate||todayISO());
+  const rows=(source?.arrivalHistory||[]).slice(-6).filter(h=>Number.isFinite(num(h.offsetDays)));
+  const offsets=rows.map(h=>Math.round(num(h.offsetDays)));
+
+  if(!offsets.length){
+    return {count:0,shift:0,confident:false,nominal,windowStart:nominal,windowEnd:nominal,label:fmtDate(nominal)}
+  }
+
+  const sorted=[...offsets].sort((a,b)=>a-b);
+  const med=sorted.length%2?sorted[(sorted.length-1)/2]:(sorted[sorted.length/2-1]+sorted[sorted.length/2])/2;
+  const min=Math.min(...offsets),max=Math.max(...offsets);
+
+  // Une seule observation : B² apprend, mais ne change pas encore la date.
+  if(offsets.length===1){
+    const observed=addDaysISO(nominal,offsets[0]);
+    const start=observed<nominal?observed:nominal;
+    const end=observed>nominal?observed:nominal;
+    return {count:1,shift:0,observedShift:offsets[0],confident:false,nominal,windowStart:start,windowEnd:end,label:`${fmtDate(start)} – ${fmtDate(end)}`}
+  }
+
+  // Deux occurrences cohérentes suffisent pour commencer à ajuster.
+  // Si les arrivées deviennent irrégulières, B² revient à la date nominale.
+  const consistent=(max-min)<=1;
+  const shift=consistent?Math.round(med):0;
+  const predicted=addDaysISO(nominal,shift);
+
+  if(consistent){
+    const low=addDaysISO(nominal,min),high=addDaysISO(nominal,max);
+    return {count:offsets.length,shift,confident:true,nominal,predicted,windowStart:low,windowEnd:high,label:fmtDate(predicted)}
+  }
+
+  const low=addDaysISO(nominal,Math.min(0,min)),high=addDaysISO(nominal,Math.max(0,max));
+  return {count:offsets.length,shift:0,confident:false,nominal,predicted:nominal,windowStart:low,windowEnd:high,label:`${fmtDate(low)} – ${fmtDate(high)}`}
+}
+function learnedNextIncomeDate(source,nominalDate){
+  const model=incomeArrivalModel(source,nominalDate);
+  return model.confident?addDaysISO(nominalDate,model.shift):nominalDate
+}
+function incomeExpectationLabel(source){
+  if(!source?.nextDate)return '';
+  const nominal=incomeScheduledDateForMonth(source,source.nextDate);
+  const model=incomeArrivalModel(source,nominal);
+  if(model.count===1&&model.windowStart!==model.windowEnd)return `${fmtDate(model.windowStart)} – ${fmtDate(model.windowEnd)}`;
+  return fmtDate(source.nextDate)
+}
+function repairIncomeArrivalLearningV1417(s){
+  let changed=false;
+  (s?.budgets||[]).forEach(b=>{
+    if(!b?.openingIncomeAt||!b?.openingIncomeSourceId)return;
+    const source=(b.incomeSources||[]).find(x=>String(x.id)===String(b.openingIncomeSourceId));
+    if(!source||!source.nextDate)return;
+    source.scheduledDay=clamp(Math.round(num(source.scheduledDay)||dateParts(source.nextDate).d),1,31);
+
+    // v14.16 connaît déjà la date réelle du salaire reçu.
+    // On reconstruit la date nominalement prévue du mois précédent.
+    const nominalNext=incomeScheduledDateForMonth(source,source.nextDate);
+    const nominalPrevious=addMonthsISO(nominalNext,-1);
+    if(recordIncomeArrival(source,b.openingIncomeAt,nominalPrevious))changed=true
+  });
+  return changed
+}
+
 function incomeConfirmedAround(b,source){
   if(!source?.nextDate)return false;
   return (b.transactions||[]).some(t=>{
@@ -5175,6 +5323,42 @@ function runSquareScenarioChecks(){
       envelopes:[env('food','Courses & quotidien',350,'essential'),env('transport','Carburant & déplacements',150,'important')]
     });
     return shortTermMoneyContext(b).cashNow===1850
+  });
+
+  add('Clôture','Report 158 € + salaire 1 691,99 € donnent bien 1 849,99 € au départ',()=>{
+    const b=mk({
+      startMode:'now',
+      startBalance:1849.99,
+      openingCarry:158,
+      openingIncomeAmount:1691.99,
+      cycleStart:todayISO(),
+      cycleEnd:addDaysISO(todayISO(),31),
+      incomeSources:[{id:'salary',name:'Salaire',amount:1691.99,nextDate:addDaysISO(todayISO(),31),primary:true}]
+    });
+    return Math.abs(shortTermMoneyContext(b).cashNow-1849.99)<.01
+  });
+
+  add('Revenus','Un salaire arrivé un jour tôt crée d’abord une fenêtre prudente',()=>{
+    const s={id:'salary',name:'Salaire',amount:1691.99,nextDate:'2026-10-29',primary:true,scheduledDay:29,arrivalHistory:[
+      {expectedDate:'2026-09-29',actualDate:'2026-09-28',offsetDays:-1}
+    ]};
+    const m=incomeArrivalModel(s,'2026-10-29');
+    return m.count===1&&m.confident===false&&m.windowStart==='2026-10-28'&&m.windowEnd==='2026-10-29'&&learnedNextIncomeDate(s,'2026-10-29')==='2026-10-29'
+  });
+  add('Revenus','Deux salaires arrivés un jour tôt déplacent la prochaine estimation au 28',()=>{
+    const s={id:'salary',name:'Salaire',amount:1691.99,nextDate:'2026-11-29',primary:true,scheduledDay:29,arrivalHistory:[
+      {expectedDate:'2026-09-29',actualDate:'2026-09-28',offsetDays:-1},
+      {expectedDate:'2026-10-29',actualDate:'2026-10-28',offsetDays:-1}
+    ]};
+    const m=incomeArrivalModel(s,'2026-11-29');
+    return m.confident===true&&m.shift===-1&&learnedNextIncomeDate(s,'2026-11-29')==='2026-11-28'
+  });
+  add('Revenus','Des dates irrégulières ne déplacent pas durablement le salaire',()=>{
+    const s={id:'salary',name:'Salaire',amount:1691.99,nextDate:'2026-12-29',primary:true,scheduledDay:29,arrivalHistory:[
+      {expectedDate:'2026-09-29',actualDate:'2026-09-28',offsetDays:-1},
+      {expectedDate:'2026-10-29',actualDate:'2026-10-30',offsetDays:1}
+    ]};
+    return learnedNextIncomeDate(s,'2026-12-29')==='2026-12-29'
   });
 
   // B — Negative balances at different points in the period
@@ -5799,7 +5983,7 @@ function openHomeHealth(h){
   const __ctx=shortTermMoneyContext(b),__living=__advanced?estimatedLivingNeedUntilIncome(b,__ctx):estimatedLivingNeedUntilIncomeBasic(b,__ctx);
   const days=__living.days;
   const nextName=__ctx.nextIncome?.name||'prochain revenu';
-  const nextDate=__ctx.nextIncome?.nextDate?fmtDate(__ctx.nextIncome.nextDate):'';
+  const nextDate=__ctx.nextIncome?.nextDate?incomeExpectationLabel(__ctx.nextIncome):'';
   const nextAmount=__ctx.nextIncome?num(__ctx.nextIncome.amount):0;
   const accountProjected=__living.predictedBeforeIncome;
   const projected=predictedSpendableBeforeIncome(b,__living);
@@ -5824,12 +6008,16 @@ function openHomeHealth(h){
   let nowSub='';
   if(__ctx.nextIncome){
     nowMain=days>0?`${days} jour${days>1?'s':''} à tenir`:'Le prochain revenu arrive aujourd’hui';
-    if(need>0) nowSub=learningReady
-      ?`B²+ estime encore environ ${euro(need)} nécessaires pour l’essentiel à partir de tes habitudes.`
-      :__advanced
-        ?`B²+ utilise encore surtout ton budget actuel : l’historique n’est pas encore assez long.`
-        :`B² estime ce besoin à partir de ton budget et de la période actuelle.`;
-    if(projected<0) nowSub+=`${nowSub?' ':''}Disponible estimé juste avant le prochain revenu : −${euro(Math.abs(projected))}.`;
+    if(projected<0){
+      const reservePart=Math.max(0,num(b.reserve));
+      nowSub=`B² part de ${euro(Math.max(0,__ctx.cashNow))} disponibles aujourd’hui. Il estime encore ${euro(__living.obligations)} de charges à payer et environ ${euro(__living.variableNeed)} pour les dépenses essentielles${reservePart>.01?`, avec ${euro(reservePart)} de réserve protégée`:''}. Cela donnerait −${euro(Math.abs(projected))} juste avant le prochain revenu.`;
+    }else if(need>0){
+      nowSub=learningReady
+        ?`B²+ estime encore environ ${euro(need)} nécessaires pour l’essentiel à partir de tes habitudes.`
+        :__advanced
+          ?`B² s’appuie encore surtout sur ton budget actuel : l’historique n’est pas encore assez long.`
+          :`B² estime ce besoin à partir de ton budget et de la période actuelle.`
+    }
   }else{
     nowMain=projected>=0?'La période tient pour l’instant':'Le budget ne tient pas encore';
     nowSub=h.detail||'B² continue de suivre tes dépenses.';
@@ -5855,7 +6043,9 @@ function openHomeHealth(h){
   let afterMain='';
   let afterSub='';
   if(__ctx.nextIncome){
-    afterMain=`${esc(nextName)} : +${euro(nextAmount)}${nextDate?` le ${nextDate}`:''}`;
+    const learnedModel=__ctx.nextIncome?incomeArrivalModel(__ctx.nextIncome,incomeScheduledDateForMonth(__ctx.nextIncome,__ctx.nextIncome.nextDate)):null;
+    const dateWord=learnedModel?.count===1&&!learnedModel.confident?' autour du ':' le ';
+    afterMain=`Prochain ${esc(String(nextName).toLowerCase())} : +${euro(nextAmount)}${nextDate?`${dateWord}${nextDate}`:''}`;
     if(num(h.recoveryDebt)>0){
       afterSub=h.recoveryFeasible
         ?`B² intégrera environ ${euro(h.recoveryDebt)} de rattrapage dans le budget suivant. Si la trajectoire reste conforme, le carré pourra alors repasser au vert.`
@@ -6516,7 +6706,10 @@ function confirmPlannedBankMatch(id){
   }
   if(n.plannedKind==='income'){
     learnBankAlias(item,n.merchant);
-    const tx={id:uid(),type:'income',amount:r2(n.amount),label:n.merchant||item.name,categoryId:null,category:'',date:bankISO(n.createdAt),createdAt:n.createdAt,memberId,source:'bank',bankVerified:true,bankNotificationId:n.id,plannedKind:'income',plannedId:item.id,plannedSnapshot:null};
+    const actualIncomeDate=bankISO(n.createdAt);
+    const nominalExpected=incomeScheduledDateForMonth(item,item.nextDate||actualIncomeDate);
+    recordIncomeArrival(item,actualIncomeDate,nominalExpected);
+    const tx={id:uid(),type:'income',amount:r2(n.amount),label:n.merchant||item.name,categoryId:null,category:'',date:actualIncomeDate,createdAt:n.createdAt,memberId,source:'bank',bankVerified:true,bankNotificationId:n.id,plannedKind:'income',plannedId:item.id,plannedSnapshot:null};
     b.transactions.push(tx);linkBankNotification(b,n,tx);rememberBankSourceFromNotification(n,{confirmed:true});save();renderMovements();
     showToast(`${item.name} reconnu.`,item.primary?'Faire le point':null,item.primary?()=>startClosing('income'):null);return
   }
@@ -7095,7 +7288,12 @@ function nextPeriodForecast(b,review=null){
     const p=primaryIncomeSource(sim);
     if(p){
       const row=sim.incomeSources.find(x=>String(x.id)===String(p.id));
-      if(row)row.nextDate=addMonthsISO(row.nextDate||start,1)
+      if(row){
+        const nominalCurrent=incomeScheduledDateForMonth(row,row.nextDate||start);
+        recordIncomeArrival(row,start,nominalCurrent);
+        const nominalNext=addMonthsISO(nominalCurrent,1);
+        row.nextDate=learnedNextIncomeDate(row,nominalNext)
+      }
     }
   }
 
@@ -10212,7 +10410,12 @@ function finishCycle(carry,held,reserveRecovery=0,nextOneOffs=[],nextIncomes=[],
 
   // Si le revenu principal vient d'arriver, il fait déjà partie de l'argent
   // réellement disponible au démarrage de la nouvelle période.
-  b.startBalance=r2(num(carry)+num(confirmedOpeningIncome));
+  b.openingCarry=r2(num(carry));
+  b.openingIncomeAmount=r2(num(confirmedOpeningIncome));
+  b.openingIncomeSourceId=incomeReceivedNow&&primaryBefore?primaryBefore.id:null;
+  b.openingIncomeAt=incomeReceivedNow?todayISO():null;
+  b.openingIncomeRepairV1416=true;
+  b.startBalance=r2(b.openingCarry+b.openingIncomeAmount);
   b.startCash=0;
   b.heldAside=r2(num(b.heldAside)+Math.max(0,num(held)));
   b.cycleStart=incomeReceivedNow?todayISO():b.cycleEnd;
@@ -10221,10 +10424,14 @@ function finishCycle(carry,held,reserveRecovery=0,nextOneOffs=[],nextIncomes=[],
     b.incomeSources.forEach(x=>{
       if(!x.nextDate)return;
 
-      // Le salaire vient d'arriver : sa date suivante doit passer au mois prochain,
-      // même si B² l'attendait initialement demain.
+      // Le salaire vient d'arriver : B² mémorise le décalage réel.
+      // Après une seule occurrence, il garde une fenêtre prudente.
+      // Après plusieurs occurrences cohérentes, il ajuste automatiquement la date attendue.
       if(incomeReceivedNow&&primaryBefore&&String(x.id)===String(primaryBefore.id)){
-        x.nextDate=addMonthsISO(x.nextDate,1)
+        const nominalCurrent=incomeScheduledDateForMonth(x,x.nextDate||b.cycleStart);
+        recordIncomeArrival(x,b.cycleStart,nominalCurrent);
+        const nominalNext=addMonthsISO(nominalCurrent,1);
+        x.nextDate=learnedNextIncomeDate(x,nominalNext)
       }
 
       let guard=0;
