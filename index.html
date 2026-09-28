@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#075a4d">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<title>B² v14.19 — réparation guidée de la période clôturée trop tôt</title>
+<title>B² v14.20 — réparation automatique de la période reçue trop tôt</title>
 <style>
 :root{
   --brand:#075a4d;--brand2:#0a7965;--brand3:#0f8f72;--lime:#b9ef68;
@@ -3393,17 +3393,18 @@ function hydrateStateFromCloud(raw){
     state.budgetGroups=[g]
   }
   ensureActive();
-  let repairedOpeningIncome=false,repairedIncomeLearning=false;
+  let repairedOpeningIncome=false,repairedIncomeLearning=false,repairedEarlySalary=false;
   try{
     repairedOpeningIncome=repairLegacyOpeningIncomeV1416(state);
-    repairedIncomeLearning=repairIncomeArrivalLearningV1417(state)
+    repairedIncomeLearning=repairIncomeArrivalLearningV1417(state);
+    repairedEarlySalary=autoRepairEarlySalaryStateV1420(state)
   }catch(e){
     console.warn('B² : réparation salaire cloud ignorée sans bloquer le chargement',e)
   }
   state.settings.v11BudgetGroups=JSON.parse(JSON.stringify(state.budgetGroups||[]));
   pilotTab=state.ui?.pilotTab||'envelopes';movementFilter=state.ui?.movementFilter||'all';
   try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){}
-  if(repairedOpeningIncome||repairedIncomeLearning)setTimeout(()=>queueCloudSave(),0);
+  if(repairedOpeningIncome||repairedIncomeLearning||repairedEarlySalary)setTimeout(()=>queueCloudSave(),0);
   return true
 }
 async function cloudUpsertNow(){
@@ -3747,8 +3748,106 @@ function restoreLastActiveBudgetSelection(){
 
 const B2_EARLY_INCOME_DISMISS_V1419='B2_EARLY_INCOME_DISMISS_V1419';
 
+function autoRepairEarlySalaryStateV1420(s){
+  let changed=false;
+  const today=todayISO();
+
+  (s?.budgets||[]).forEach(b=>{
+    if(!b||b.startMode!=='next')return;
+
+    const startGap=daysBetweenISO(today,b.cycleStart||today);
+    if(startGap<1||startGap>3)return;
+
+    const history=Array.isArray(b.history)?b.history:[];
+    const last=history[history.length-1];
+    const primary=primaryIncomeSource(b);
+    if(!last||!primary||!primary.nextDate||num(primary.amount)<=0)return;
+
+    const closedRecently=Date.now()-num(last.closedAt)<7*86400000;
+    const nextGap=daysBetweenISO(today,primary.nextDate);
+    if(!closedRecently||nextGap<25||nextGap>40)return;
+
+    const incomeMeta=r2(num(b.openingIncomeAmount));
+    const sourceMatches=String(b.openingIncomeSourceId||'')===String(primary.id||'');
+    const receivedToday=String(b.openingIncomeAt||'')===today;
+    const repairFlag=b.openingIncomeRepairV1416===true;
+
+    // On ne corrige automatiquement que si une version précédente a déjà
+    // enregistré que le salaire reçu appartient au démarrage de cette période.
+    const strongEvidence=receivedToday||sourceMatches||incomeMeta>.01||repairFlag;
+    if(!strongEvidence)return;
+
+    const income=incomeMeta>.01?incomeMeta:r2(num(primary.amount));
+    let carry;
+
+    if(Math.abs(num(b.openingCarry))>.01){
+      carry=r2(num(b.openingCarry));
+    }else{
+      // Si startBalance contient déjà salaire + report, on reconstitue le report.
+      // Sinon startBalance correspond encore seulement au report.
+      const start=r2(num(b.startBalance));
+      carry=start>=income*.75?r2(start-income):start
+    }
+
+    const expectedStart=b.cycleStart;
+    const targetStart=r2(carry+income);
+
+    b.openingCarry=carry;
+    b.openingIncomeAmount=income;
+    b.openingIncomeSourceId=primary.id||null;
+    b.openingIncomeAt=today;
+    b.openingIncomeRepairV1416=true;
+    b.earlyIncomeRecoveryV1419=true;
+    b.earlyIncomeAutoRepairV1420=true;
+
+    b.startBalance=targetStart;
+    b.startMode='now';
+    b.cycleStart=today;
+    b.cycleEnd=primary.nextDate||addMonthsISO(today,1);
+
+    recordIncomeArrival(primary,today,expectedStart);
+    changed=true
+  });
+
+  return changed
+}
+
+function forceEarlySalaryReceivedToday(b){
+  if(!b)return false;
+  const primary=primaryIncomeSource(b);
+  if(!primary||num(primary.amount)<=0){showToast('Aucun salaire principal enregistré.');return false}
+
+  const expected=b.cycleStart||todayISO();
+  const income=r2(num(b.openingIncomeAmount)||num(primary.amount));
+  let carry;
+
+  if(Math.abs(num(b.openingCarry))>.01){
+    carry=r2(num(b.openingCarry));
+  }else{
+    const start=r2(num(b.startBalance));
+    carry=start>=income*.75?r2(start-income):start
+  }
+
+  b.openingCarry=carry;
+  b.openingIncomeAmount=income;
+  b.openingIncomeSourceId=primary.id||null;
+  b.openingIncomeAt=todayISO();
+  b.openingIncomeRepairV1416=true;
+  b.earlyIncomeRecoveryV1419=true;
+  b.earlyIncomeAutoRepairV1420=true;
+  b.startBalance=r2(carry+income);
+  b.startMode='now';
+  b.cycleStart=todayISO();
+  b.cycleEnd=primary.nextDate||addMonthsISO(todayISO(),1);
+
+  recordIncomeArrival(primary,todayISO(),expected);
+  save();
+  showToast(`Salaire intégré : ${euro(b.startBalance)} au départ, report compris.`);
+  return true
+}
+
 function earlyIncomeRecoveryCandidate(b){
-  if(!b||b.startMode!=='next'||b.openingIncomeAmount>.01||b.earlyIncomeRecoveryV1419===true)return null;
+  if(!b||b.startMode!=='next'||b.earlyIncomeRecoveryV1419===true)return null;
   const today=todayISO();
   const startGap=daysBetweenISO(today,b.cycleStart||today);
   if(startGap<1||startGap>3)return null;
@@ -3802,7 +3901,9 @@ function applyEarlyIncomeRecoveryV1419(candidate){
 
 function maybeOfferEarlyIncomeRecovery(){
   if(document.querySelector('.modal.show'))return;
-  const b=active(),candidate=earlyIncomeRecoveryCandidate(b);
+  const b=active();
+  if(b?.earlyIncomeAutoRepairV1420===true)return;
+  const candidate=earlyIncomeRecoveryCandidate(b);
   if(!candidate)return;
 
   openConfirm(
@@ -3857,11 +3958,12 @@ function repairLegacyOpeningIncomeV1416(s){
 let state=emptyState();
 state=migrate();
 let plusAfterAction=null,currentPage='home',pilotTab=state.ui.pilotTab||'envelopes',movementFilter=state.ui.movementFilter||'all',txDraft={type:'expense'},overspendCtx=null,editEnvId=null,envMode='auto',envEditDraft=null,balanceMode='auto',balanceDraft=null,balanceReserveUse=0,balancePredictivePlan=null,detailId=null,wizard=null,wizardStep=0,wizardEditId=null,wizardBalanceMode='auto',billDraft={mode:'monthly',dueThisCycle:true},savingDraft={mode:'regular'},simpleSaveHandler=null,confirmHandler=null,closingStep=0,closingFree=0,closingReview=null,closingReason='manual',wizardAccountBalance=0,wizardCashExtra=0,toastTimer=null,toastAction=null;
-let b2OpeningIncomeRepaired=false,b2IncomeLearningRepaired=false;
+let b2OpeningIncomeRepaired=false,b2IncomeLearningRepaired=false,b2EarlySalaryAutoRepaired=false;
 try{
   b2OpeningIncomeRepaired=repairLegacyOpeningIncomeV1416(state);
   b2IncomeLearningRepaired=repairIncomeArrivalLearningV1417(state);
-  if(b2OpeningIncomeRepaired||b2IncomeLearningRepaired)localStorage.setItem(KEY,JSON.stringify(state))
+  b2EarlySalaryAutoRepaired=autoRepairEarlySalaryStateV1420(state);
+  if(b2OpeningIncomeRepaired||b2IncomeLearningRepaired||b2EarlySalaryAutoRepaired)localStorage.setItem(KEY,JSON.stringify(state))
 }catch(e){
   console.warn('B² : réparation salaire au démarrage ignorée sans bloquer l’application',e)
 }
@@ -5467,6 +5569,26 @@ function runSquareScenarioChecks(){
     return futurePreparedHealth(b).level===0
   });
 
+  add('Clôture','Un état incohérent report + salaire enregistré repasse automatiquement en période courante',()=>{
+    const b=mk({
+      id:'repair-test',
+      startMode:'next',
+      cycleStart:addDaysISO(todayISO(),1),
+      cycleEnd:addDaysISO(todayISO(),32),
+      startBalance:158.81,
+      openingCarry:158.81,
+      openingIncomeAmount:1691.99,
+      openingIncomeSourceId:'salary',
+      openingIncomeAt:todayISO(),
+      openingIncomeRepairV1416:true,
+      incomeSources:[{id:'salary',name:'Salaire',amount:1691.99,nextDate:addDaysISO(todayISO(),31),primary:true,scheduledDay:29}],
+      history:[{cycleStart:addDaysISO(todayISO(),-30),cycleEnd:addDaysISO(todayISO(),1),closedAt:Date.now()}]
+    });
+    const s={budgets:[b]};
+    const ok=autoRepairEarlySalaryStateV1420(s);
+    return ok&&b.startMode==='now'&&b.cycleStart===todayISO()&&Math.abs(b.startBalance-1850.80)<.01
+  });
+
   // B — Negative balances at different points in the period
   add('Découvert','-50 € avec 20 jours peut devenir critique',()=>{
     const b=mk({startBalance:-50,cycleStart:addDaysISO(todayISO(),-10),cycleEnd:addDaysISO(todayISO(),20),incomeSources:salary(20,1400),
@@ -6349,6 +6471,10 @@ function homeWatchList(b,health){
   return sorted.slice(0,2)
 }
 function pilotNowCard(b){
+  const future=b?.startMode==='next'&&String(b.cycleStart||'')>todayISO();
+  if(future){
+    return `<div class="pilot-now good"><span class="pilot-now-kicker">Période préparée</span><strong>Rien à rééquilibrer aujourd’hui.</strong><p>Cette période est prévue à partir du ${fmtDate(b.cycleStart)}. Les alertes de cette période ne démarreront qu’à son commencement.</p><button class="btn btn-primary" id="pilotSalaryReceivedToday" type="button">Salaire déjà reçu aujourd’hui</button></div>`
+  }
   const h=budgetHealth(b),ctx=shortTermMoneyContext(b);
   if(h.level===0)return `<div class="pilot-now good"><span class="pilot-now-kicker">À faire maintenant</span><strong>Rien à ajuster.</strong><p>${esc(h.actionText)}</p></div>`;
 
@@ -7351,8 +7477,11 @@ function renderHome(){
   const readyFunds=readyProvisions(b),readyFundsCard=readyFunds.length?`<button class="card status-action" id="readyProvisionCard" type="button"><div class="status-icon-row"><div class="status-icon">${ico('gift')}</div><div class="square-copy"><strong>${esc(readyFunds[0].name)} est prêt${readyFunds.length>1?` · +${readyFunds.length-1}`:''}</strong><span>${euro(readyFunds[0].savedAmount)} sont prêts à être utilisés.</span><span class="status-cta">Choisir quoi en faire →</span></div></div></button>`:'';
 
   const incomeClosePrompt=incomeClosingPromptCard(b),sharedInvitePrompt=sharedInviteHomeCard();
+  const futureSalaryFix=future&&primaryIncomeSource(b)
+    ?`<div class="card status info"><strong>Ton salaire est déjà arrivé ?</strong><br>Cette période est encore marquée comme commençant le ${fmtDate(b.cycleStart)}. Si ton salaire est déjà sur ton compte aujourd’hui, corrige-la en un clic.<button class="btn btn-primary btn-full" id="homeSalaryReceivedToday" type="button" style="margin-top:10px">Mon salaire est déjà arrivé aujourd’hui</button></div>`
+    :'';
   content.innerHTML=`
-    ${sharedInvitePrompt}${incomeClosePrompt}
+    ${sharedInvitePrompt}${incomeClosePrompt}${futureSalaryFix}
     <button class="card status-action home-square-card" id="homeStatusCard" type="button">
       <div class="square-status home-square-status">
         <span class="home-square-stage"><span class="home-square-scale"><span class="square-mark b2-dynamic ${statusClass}" style="${squareMotionStyle(health)}"><i>B²</i><i>B²</i><i>B²</i><i>B²</i><i>B²</i><i>B²</i><i>B²</i><i>B²</i><i>B²</i><i>B²</i><i>B²</i><i>B²</i></span></span></span>
@@ -7383,6 +7512,7 @@ function renderHome(){
   $('#homeDeclineSharedInvite')?.addEventListener('click',()=>declineSharedInvite(b2PendingSharedInvites[0]));
   $$('[data-home-account]',content).forEach(x=>x.addEventListener('click',()=>activateAccountV11(x.dataset.homeAccount,true)));
   $('#homeAddAccount')?.addEventListener('click',()=>startAccountWizard(g.id));
+  $('#homeSalaryReceivedToday')?.addEventListener('click',()=>forceEarlySalaryReceivedToday(b));
   $('#homeStatusCard')?.addEventListener('click',()=>future
     ?showToast(`Cette période est préparée pour le ${fmtDate(b.cycleStart)}. Elle ne doit pas déclencher d’alerte avant son démarrage.`)
     :openHomeHealth(health));
@@ -7611,7 +7741,8 @@ function renderPilot(){
   $$('[data-provision-use]',c).forEach(x=>x.addEventListener('click',()=>useProvision(x.dataset.provisionUse)));
   $$('[data-provision-keep]',c).forEach(x=>x.addEventListener('click',()=>keepProvision(x.dataset.provisionKeep)));
   $$('[data-provision-postpone]',c).forEach(x=>x.addEventListener('click',()=>postponeProvision(x.dataset.provisionPostpone)));
-  $('#pilotNowBalance')?.addEventListener('click',()=>openBalanceAssistant('auto'));
+    $('#pilotSalaryReceivedToday')?.addEventListener('click',()=>forceEarlySalaryReceivedToday(b));
+$('#pilotNowBalance')?.addEventListener('click',()=>openBalanceAssistant('auto'));
   $('#pilotNowInbox')?.addEventListener('click',()=>openNotificationCenter());
   $('#pilotNowMovements')?.addEventListener('click',()=>showPage('movements'));
   $('#pilotNextPeriod')?.addEventListener('click',()=>openNextPeriodPreview(b));
