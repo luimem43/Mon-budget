@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#075a4d">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<title>B² v14.24 — Carré Intelligence Max : Gratuit cohérent / B²+ prédictif</title>
+<title>B² v14.25 — correctif références officielles + démarrage sécurisé</title>
 <style>
 :root{
   --brand:#075a4d;--brand2:#0a7965;--brand3:#0f8f72;--lime:#b9ef68;
@@ -4605,6 +4605,11 @@ const B2_OFFICIAL_REFERENCE={
   }
 };
 
+const B2_EXTERNAL_LIVING_REFERENCE={
+  source:'Repères publics français — UNAF / INSEE / SDES / DREES',
+  version:B2_OFFICIAL_REFERENCE.version
+};
+
 function householdConsumptionUnits(b){
   const h=b?.household||{adults:1,children:0},p=budgetProfileOf(b);
   const adults=Math.max(1,Math.round(num(h.adults)||1));
@@ -5320,7 +5325,7 @@ function estimatedLivingNeedUntilIncomeBasic(b,ctx=null){
     breakdown.push({
       envId:null,name:'Courses & quotidien',kind:'food',daily,amount:r2(daily*days),rawAmount:r2(daily*days),
       coverageCredit:0,coverageDays:0,coverageLabel:'alimentation',essentiality:1,confidence:.48,historyWeight:0,
-      benchmarkDaily:daily,benchmarkMonthly:monthly,benchmarkUsed:true,benchmarkSource:B2_EXTERNAL_LIVING_REFERENCE.source
+      benchmarkDaily:daily,benchmarkMonthly:monthly,benchmarkUsed:true,benchmarkSource:B2_OFFICIAL_REFERENCE.sources.unaf
     })
   }
 
@@ -5340,7 +5345,7 @@ function estimatedLivingNeedUntilIncomeBasic(b,ctx=null){
   return {
     days,variableNeed,recentlyCovered,dailyEssential,displayDailyEssential:dailyEssential,obligations,
     predictedBeforeIncome,spendableBeforeIncome,debtAtIncome,nextIncomeAmount,afterIncome,breakdown,
-    benchmarkDriven,benchmarkSource:benchmarkDriven?B2_EXTERNAL_LIVING_REFERENCE.source:'',
+    benchmarkDriven,benchmarkSource:benchmarkDriven?'Repères publics français — UNAF / INSEE / SDES / DREES':'',
     benchmarkHousehold:benchmarkDriven?householdBenchmarkLabel(b):'',
     learningLevel:'repère de départ',learningEvidence:0,learningPeriods:0,learningMaturity:0,
     canShowEssential:true,intelligenceMode:'free'
@@ -5471,7 +5476,7 @@ function estimatedLivingNeedUntilIncome(b,ctx=null){
       envId:null,name:'Courses & quotidien',kind:'food',daily,amount:r2(daily*days),rawAmount:r2(daily*days),
       coverageCredit:0,coverageDays:0,coverageLabel:'alimentation',essentiality:1,confidence:'repère',historyWeight:0,
       benchmarkDaily:daily,benchmarkMonthly:monthly,benchmarkWeight:1,benchmarkUsed:true,
-      benchmarkSource:B2_EXTERNAL_LIVING_REFERENCE.source
+      benchmarkSource:B2_OFFICIAL_REFERENCE.sources.unaf
     })
   }
 
@@ -5492,7 +5497,7 @@ function estimatedLivingNeedUntilIncome(b,ctx=null){
     days,variableNeed,recentlyCovered,dailyEssential,
     displayDailyEssential:(learning.canShowEssential||benchmarkDriven)?dailyEssential:null,
     obligations,predictedBeforeIncome,spendableBeforeIncome,debtAtIncome,nextIncomeAmount,afterIncome,
-    breakdown,benchmarkDriven,benchmarkSource:benchmarkDriven?B2_EXTERNAL_LIVING_REFERENCE.source:'',
+    breakdown,benchmarkDriven,benchmarkSource:benchmarkDriven?'Repères publics français — UNAF / INSEE / SDES / DREES':'',
     benchmarkHousehold:benchmarkDriven?householdBenchmarkLabel(b):'',
     learningLevel:learning.level,learningEvidence:learning.evidence,learningPeriods:learning.historyPeriods,
     learningMaturity:learning.maturityPct,canShowEssential:learning.canShowEssential
