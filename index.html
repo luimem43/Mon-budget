@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#075a4d">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<title>B² v14.18 — correctif démarrage + apprentissage salaire sécurisé</title>
+<title>B² v14.19 — réparation guidée de la période clôturée trop tôt</title>
 <style>
 :root{
   --brand:#075a4d;--brand2:#0a7965;--brand3:#0f8f72;--lime:#b9ef68;
@@ -3445,7 +3445,8 @@ async function loadCloudBackupOrSeed(){
   ensurePlusBill(active());
   syncOwnedSharedEntitlement({remote:true});
   renderHeaderAccount();renderAll();showPage(currentPage||'home');
-  setTimeout(checkB2EntitlementNotices,260)
+  setTimeout(checkB2EntitlementNotices,260);
+  setTimeout(maybeOfferEarlyIncomeRecovery,520)
 }
 async function finishCloudLogin(session,message='Connexion réussie.'){
   cloudSession=session;
@@ -3743,6 +3744,77 @@ function restoreLastActiveBudgetSelection(){
   return true
 }
 
+
+const B2_EARLY_INCOME_DISMISS_V1419='B2_EARLY_INCOME_DISMISS_V1419';
+
+function earlyIncomeRecoveryCandidate(b){
+  if(!b||b.startMode!=='next'||b.openingIncomeAmount>.01||b.earlyIncomeRecoveryV1419===true)return null;
+  const today=todayISO();
+  const startGap=daysBetweenISO(today,b.cycleStart||today);
+  if(startGap<1||startGap>3)return null;
+
+  const history=Array.isArray(b.history)?b.history:[];
+  const last=history[history.length-1];
+  const primary=primaryIncomeSource(b);
+  if(!last||!primary||!primary.nextDate||num(primary.amount)<=0)return null;
+
+  const closedRecently=Date.now()-num(last.closedAt)<72*3600000;
+  const nextGap=daysBetweenISO(today,primary.nextDate);
+  if(!closedRecently||nextGap<25||nextGap>40)return null;
+
+  const dismissed=localStorage.getItem(B2_EARLY_INCOME_DISMISS_V1419);
+  const key=`${b.id}:${b.cycleStart}:${primary.id}`;
+  if(dismissed===key)return null;
+
+  return {b,primary,key,expectedDate:b.cycleStart,actualDate:today}
+}
+
+function applyEarlyIncomeRecoveryV1419(candidate){
+  const {b,primary,expectedDate,actualDate}=candidate||{};
+  if(!b||!primary)return false;
+
+  const carry=r2(num(b.startBalance));
+  const income=r2(num(primary.amount));
+
+  b.openingCarry=carry;
+  b.openingIncomeAmount=income;
+  b.openingIncomeSourceId=primary.id||null;
+  b.openingIncomeAt=actualDate;
+  b.openingIncomeRepairV1416=true;
+  b.earlyIncomeRecoveryV1419=true;
+
+  // Avant : report + salaire "prévu" étaient utilisés dans le budget,
+  // mais le Carré ne voyait que le report comme argent réel.
+  // Après : même total budgétaire, mais le salaire reçu devient du vrai argent
+  // de départ et n'est plus recompter comme revenu planifié.
+  b.startBalance=r2(carry+income);
+  b.startMode='now';
+  b.cycleStart=actualDate;
+  b.cycleEnd=primary.nextDate||addMonthsISO(actualDate,1);
+
+  recordIncomeArrival(primary,actualDate,expectedDate);
+
+  try{localStorage.removeItem(B2_EARLY_INCOME_DISMISS_V1419)}catch(e){}
+  save();
+  showToast(`Période corrigée : ${euro(b.startBalance)} au départ, salaire compris.`);
+  return true
+}
+
+function maybeOfferEarlyIncomeRecovery(){
+  if(document.querySelector('.modal.show'))return;
+  const b=active(),candidate=earlyIncomeRecoveryCandidate(b);
+  if(!candidate)return;
+
+  openConfirm(
+    'Ton salaire est-il déjà arrivé ?',
+    `Tu as clôturé aujourd’hui alors que cette nouvelle période était prévue pour le ${fmtDate(candidate.expectedDate)}. Si ton ${candidate.primary.name||'revenu principal'} de ${euro(candidate.primary.amount)} est déjà arrivé aujourd’hui, B² doit démarrer la période aujourd’hui et l’ajouter au report de la période précédente.`,
+    ()=>applyEarlyIncomeRecoveryV1419(candidate)
+  );
+
+  // Si l'utilisateur ferme/annule le confirm standard, on ne modifie rien.
+  // Le prompt pourra réapparaître à la prochaine ouverture tant qu'il n'a pas
+  // explicitement utilisé le bouton "Non" ci-dessous dans le cas futur.
+}
 
 function repairLegacyOpeningIncomeV1416(s){
   let changed=false;
@@ -5380,6 +5452,19 @@ function runSquareScenarioChecks(){
       plan:{tier:'plus'}
     };
     try{ensureActive(fake);return true}catch(e){return false}
+  });
+
+  add('Clôture','Une période future préparée ne déclenche pas une fausse alerte rouge',()=>{
+    const b=mk({
+      startMode:'next',
+      cycleStart:addDaysISO(todayISO(),1),
+      cycleEnd:addDaysISO(todayISO(),32),
+      startBalance:158,
+      incomeSources:[{id:'salary',name:'Salaire',amount:1691.99,nextDate:addDaysISO(todayISO(),32),primary:true}],
+      fixed:[{id:'f',name:'Charges',amount:1400,dueThisCycle:true,dueDay:null}],
+      envelopes:[env('food','Courses & quotidien',200,'essential')]
+    });
+    return futurePreparedHealth(b).level===0
   });
 
   // B — Negative balances at different points in the period
@@ -7211,6 +7296,26 @@ function incomeClosingPromptCard(b){
   </div>`
 }
 
+function futurePreparedHealth(b){
+  const primary=primaryIncomeSource(b);
+  const rem=remaining(b);
+  const date=fmtDate(b.cycleStart);
+  return {
+    level:0,
+    title:'Période préparée',
+    text:`Elle est prévue à partir du ${date}.`,
+    homeHint:`Disponible prévu après charges et protections : ${euro(rem)}${primary?` · revenu prévu ${euro(primary.amount)}`:''}.`,
+    action:'none',actionText:'Cette période n’a pas encore commencé.',
+    signals:[],primary:null,secondary:[],focusEnvId:null,
+    forecastRemaining:rem,forecastReliable:true,forecast:rem,
+    currentCash:currentCashEstimate(b),nextIncome:primary,daysToIncome:primary?Math.max(0,daysBetweenISO(todayISO(),primary.nextDate)):0,
+    livingNeed:0,dailyEssential:0,predictedBeforeIncome:rem,predictedSpendableBeforeIncome:rem,
+    recoveryDebt:0,recoveryFeasible:true,nextVariableCapacity:Math.max(0,rem),
+    learningReady:false,learningMaturity:0,livingBreakdown:[],predictive:emptyPredictivePlan(),
+    trajectory:{level:0,score:0},trajectoryScore:0,pressure:0,intelligenceMode:advancedIntelligenceEnabled()?'plus':'free'
+  }
+}
+
 function renderHome(){
   updateNotificationBell();
   const g=activeBudgetGroup(),b=active(),hero=$('#homeHero'),content=$('#homeContent'),sw=$('#homeBudgetSwitch'),swLabel=$('#homeBudgetSwitchLabel');
@@ -7239,7 +7344,7 @@ function renderHome(){
     hero.innerHTML=`<div class="eyebrow">${esc(b.name)} · jusqu’au ${fmtDate(b.cycleEnd)}</div><div class="hero-title">Disponible à utiliser</div><div class="hero-amount ${rem<0?'bad':''}">${rem<0?'− ':''}${euro(Math.abs(rem))}</div><div class="hero-caption">Après charges, réserve et argent mis de côté.</div><div class="hero-balance-estimate">Solde estimé du compte : <strong class="${accountBalance<0?'bad':''}">${euro(accountBalance)}</strong></div><div class="hero-facts"><span class="hero-pill">${repereDays} j avant revenu</span>${perDay!=null?`<span class="hero-pill">≈ ${euro(perDay)}/j repère</span>`:''}<span class="hero-pill">Compte actif</span></div>`
   }
 
-  const health=budgetHealth(b),statusClass=homeHealthClass(health.level),watch=homeWatchList(b,health),recent=[...b.transactions].sort((a,c)=>(c.createdAt||0)-(a.createdAt||0)).slice(0,3);
+  const health=future?futurePreparedHealth(b):budgetHealth(b),statusClass=homeHealthClass(health.level),watch=future?[]:homeWatchList(b,health),recent=[...b.transactions].sort((a,c)=>(c.createdAt||0)-(a.createdAt||0)).slice(0,3);
   const protectedTotal=protectedThisCycle(b)+num(b.reserve),fixedTotal=fixedThisCycle(b)+sum(b.oneOffs),buckets=moneyBuckets(b);
   const essential=`<div class="home-essential"><div class="home-essential-main"><div class="home-essential-item"><span>Dépensé cette période</span><strong>${euro(spent)}</strong><small>ce qui est déjà sorti</small></div><div class="home-essential-item"><span>Argent protégé</span><strong>${euro(protectedTotal)}</strong><small>non disponible pour les dépenses courantes</small></div></div><details><summary>Comprendre où est mon argent</summary><div class="money-buckets"><div class="money-bucket">${ico('money')}<div class="money-bucket-copy"><strong>Solde du compte</strong><span>L’argent réellement présent, avant protections B².</span></div><b>${euro(buckets.accountBalance)}</b></div><div class="money-bucket">${ico('wallet')}<div class="money-bucket-copy"><strong>Disponible à utiliser</strong><span>Après charges, réserve et argent mis de côté.</span></div><b class="${buckets.spendable<0?'bad':''}">${euro(buckets.spendable)}</b></div><div class="money-bucket">${ico('shield')}<div class="money-bucket-copy"><strong>Réserve de sécurité</strong><span>Protégée pour les vrais imprévus.</span></div><b>${euro(buckets.reserve)}</b></div><div class="money-bucket">${ico('calendar')}<div class="money-bucket-copy"><strong>Déjà mis de côté pour des factures</strong><span>Cagnottes et charges irrégulières en préparation.</span></div><b>${euro(buckets.futureBills)}</b></div><div class="money-bucket">${ico('target')}<div class="money-bucket-copy"><strong>Épargne déjà constituée</strong><span>Suivie séparément du budget courant.</span></div><b>${euro(buckets.savings)}</b></div>${buckets.heldAside>0?`<div class="money-bucket">${ico('money')}<div class="money-bucket-copy"><strong>Mis de côté hors budget</strong><span>Conservé, mais pas réutilisé dans la période.</span></div><b>${euro(buckets.heldAside)}</b></div>`:''}</div><div class="home-detail-grid"><div class="home-detail-row"><span>Charges prévues cette période</span><b>${euro(fixedTotal)}</b></div><div class="home-detail-row"><span>À mettre de côté cette période</span><b>${euro(setAside)}</b></div><div class="home-detail-row"><span>Épargne prévue cette période</span><b>${euro(sav)}</b></div>${plannedExceptionalIncome(b)>0?`<div class="home-detail-row"><span>Revenu exceptionnel prévu</span><b>＋ ${euro(plannedExceptionalIncome(b))}</b></div>`:''}</div></details></div>`;
   const watchBlock=watch.length?`<div class="section-title"><h3>À regarder</h3><button class="btn-link" data-home-go="pilot" type="button">Piloter</button></div><div class="card"><div class="env-preview">${watch.map(e=>envMini(b,e)).join('')}</div></div>`:'';
@@ -7278,7 +7383,9 @@ function renderHome(){
   $('#homeDeclineSharedInvite')?.addEventListener('click',()=>declineSharedInvite(b2PendingSharedInvites[0]));
   $$('[data-home-account]',content).forEach(x=>x.addEventListener('click',()=>activateAccountV11(x.dataset.homeAccount,true)));
   $('#homeAddAccount')?.addEventListener('click',()=>startAccountWizard(g.id));
-  $('#homeStatusCard')?.addEventListener('click',()=>openHomeHealth(health));
+  $('#homeStatusCard')?.addEventListener('click',()=>future
+    ?showToast(`Cette période est préparée pour le ${fmtDate(b.cycleStart)}. Elle ne doit pas déclencher d’alerte avant son démarrage.`)
+    :openHomeHealth(health));
   $('#readyProvisionCard')?.addEventListener('click',()=>{pilotTab='aside';showPage('pilot')});
   $$('[data-home-go]',content).forEach(x=>x.addEventListener('click',()=>showPage(x.dataset.homeGo)));
   wireAds(content)
@@ -10910,6 +11017,7 @@ try{
   renderHeaderAccount();
   renderAll();
   showPage('home');
+  setTimeout(maybeOfferEarlyIncomeRecovery,520);
 }catch(err){
   console.error('B² initialisation error',err);window.b2ReportError(err.message);
   /* Keep the splash for its normal duration. The scheduled transition above
