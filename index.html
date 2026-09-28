@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#075a4d">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<title>B² v14.25 — correctif références officielles + démarrage sécurisé</title>
+<title>B² v14.28 — Carré pertinent : il parle toujours, chiffre seulement quand utile</title>
 <style>
 :root{
   --brand:#075a4d;--brand2:#0a7965;--brand3:#0f8f72;--lime:#b9ef68;
@@ -6308,6 +6308,110 @@ function runSquareScenarioChecks(){
     return remaining(b)<=201.79&&h.level>=3
   });
 
+  add('Rééquilibrage','Un budget trop serré sans enveloppe dépassée ne peut pas être rééquilibré',()=>{
+    const b=mk({
+      startMode:'now',startBalance:500,cycleEnd:addDaysISO(todayISO(),25),
+      envelopes:[env('food','Courses & quotidien',180,'essential'),env('fun','Loisirs & sorties',20,'flexible')],
+      incomeSources:[{id:'salary',name:'Salaire',amount:1700,nextDate:addDaysISO(todayISO(),25),primary:true}]
+    });
+    const r=rebalanceAvailability(b),h=budgetHealth(b);
+    return r.overAmount===0&&r.possible===false&&h.action!=='balance'
+  });
+  add('Rééquilibrage','Une enveloppe dépassée avec assez de marge ailleurs permet un vrai rééquilibrage',()=>{
+    const food=env('food','Courses & quotidien',100,'essential'),fun=env('fun','Loisirs & sorties',100,'flexible');
+    const b=mk({
+      startBalance:500,cycleEnd:addDaysISO(todayISO(),15),
+      envelopes:[food,fun],
+      transactions:[expense('x',130,'food','Courses',0)],
+      incomeSources:[{id:'salary',name:'Salaire',amount:1700,nextDate:addDaysISO(todayISO(),15),primary:true}]
+    });
+    const r=rebalanceAvailability(b);
+    return r.overAmount>=29.99&&r.donorRoom>=99.99&&r.possible===true
+  });
+  add('Rééquilibrage','Une enveloppe dépassée sans marge suffisante ailleurs ne propose pas un faux rééquilibrage',()=>{
+    const food=env('food','Courses & quotidien',100,'essential'),fun=env('fun','Loisirs & sorties',10,'flexible');
+    fun.locked=true;
+    const b=mk({
+      startBalance:130,cycleEnd:addDaysISO(todayISO(),15),
+      envelopes:[food,fun],
+      transactions:[expense('x',130,'food','Courses',0)],
+      incomeSources:[{id:'salary',name:'Salaire',amount:1700,nextDate:addDaysISO(todayISO(),15),primary:true}]
+    });
+    const r=rebalanceAvailability(b);
+    return r.overAmount>=29.99&&r.possible===false
+  });
+
+  add('Carré discret','Une marge très confortable ne déclenche aucune estimation visible',()=>{
+    const b=mk({
+      startMode:'now',startBalance:2600,cycleStart:todayISO(),cycleEnd:addDaysISO(todayISO(),31),reserve:100,
+      household:{adults:1,children:4},
+      budgetProfile:{meals:'mixed',mobility:'high',leisure:'active',childStages:['school']},
+      fixed:[{id:'f',name:'Charges',amount:500,dueThisCycle:true,dueDay:null}],
+      envelopes:[
+        env('food','Courses & quotidien',900,'essential'),
+        env('fuel','Carburant & déplacements',300,'important'),
+        env('fun','Loisirs & sorties',250,'flexible')
+      ],
+      incomeSources:[{id:'salary',name:'Salaire',amount:2200,nextDate:addDaysISO(todayISO(),31),primary:true}]
+    });
+    const ctx=shortTermMoneyContext(b),living=estimatedLivingNeedUntilIncome(b,ctx),s=b2PlusForecastScenarios(b,ctx,living),g=b2ForecastAttentionGate(b,ctx,living,s);
+    return remaining(b)>1500&&g.mode==='quiet'&&g.shouldEstimate===false
+  });
+  add('Carré discret','Une marge insuffisante déclenche au contraire une estimation utile',()=>{
+    const b=mk({
+      startMode:'now',startBalance:1850.80,cycleStart:todayISO(),cycleEnd:addDaysISO(todayISO(),31),reserve:50,
+      household:{adults:1,children:2},budgetProfile:{meals:'mixed',mobility:'regular',childStages:['school']},
+      fixed:[{id:'f',name:'Charges',amount:1599.02,dueThisCycle:true,dueDay:null}],
+      envelopes:[env('food','Courses & quotidien',95.68,'essential')],
+      incomeSources:[{id:'salary',name:'Salaire',amount:1691.99,nextDate:addDaysISO(todayISO(),31),primary:true}]
+    });
+    const ctx=shortTermMoneyContext(b),living=estimatedLivingNeedUntilIncome(b,ctx),s=b2PlusForecastScenarios(b,ctx,living),g=b2ForecastAttentionGate(b,ctx,living,s);
+    return remaining(b)<=201.79&&g.mode==='danger'&&g.shouldEstimate===true
+  });
+
+  add('Communication Carré','Charge proche qui met le compte en négatif mérite un chiffre exact',()=>{
+    const b=mk({
+      startMode:'now',startBalance:40,cycleStart:todayISO(),cycleEnd:addDaysISO(todayISO(),20),
+      fixed:[{id:'edf',name:'Électricité',amount:63,dueThisCycle:true,dueDay:dateParts(addDaysISO(todayISO(),1)).d}],
+      incomeSources:[{id:'salary',name:'Salaire',amount:1700,nextDate:addDaysISO(todayISO(),20),primary:true}]
+    });
+    const i=b2KnownEventInsight(b,shortTermMoneyContext(b));
+    return !!i&&i.kind==='fixed-negative'&&i.exact===true&&i.afterAccount<0
+  });
+  add('Communication Carré','Marge confortable : pas de chiffre imposé sur l’accueil',()=>{
+    const b=mk({
+      startMode:'now',startBalance:2600,cycleStart:todayISO(),cycleEnd:addDaysISO(todayISO(),30),
+      household:{adults:1,children:3},
+      budgetProfile:{mobility:'high',meals:'mixed',leisure:'active',childStages:['school']},
+      fixed:[{id:'f',name:'Charges',amount:300,dueThisCycle:true,dueDay:null}],
+      envelopes:[env('food','Courses & quotidien',700,'essential'),env('fuel','Carburant & déplacements',250,'important')],
+      incomeSources:[{id:'salary',name:'Salaire',amount:2200,nextDate:addDaysISO(todayISO(),30),primary:true}]
+    });
+    const ctx=shortTermMoneyContext(b),living=estimatedLivingNeedUntilIncome(b,ctx),s=b2PlusForecastScenarios(b,ctx,living),g=b2ForecastAttentionGate(b,ctx,living,s);
+    const c=b2SquareCommunication(b,ctx,living,g,s,b2PlusConfidenceModel(b,living),null);
+    return g.mode==='quiet'&&c.numberInsight===null
+  });
+  add('Communication Carré','Danger probable : le chiffre redevient utile',()=>{
+    const b=mk({
+      startMode:'now',startBalance:350,cycleStart:todayISO(),cycleEnd:addDaysISO(todayISO(),28),
+      household:{adults:1,children:2},budgetProfile:{mobility:'regular',meals:'mixed',childStages:['school']},
+      envelopes:[env('food','Courses & quotidien',120,'essential')],
+      incomeSources:[{id:'salary',name:'Salaire',amount:1700,nextDate:addDaysISO(todayISO(),28),primary:true}]
+    });
+    const ctx=shortTermMoneyContext(b),living=estimatedLivingNeedUntilIncome(b,ctx),s=b2PlusForecastScenarios(b,ctx,living),g=b2ForecastAttentionGate(b,ctx,living,s);
+    const i=b2ForecastNumberInsight(b,g,s,living);
+    return g.mode==='danger'&&!!i&&i.amount>=20
+  });
+  add('Pilotage','Pas de troisième bouton artificiel si aucune action pertinente',()=>{
+    const b=mk({
+      startMode:'now',startBalance:80,cycleEnd:addDaysISO(todayISO(),25),
+      envelopes:[env('food','Courses & quotidien',80,'essential')],
+      incomeSources:[{id:'salary',name:'Salaire',amount:1700,nextDate:addDaysISO(todayISO(),25),primary:true}]
+    });
+    const a=b2EnvelopeAdjustmentOpportunity(b);
+    return a.possible===false
+  });
+
   // B — Negative balances at different points in the period
   add('Découvert','-50 € avec 20 jours peut devenir critique',()=>{
     const b=mk({startBalance:-50,cycleStart:addDaysISO(todayISO(),-10),cycleEnd:addDaysISO(todayISO(),20),incomeSources:salary(20,1400),
@@ -6715,6 +6819,179 @@ function runSquareScenarioChecks(){
     cases
   }
 }
+function b2ForecastAttentionGate(b,ctx=null,living=null,plusScenarios=null){
+  ctx=ctx||shortTermMoneyContext(b);
+  const advanced=advancedIntelligenceEnabled();
+  living=living||(advanced?estimatedLivingNeedUntilIncome(b,ctx):estimatedLivingNeedUntilIncomeBasic(b,ctx));
+
+  const current=Math.max(0,num(remaining(b)));
+  const p=budgetProfileOf(b),h=b?.household||{adults:1,children:0};
+  const children=Math.max(0,Math.round(num(h.children)||0));
+
+  const probableNeed=Math.max(0,
+    advanced&&plusScenarios
+      ?num(plusScenarios.probable.need)
+      :num(living.variableNeed)
+  );
+  const prudentNeed=Math.max(probableNeed,
+    advanced&&plusScenarios
+      ?num(plusScenarios.prudent.need)
+      :probableNeed*1.12
+  );
+
+  // La composition du foyer est déjà intégrée aux besoins.
+  // Ici on ajoute seulement une petite marge d'incertitude avant de déranger l'utilisateur.
+  let safety=1.10+Math.min(.05,children*.015);
+  if(p.mobility==='high')safety+=.03;
+  if(p.leisure==='active')safety+=.02;
+  safety=clamp(safety,1.10,1.20);
+
+  const comfortableThreshold=r2(prudentNeed*safety);
+  const probableRemaining=r2(current-probableNeed);
+  const prudentRemaining=r2(current-prudentNeed);
+  const coverage=probableNeed>0?current/probableNeed:99;
+
+  let mode='quiet';
+  if(probableRemaining<-.01)mode='danger';
+  else if(current<comfortableThreshold-.01)mode='watch';
+
+  return {
+    mode,
+    current:r2(current),
+    probableNeed:r2(probableNeed),
+    prudentNeed:r2(prudentNeed),
+    comfortableThreshold,
+    probableRemaining,
+    prudentRemaining,
+    coverage:r2(coverage),
+    safety:r2(safety),
+    shouldEstimate:mode!=='quiet'
+  }
+}
+
+function b2KnownEventInsight(b,ctx=null){
+  ctx=ctx||shortTermMoneyContext(b);
+  const upcoming=upcomingFixedCharges(b)[0]||null;
+  if(!upcoming)return null;
+
+  const days=Math.max(0,num(upcoming.days));
+  if(days>7)return null;
+
+  const amount=Math.max(0,num(upcoming.charge?.amount));
+  if(amount<=.01)return null;
+
+  const accountNow=r2(currentCashEstimate(b));
+  const afterAccount=r2(accountNow-amount);
+  const when=days===0?'aujourd’hui':days===1?'demain':`dans ${days} jours`;
+
+  if(afterAccount<-.01){
+    const severity=days<=1||afterAccount<-100?4:3;
+    return {
+      kind:'fixed-negative',
+      severity,
+      exact:true,
+      name:upcoming.charge.name||'Une charge',
+      amount:r2(amount),
+      days,
+      when,
+      afterAccount,
+      title:`Attention à ${upcoming.charge.name||'une charge'}`,
+      text:`${euro(amount)} ${when}. Ton solde de compte passerait à −${euro(Math.abs(afterAccount))}.`,
+      hint:'Cette charge est déjà intégrée dans ton Disponible à utiliser ; l’alerte concerne le solde bancaire au moment du prélèvement.'
+    }
+  }
+
+  const lowAfter=Math.max(25,amount*.18);
+  if(days<=3&&afterAccount>=0&&afterAccount<lowAfter){
+    return {
+      kind:'fixed-low',
+      severity:1,
+      exact:true,
+      name:upcoming.charge.name||'Une charge',
+      amount:r2(amount),
+      days,
+      when,
+      afterAccount,
+      title:'Solde bancaire à surveiller',
+      text:`${euro(amount)} ${when}. Le solde du compte tomberait autour de ${euro(afterAccount)}.`,
+      hint:'Ton Disponible à utiliser tient déjà compte de cette charge.'
+    }
+  }
+
+  return null
+}
+function b2ForecastNumberInsight(b,gate,plusScenarios=null,living=null){
+  if(!gate||gate.mode!=='danger')return null;
+  const advanced=advancedIntelligenceEnabled();
+  const shortfall=advanced&&plusScenarios
+    ?Math.max(0,num(plusScenarios.probable.shortfall))
+    :Math.max(0,-num(predictedSpendableBeforeIncome(b,living)));
+
+  if(shortfall<20)return null;
+
+  return {
+    kind:'forecast-shortfall',
+    severity:shortfall>250?4:3,
+    exact:false,
+    amount:r2(shortfall),
+    title:'Marge probablement insuffisante',
+    text:`B² estime qu’il pourrait manquer environ ${euro(shortfall)} avant le prochain revenu.`,
+    hint:advanced
+      ?'C’est une estimation B²+ basée sur ton profil, ton budget, les repères publics et ton historique disponible.'
+      :'C’est un repère prudent basé sur ton foyer, ton budget et la période actuelle.'
+  }
+}
+function b2SquareCommunication(b,ctx,living,gate,plusScenarios,plusConfidence,primary){
+  const eventInsight=b2KnownEventInsight(b,ctx);
+  const forecastInsight=b2ForecastNumberInsight(b,gate,plusScenarios,living);
+  const insight=eventInsight||forecastInsight||null;
+
+  if(primary&&['over','income-late','fixed-late','rapid','habit','reserve'].includes(primary.id)){
+    return {title:null,text:null,hint:null,numberInsight:insight}
+  }
+
+  if(insight){
+    return {title:insight.title,text:insight.text,hint:insight.hint,numberInsight:insight}
+  }
+
+  if(gate?.mode==='watch'){
+    return {
+      title:'Marge à surveiller',
+      text:'Ton budget tient encore, mais la marge commence à devenir plus serrée pour ton foyer.',
+      hint:advanced
+        ?`B²+ continue d’affiner la situation${plusConfidence?` · confiance ${plusConfidence.label}`:''}. Clique sur le Carré pour voir les scénarios.`
+        :'Aucun changement obligatoire pour l’instant. Clique sur le Carré pour comprendre le repère.',
+      numberInsight:null
+    }
+  }
+
+  if(gate?.mode==='quiet'){
+    return {
+      title:'Tout est carré',
+      text:advanced
+        ?'Ta marge est confortable. B²+ continue d’apprendre ton fonctionnement sans te surcharger.'
+        :'Ta marge est confortable pour cette période.',
+      hint:advanced
+        ?'Clique sur le Carré si tu veux voir les scénarios Serré, Probable et Prudent.'
+        :'B² continue de surveiller la période et te préviendra si quelque chose change.',
+      numberInsight:null
+    }
+  }
+
+  return {title:null,text:null,hint:null,numberInsight:null}
+}
+function b2EnvelopeAdjustmentOpportunity(b){
+  const rows=(b?.envelopes||[]).map(e=>{
+    const remain=Math.max(0,num(envRemain(b,e)));
+    const priority=priorityOf(e);
+    const factor=priority==='flexible'?.80:priority==='important'?.35:0;
+    return {env:e,remain,priority,adjustable:r2(remain*factor)}
+  }).filter(x=>!x.env.locked&&x.adjustable>.01);
+
+  const amount=r2(rows.reduce((s,x)=>s+x.adjustable,0));
+  return {rows,amount,possible:amount>=10}
+}
+
 function budgetHealth(b){
   const advanced=advancedIntelligenceEnabled();
   const rem=remaining(b),u=unallocated(b),totalDays=Math.max(1,daysBetweenISO(b.cycleStart,b.cycleEnd)),elapsedDays=clamp(daysBetweenISO(b.cycleStart,todayISO()),0,totalDays),progress=clamp(elapsedDays/totalDays,0,1);
@@ -6736,8 +7013,22 @@ function budgetHealth(b){
   const bank=ctx.bank,predictive=advanced?predictiveCyclePlan(b):emptyPredictivePlan(),learningReady=advanced&&living.canShowEssential===true;
   const plusScenarios=advanced&&ctx.nextIncome?b2PlusForecastScenarios(b,ctx,living):null;
   const plusConfidence=advanced?b2PlusConfidenceModel(b,living):null;
+  const forecastAttention=b2ForecastAttentionGate(b,ctx,living,plusScenarios);
+  const knownEventInsight=b2KnownEventInsight(b,ctx);
 
   const survivalSpendableBeforeIncome=predictedSpendableBeforeIncome(b,living);
+  if(knownEventInsight){
+    signals.push(healthSignal(
+      'known-event',
+      knownEventInsight.severity,
+      knownEventInsight.title,
+      knownEventInsight.text,
+      'pilot',
+      null,
+      knownEventInsight.hint
+    ))
+  }
+
   if(ctx.nextIncome&&survivalSpendableBeforeIncome<-.01){
     const debt=Math.abs(survivalSpendableBeforeIncome),sev=trajectory.level;
     const top=living.breakdown.slice(0,2).map(x=>`${x.name} ≈ ${euro(x.amount)}`).join(' · ');
@@ -6746,7 +7037,7 @@ function budgetHealth(b){
       :'';
     const livingText=`B² estime encore environ ${euro(living.variableNeed)} nécessaires pour les dépenses essentielles${top?` (${top})`:''}.${benchmarkNote} Avec ${euro(Math.max(0,rem))} disponibles à utiliser aujourd’hui, cela ne suffit pas jusqu’à ${ctx.nextIncome.name}.`;
     signals.push(healthSignal(
-      'survival',sev,`${living.days} jour${living.days>1?'s':''} à tenir avant le prochain revenu`,livingText,sev>=3?'balance':'pilot',null,
+      'survival',sev,`${living.days} jour${living.days>1?'s':''} à tenir avant le prochain revenu`,livingText,'pilot',null,
       sev>=4
         ? `Tu as ${euro(Math.max(0,rem))} réellement disponibles à utiliser. B² estime environ ${euro(living.variableNeed)} de besoins essentiels avant ${ctx.nextIncome.name}, soit un manque d’environ ${euro(debt)}.`
         : sev===3
@@ -6755,9 +7046,9 @@ function budgetHealth(b){
     ))
   }else if(!ctx.nextIncome&&projectedEnd<-.01){
     const lack=Math.abs(projectedEnd);
-    signals.push(healthSignal('projection',4,'Aucun revenu à venir ne couvre la situation',`Avec ce qui est renseigné aujourd’hui, il manquerait environ ${euro(lack)}.`,'balance',over[0]?.env?.id||null,`Réduis ou décale environ ${euro(lack)}, ou renseigne ton prochain revenu.`))
+    signals.push(healthSignal('projection',4,'Aucun revenu à venir ne couvre la situation',`Avec ce qui est renseigné aujourd’hui, il manquerait environ ${euro(lack)}.`,'pilot',over[0]?.env?.id||null,`Réduis ou décale environ ${euro(lack)}, ou renseigne ton prochain revenu.`))
   }else if(!ctx.nextIncome&&rem<-.01){
-    signals.push(healthSignal('global',4,'Le disponible ne suffit pas',`Il manque ${euro(Math.abs(rem))} et aucun revenu à venir n’est renseigné pour compenser.`,'balance',over[0]?.env?.id||null,`Réduis ou décale environ ${euro(Math.abs(rem))}, ou renseigne le prochain revenu attendu.`))
+    signals.push(healthSignal('global',4,'Le disponible ne suffit pas',`Il manque ${euro(Math.abs(rem))} et aucun revenu à venir n’est renseigné pour compenser.`,'pilot',over[0]?.env?.id||null,`Réduis ou décale environ ${euro(Math.abs(rem))}, ou renseigne le prochain revenu attendu.`))
   }
 
   if(advanced&&ctx.nextIncome&&plusScenarios&&!signals.some(x=>x.id==='survival')){
@@ -6767,8 +7058,8 @@ function budgetHealth(b){
         'plus-lifestyle',4,
         'Même un mois très serré ne tient pas',
         `B²+ estime qu’en réduisant fortement les dépenses compressibles, il manquerait encore environ ${euro(s.tight.shortfall)} avant le prochain revenu.`,
-        'balance',null,
-        `Priorité absolue aux dépenses indispensables. B²+ peut chercher un rééquilibrage d’environ ${euro(s.tight.shortfall)}.`
+        'pilot',null,
+        `Priorité absolue aux dépenses indispensables. B²+ peut t’aider à revoir volontairement les montants de tes enveloppes.`
       ))
     }else if(s.probable.remaining<-.01){
       const sev=s.probable.shortfall>Math.max(80,s.current*.35)?3:2;
@@ -6776,7 +7067,7 @@ function budgetHealth(b){
         'plus-lifestyle',sev,
         'Ton rythme probable ne rentre pas dans la marge',
         `Le strict nécessaire peut tenir, mais avec ton profil et tes habitudes actuelles B²+ estime un manque d’environ ${euro(s.probable.shortfall)}.`,
-        sev>=3?'balance':'pilot',null,
+        'pilot',null,
         `Pour rester dans le vert, vise plutôt le scénario serré et réduis temporairement les dépenses non essentielles.`
       ))
     }else if(s.prudent.remaining<-.01){
@@ -6790,6 +7081,16 @@ function budgetHealth(b){
     }
   }
 
+  if(ctx.nextIncome&&forecastAttention.mode==='watch'&&!signals.some(x=>['survival','plus-lifestyle'].includes(x.id))){
+    signals.push(healthSignal(
+      'forecast-margin',1,
+      'La marge mérite juste un œil',
+      `Ton budget tient encore, mais la marge est proche du seuil de prudence adapté à ton foyer.`,
+      'pilot',null,
+      `Aucun changement obligatoire : B² te préviendra si la marge se resserre davantage.`
+    ))
+  }
+
   if(rem<-.01&&!signals.some(x=>x.id==='survival')){
     const lack=Math.abs(rem),nextCapacity=Math.max(1,num(recovery.availableCapacity)||normalCycleIncome(b)||1),ratio=lack/nextCapacity;
     const sev=!ctx.nextIncome?4:!recovery.feasible?4:ratio>.55?3:ratio>.28?2:1;
@@ -6798,7 +7099,7 @@ function budgetHealth(b){
       sev,
       'Le disponible à utiliser est négatif',
       `Après les charges, la réserve et l’argent mis de côté, il manque actuellement ${euro(lack)} de marge utilisable.`,
-      sev>=3?'balance':'pilot',
+      'pilot',
       null,
       ctx.nextIncome&&recovery.feasible
         ? `La situation reste récupérable. Limite les dépenses non essentielles : la prochaine période devra absorber environ ${euro(Math.max(lack,num(recovery.debt)))}.`
@@ -6813,7 +7114,7 @@ function budgetHealth(b){
 
   if(over.length){
     const x=over[0],sev=redistributable?2:3;
-    signals.push(healthSignal('over',sev,`${x.env.name} est dépassée`,`Dépassement de ${euro(Math.abs(x.remain))}${redistributable?' · il y a assez de marge ailleurs pour le corriger.':' · B² doit ajuster la répartition.'}`,'balance',x.env.id,redistributable?`Rééquilibre ${euro(Math.abs(x.remain))} vers ${x.env.name}.`:`Réduis une autre enveloppe ou ajuste ${x.env.name}.`))
+    signals.push(healthSignal('over',sev,`${x.env.name} est dépassée`,`Dépassement de ${euro(Math.abs(x.remain))}${redistributable?' · il y a assez de marge ailleurs pour le corriger.':' · il n’y a pas assez de marge ailleurs pour un vrai rééquilibrage.'}`,redistributable?'balance':'pilot',x.env.id,redistributable?`Rééquilibre ${euro(Math.abs(x.remain))} vers ${x.env.name}.`:`Ajuste volontairement tes enveloppes ou réduis les prochaines dépenses : un simple transfert ne suffit pas.`))
   }
 
   if(predictive.actionable&&predictive.totalRisk>.01){
@@ -6824,14 +7125,14 @@ function budgetHealth(b){
       'predictive',
       sev,
       `${r?.name||'Une enveloppe'} risque de manquer`,
-      `Au rythme actuel, B² anticipe environ ${euro(predictive.totalRisk)} à rééquilibrer d’ici le prochain revenu.${solution?` Il a déjà identifié une solution : ${solution}.`:''}`,
-      'balance',
+      `Au rythme actuel, B² anticipe environ ${euro(predictive.totalRisk)} de tension d’ici le prochain revenu.${solution?` Il a identifié des pistes d’ajustement : ${solution}.`:''}`,
+      'pilot',
       r?.envId||null,
       unsolved
-        ? `B² a trouvé une partie de la solution, mais il manque encore environ ${euro(predictive.remainingGap)}.`
+        ? `B² voit une partie des ajustements possibles, mais il resterait encore environ ${euro(predictive.remainingGap)} à absorber.`
         : needsFlex
-          ? `B² peut rééquilibrer sans toucher aux essentiels, avec un petit report temporaire de ce que tu mets de côté.`
-          : `B² peut rééquilibrer les enveloppes sans augmenter ton budget.`
+          ? `Tu peux revoir volontairement certaines enveloppes ou ce que tu mets de côté, sans toucher aux essentiels.`
+          : `Tu peux ajuster les montants de tes enveloppes avant qu’un dépassement réel n’apparaisse.`
     ))
   }else if(paceRisk){
     const focus=envSignals[0]?.env||null;
@@ -6868,42 +7169,53 @@ function budgetHealth(b){
   if(primary){
     if(primary.id==='survival'||primary.id==='spendable-negative') title=level===4?'Pas assez prévu jusqu’au prochain revenu':level===3?'Retour dans le vert à préparer':level===2?'Marge à reconstruire':'Situation à surveiller';
     else if(primary.id==='plus-lifestyle') title=level===4?'Même en serrant, ça ne tient pas':level===3?'Ton mois est trop serré':level===2?'Tes habitudes dépassent la marge':'Marge de sécurité faible';
-    else title=level===4?'Budget à rééquilibrer':level===3?'Un ajustement suffit':level===2?'Ralentir un peu':'À surveiller';
+    else if(primary.id==='over') title=redistributable?'Enveloppe à rééquilibrer':'Enveloppe dépassée';
+    else if(primary.id==='forecast-margin') title='Marge à surveiller';
+    else title=level===4?'Budget à ajuster':level===3?'Un ajustement suffit':level===2?'Ralentir un peu':'À surveiller';
     text=primary.title;detail=primary.detail;action=primary.action;focusEnvId=primary.focusEnvId;actionText=primary.recommendation||primary.detail
   }else{
     if(ctx.nextIncome){
-      detail=learningReady
-        ?`B²+ estime environ ${euro(living.variableNeed)} nécessaires pour les dépenses essentielles d’ici ${ctx.nextIncome.name} du ${fmtDate(ctx.nextIncome.nextDate)}, à partir de tes habitudes observées.`
-        :living.benchmarkDriven
-          ?`B² croise ton budget avec un repère prudent adapté à ton foyer (${living.benchmarkHousehold}), puis remplacera progressivement ce repère par tes dépenses réelles.`
-          :advanced
-            ?`B²+ s’appuie encore surtout sur ton budget et la période en cours.`
-            :`B² s’appuie sur ton budget, tes charges et les dépenses de la période actuelle.`;
-      const visibleDaily=ctx.daysToIncome>0&&remaining(b)>0?r2(remaining(b)/ctx.daysToIncome):null;
-      actionText=visibleDaily!=null?`Tu peux continuer normalement. Repère disponible : environ ${euro(visibleDaily)}/jour jusqu’au prochain revenu.`:'Tu peux continuer normalement.'
-    }else detail=`La projection reste positive au ${fmtDate(projectionDate)}.`
+      detail=advanced
+        ?`B²+ continue d’analyser ton profil, ton budget, les repères publics et ton historique en arrière-plan.`
+        :`B² vérifie en arrière-plan que ton budget reste cohérent avec ton foyer et la période actuelle.`;
+      actionText=forecastAttention.mode==='quiet'
+        ?'Aucune action nécessaire. B² te laisse gérer ton mois et te préviendra seulement si quelque chose change.'
+        :'Tu peux continuer normalement, en gardant simplement un œil sur ta marge.'
+    }else detail=`B² continue de suivre la période avec les informations disponibles.`
   }
 
   const forecastRemaining=projectedEnd,forecastReliable=(b.incomeSources||[]).length>0||paceReliable||(b.history||[]).length>0;
   const spendableBeforeIncome=predictedSpendableBeforeIncome(b,living);
   const forecast=ctx.nextIncome
-    ?(learningReady
-      ?(spendableBeforeIncome>=0
-        ?`En gardant un rythme proche de tes besoins observés, B² estime environ ${euro(spendableBeforeIncome)} encore disponibles juste avant le prochain revenu.`
-        :`En incluant environ ${euro(living.variableNeed)} de besoins appris, B² anticipe un disponible d’environ −${euro(Math.abs(spendableBeforeIncome))} juste avant son arrivée.`)
-      :`${advanced?'Projection B²+ encore prudente':'Projection basée sur la période actuelle'} : environ ${spendableBeforeIncome<0?'−':''}${euro(Math.abs(spendableBeforeIncome))} disponibles juste avant le prochain revenu.`)
+    ?(forecastAttention.mode==='quiet'
+      ?`Aucune estimation chiffrée nécessaire : la marge est confortable pour le profil renseigné.`
+      :(learningReady
+        ?(spendableBeforeIncome>=0
+          ?`En gardant un rythme proche de tes besoins observés, B² estime environ ${euro(spendableBeforeIncome)} encore disponibles juste avant le prochain revenu.`
+          :`En incluant environ ${euro(living.variableNeed)} de besoins appris, B² anticipe un disponible d’environ −${euro(Math.abs(spendableBeforeIncome))} juste avant son arrivée.`)
+        :`${advanced?'Projection B²+ encore prudente':'Projection basée sur la période actuelle'} : environ ${spendableBeforeIncome<0?'−':''}${euro(Math.abs(spendableBeforeIncome))} disponibles juste avant le prochain revenu.`))
     :(projectedEnd>=0
       ?`Avec ce qui est enregistré aujourd’hui, B² estime qu’il resterait environ ${euro(projectedEnd)}.`
       :`Avec ce qui est enregistré aujourd’hui, il manquerait environ ${euro(Math.abs(projectedEnd))}.`);
 
+  const squareCommunication=b2SquareCommunication(b,ctx,living,forecastAttention,plusScenarios,plusConfidence,primary);
+  if(squareCommunication.title)title=squareCommunication.title;
+  if(squareCommunication.text)text=squareCommunication.text;
+
   let homeHint='';
-  if(ctx.nextIncome){
-    const before=predictedSpendableBeforeIncome(b,living);
-    homeHint=advanced&&plusScenarios
-      ?`B²+ probable : ${plusScenarios.probable.remaining<0?'−':''}${euro(Math.abs(plusScenarios.probable.remaining))} avant revenu · confiance ${plusConfidence.label}.`
-      :`Disponible estimé juste avant le prochain revenu : ${before<0?'−':''}${euro(Math.abs(before))}${num(b.reserve)>0?` · réserve ${euro(b.reserve)} protégée`:''}.`;
-  }else if(nextEvent?.type==='fixed')homeHint=`${nextEvent.name} · ${euro(nextEvent.amount)} ${nextEvent.days===0?'aujourd’hui':nextEvent.days===1?'demain':`le ${fmtDate(nextEvent.date)}`}.`;
-  else homeHint=`Projection au ${fmtDate(projectionDate)} : ${projectedEnd>=0?'+':''}${euro(projectedEnd)}.`;
+  if(squareCommunication.hint)homeHint=squareCommunication.hint;
+  else if(ctx.nextIncome){
+    homeHint=forecastAttention.mode==='quiet'
+      ?(advanced
+        ?'Clique sur le Carré pour voir les scénarios B²+ si tu veux aller plus loin.'
+        :'B² reste en veille et te préviendra si quelque chose mérite ton attention.')
+      :forecastAttention.mode==='watch'
+        ?'Pas besoin de chiffre précis pour l’instant : B² surveille simplement la marge.'
+        :advanced&&plusScenarios
+          ?`B²+ estime un manque probable d’environ ${euro(Math.max(0,plusScenarios.probable.shortfall))}.`
+          :`B² estime que la marge risque de devenir insuffisante avant le prochain revenu.`;
+  }else if(nextEvent?.type==='fixed')homeHint=`${nextEvent.name} arrive bientôt.`;
+  else homeHint='B² continue de surveiller la période.';
 
   const basePressure=[9,27,50,75,96][level];
   const negativePressure=rem<-.01
@@ -6920,7 +7232,7 @@ function budgetHealth(b){
     livingNeed:living.variableNeed,dailyEssential:living.dailyEssential,predictedBeforeIncome:living.predictedBeforeIncome,predictedSpendableBeforeIncome:spendableBeforeIncome,
     recoveryDebt:recovery.debt,recoveryFeasible:recovery.feasible,nextVariableCapacity:recovery.availableCapacity,
     learningLevel:living.learningLevel,learningReady:living.canShowEssential,learningMaturity:living.learningMaturity,livingBreakdown:living.breakdown,predictive,trajectory,trajectoryScore:trajectory.score,
-    plusScenarios,plusConfidence,
+    plusScenarios,plusConfidence,forecastAttention,numberInsight:squareCommunication.numberInsight,
     pressure,homeHint,intelligenceMode:advanced?'plus':'free'
   }
 }
@@ -6928,7 +7240,7 @@ function homeHealthClass(level){return level===4?'health-red':level===3?'health-
 function homeHealthCta(h){
   if(!h)return 'Voir le détail →';
   if(h.action==='inbox')return 'Vérifier →';
-  if(h.action==='balance')return 'Ajuster →';
+  if(h.action==='balance')return 'Rééquilibrer →';
   if(h.action==='movements')return 'Vérifier →';
   if(h.level===0)return 'Pourquoi c’est carré ? →';
   return 'Voir le conseil →'
@@ -6939,7 +7251,7 @@ function rememberHealthState(b,h){
   b.healthHistory.push({ts:Date.now(),date:todayISO(),level:h.level,title:h.title});b.healthHistory=b.healthHistory.slice(-40);
   if(!last)return null;
   if(h.level===0&&num(last.level)>0)return 'Le carré B² est revenu au vert.';
-  if(h.level>num(last.level)){if(h.level>=4)return 'Le carré B² passe au rouge : un rééquilibrage est nécessaire.';if(h.level>=2)return 'Le carré B² change d’état : quelque chose mérite ton attention.'}
+  if(h.level>num(last.level)){if(h.level>=4)return 'Le carré B² passe au rouge : une action mérite ton attention.';if(h.level>=2)return 'Le carré B² change d’état : quelque chose mérite ton attention.'}
   return null
 }
 function healthHistoryHTML(b){
@@ -6970,6 +7282,7 @@ function openHomeHealth(h){
   const daily=Math.max(0,num(__living.dailyEssential)),learningReady=__living.canShowEssential===true;
   const __scenarios=__advanced?b2PlusForecastScenarios(b,__ctx,__living):null;
   const __confidence=__advanced?b2PlusConfidenceModel(b,__living):null;
+  const __gate=b2ForecastAttentionGate(b,__ctx,__living,__scenarios);
 
   let simpleTitle=h.title;
   if(h.level>=4) simpleTitle='Budget à ajuster';
@@ -6978,7 +7291,9 @@ function openHomeHealth(h){
 
   let simpleSub='';
   if(__ctx.nextIncome){
-    simpleSub=`${days} jour${days>1?'s':''} avant le prochain revenu${projected<0?` · disponible estimé : −${euro(Math.abs(projected))}`:''}`;
+    simpleSub=__gate.mode==='quiet'
+      ?`${days} jour${days>1?'s':''} avant le prochain revenu · marge confortable`
+      :`${days} jour${days>1?'s':''} avant le prochain revenu${projected<0?` · disponible estimé : −${euro(Math.abs(projected))}`:''}`;
   }else{
     simpleSub=h.homeHint||h.text||'B² suit ta trajectoire.';
   }
@@ -6988,8 +7303,14 @@ function openHomeHealth(h){
   let nowMain='';
   let nowSub='';
   if(__ctx.nextIncome){
-    nowMain=days>0?`${days} jour${days>1?'s':''} à tenir`:'Le prochain revenu arrive aujourd’hui';
-    if(projected<0){
+    nowMain=__gate.mode==='quiet'
+      ?'Aucune alerte particulière'
+      :(days>0?`${days} jour${days>1?'s':''} à tenir`:'Le prochain revenu arrive aujourd’hui');
+    if(__gate.mode==='quiet'){
+      nowSub=__advanced
+        ?'La marge est confortable. Comme tu as choisi d’ouvrir le Carré, B²+ te montre quand même ses scénarios pour t’aider à piloter ou à économiser davantage.'
+        :'La marge est confortable. Comme tu as choisi d’ouvrir le Carré, B² te montre le repère utilisé pour vérifier la cohérence du mois.'
+    }else if(projected<0){
       const reservePart=Math.max(0,num(b.reserve));
       nowSub=`B² part de ${euro(Math.max(0,__ctx.cashNow))} disponibles aujourd’hui. Il estime encore ${euro(__living.obligations)} de charges à payer et environ ${euro(__living.variableNeed)} pour les dépenses essentielles${reservePart>.01?`, avec ${euro(reservePart)} de réserve protégée`:''}. Cela donnerait −${euro(Math.abs(projected))} juste avant le prochain revenu.`;
     }else if(need>0){
@@ -7006,8 +7327,10 @@ function openHomeHealth(h){
   }
   reason.innerHTML=`<div class="health-block ${h.level>=4?'bad':h.level>=2?'warn':''}"><div class="kicker">Maintenant</div><strong>${esc(nowMain)}</strong>${nowSub?`<p>${esc(nowSub)}</p>`:''}${h.nextIncome?b2EstimateExplanationHTML(b,h):''}</div>`;
 
-  let actionMain='Continue comme ça.';
-  let actionSub='';
+  let actionMain=__gate.mode==='quiet'?'Gère ton budget normalement.':'Continue comme ça.';
+  let actionSub=__gate.mode==='quiet'
+    ?(__advanced?'B²+ continue d’apprendre discrètement et n’interviendra que si la marge devient réellement intéressante à surveiller.':'B² reste en veille et n’interviendra que si la marge se resserre.')
+    :'';
   if(h.level>=4){
     actionMain='Reste sur l’essentiel jusqu’au prochain revenu.';
     actionSub=learningReady&&daily>0
@@ -7041,7 +7364,11 @@ function openHomeHealth(h){
   }
 
   const detailLines=[];
-  if(__living.breakdown?.length){
+  if(__gate.mode==='quiet'){
+    detailLines.push(__advanced
+      ?`L’accueil reste volontairement simple, mais ici B²+ te laisse consulter les scénarios et les hypothèses utilisées.`
+      :`L’accueil reste volontairement simple ; ce détail montre le repère de cohérence utilisé par B² gratuit.`);
+  }else if(__living.breakdown?.length){
     detailLines.push(__advanced
       ?`B²+ : ${__living.breakdown.slice(0,4).map(x=>`${esc(x.name)} ${euro(x.amount)}`).join(' · ')} · confiance ${__confidence.label} (${__confidence.score}/100).`
       :`Calcul gratuit : foyer + repères publics + budget actuel + mouvements de cette période.`);
@@ -7067,9 +7394,8 @@ function openHomeHealth(h){
   btn.style.display='';
   if(healthActions)healthActions.style.gridTemplateColumns='1fr 1fr';
   if(h.action==='balance'){
-    const movable=(b.envelopes||[]).reduce((sum,e)=>e.locked?sum:sum+Math.max(0,num(e.amount)-spentFor(b,e.id)),0);
-    const canBalance=num(__ctx.cashNow)>0.01&&movable>0.01;
-    if(canBalance){
+    const reb=rebalanceAvailability(b);
+    if(reb.possible){
       btn.textContent='Rééquilibrer';btn.onclick=()=>{closeModal('healthModal');openBalanceAssistant('auto')}
     }else{
       btn.style.display='none';if(healthActions)healthActions.style.gridTemplateColumns='1fr';
@@ -7223,43 +7549,74 @@ function homeWatchList(b,health){
   }
   return sorted.slice(0,2)
 }
+function rebalanceAvailability(b){
+  const over=(b?.envelopes||[]).map(e=>({env:e,remain:envRemain(b,e)})).filter(x=>x.remain<-.01);
+  const overAmount=r2(over.reduce((s,x)=>s+Math.abs(x.remain),0));
+  const free=r2(Math.max(0,unallocated(b)));
+  const donors=(b?.envelopes||[])
+    .map(e=>({env:e,remain:envRemain(b,e)}))
+    .filter(x=>x.remain>.01&&!x.env.locked);
+  const donorRoom=r2(donors.reduce((s,x)=>s+x.remain,0));
+  const available=r2(free+donorRoom);
+  return {
+    over,overAmount,free,donors,donorRoom,available,
+    possible:overAmount>.01&&available>=overAmount-.01,
+    partial:overAmount>.01&&available>.01&&available<overAmount-.01
+  }
+}
+
 function pilotNowCard(b){
   const future=b?.startMode==='next'&&String(b.cycleStart||'')>todayISO();
   if(future){
-    return `<div class="pilot-now good"><span class="pilot-now-kicker">Période préparée</span><strong>Rien à rééquilibrer aujourd’hui.</strong><p>Cette période est prévue à partir du ${fmtDate(b.cycleStart)}. Les alertes de cette période ne démarreront qu’à son commencement.</p><button class="btn btn-primary" id="pilotSalaryReceivedToday" type="button">Salaire déjà reçu aujourd’hui</button></div>`
+    return `<div class="pilot-now good"><span class="pilot-now-kicker">Période préparée</span><strong>Rien à ajuster aujourd’hui.</strong><p>Cette période est prévue à partir du ${fmtDate(b.cycleStart)}. Les alertes de cette période ne démarreront qu’à son commencement.</p><button class="btn btn-primary" id="pilotSalaryReceivedToday" type="button">Salaire déjà reçu aujourd’hui</button></div>`
   }
-  const h=budgetHealth(b),ctx=shortTermMoneyContext(b);
+
+  const h=budgetHealth(b),reb=rebalanceAvailability(b),adjust=b2EnvelopeAdjustmentOpportunity(b);
   if(h.level===0)return `<div class="pilot-now good"><span class="pilot-now-kicker">À faire maintenant</span><strong>Rien à ajuster.</strong><p>${esc(h.actionText)}</p></div>`;
 
-  // Rééquilibrer n'a de sens que s'il existe réellement de l'argent disponible
-  // à déplacer entre les enveloppes de la période.
-  const movable=(b.envelopes||[]).reduce((sum,e)=>{
-    if(e.locked)return sum;
-    return sum+Math.max(0,num(e.amount)-spentFor(b,e.id));
-  },0);
-  const cashNow=num(ctx.cashNow);
-  const canBalance=h.action==='balance' && cashNow>0.01 && movable>0.01;
+  const cls=h.level>=3?'critical':'watch';
+  const primaryId=h.primary?.id||'';
 
-  if(h.action==='balance'&&!canBalance){
-    const days=Math.max(0,num(ctx.daysToIncome));
-    const when=ctx.nextIncome
-      ?`${days} jour${days>1?'s':''} avant ${esc(ctx.nextIncome.name||'le prochain revenu')}`
-      :'aucun prochain revenu enregistré';
-    return `<div class="pilot-now blocked"><span class="pilot-now-kicker">À faire maintenant</span>
-      <strong>Pas de rééquilibrage possible pour l’instant</strong>
-      <p>Il n’y a pas assez d’argent disponible à déplacer entre tes enveloppes.</p>
-      <div class="pilot-now-note">B² continue de suivre ta trajectoire · ${when}. Dès qu’un revenu ou de l’argent disponible permet un vrai ajustement, il te le proposera.</div>
-    </div>`;
+  if(reb.possible){
+    const first=reb.over[0];
+    return `<div class="pilot-now ${cls}"><span class="pilot-now-kicker">À faire maintenant</span>
+      <strong>${first?.env?.name?`${esc(first.env.name)} est dépassée`:'Une enveloppe est dépassée'}</strong>
+      <p>Il faut déplacer ${euro(reb.overAmount)} depuis de l’argent libre ou d’autres enveloppes. B² a vérifié qu’il y a assez de marge ailleurs.</p>
+      <button class="btn btn-primary" id="pilotNowBalance" type="button">Rééquilibrer l’enveloppe</button>
+    </div>`
   }
 
-  const cls=h.level>=3?'critical':'watch';
-  const button=canBalance?`<button class="btn btn-primary" id="pilotNowBalance" type="button">Rééquilibrer</button>`
-    :h.action==='inbox'?`<button class="btn btn-white" id="pilotNowInbox" type="button">Voir mes messages</button>`
-    :h.action==='movements'?`<button class="btn btn-white" id="pilotNowMovements" type="button">Voir mes mouvements</button>`
-    :h.focusEnvId?`<button class="btn btn-white" data-pilot-focus="${h.focusEnvId}" type="button">Voir l’enveloppe</button>`:'';
+  if(reb.overAmount>.01){
+    const first=reb.over[0];
+    return `<div class="pilot-now ${cls}"><span class="pilot-now-kicker">À faire maintenant</span>
+      <strong>${first?.env?.name?`${esc(first.env.name)} est dépassée`:'Une enveloppe est dépassée'}</strong>
+      <p>Il n’y a pas assez de marge ailleurs pour corriger ce dépassement par un simple transfert.</p>
+      <button class="btn btn-primary" id="pilotNowAdjustEnvelopes" type="button">Ajuster mes enveloppes</button>
+    </div>`
+  }
+
+  const budgetPressure=['survival','spendable-negative','projection','global','plus-lifestyle','predictive','forecast-margin'].includes(primaryId);
+  if(budgetPressure){
+    const button=adjust.possible
+      ?`<button class="btn btn-primary" id="pilotNowAdjustEnvelopes" type="button">Ajuster mes enveloppes</button>`
+      :'';
+    return `<div class="pilot-now ${cls}"><span class="pilot-now-kicker">À faire maintenant</span>
+      <strong>${esc(h.title)}</strong>
+      <p>${esc(h.actionText)}</p>
+      ${button}
+    </div>`
+  }
+
+  const button=h.action==='inbox'
+    ?`<button class="btn btn-white" id="pilotNowInbox" type="button">Voir mes messages</button>`
+    :h.action==='movements'
+      ?`<button class="btn btn-white" id="pilotNowMovements" type="button">Voir mes mouvements</button>`
+      :h.focusEnvId
+        ?`<button class="btn btn-white" data-pilot-focus="${h.focusEnvId}" type="button">Voir l’enveloppe</button>`
+        :'';
+
   return `<div class="pilot-now ${cls}"><span class="pilot-now-kicker">À faire maintenant</span><strong>${esc(h.title)}</strong><p>${esc(h.actionText)}</p>${button}</div>`
 }
-
 function householdLabel(b){return `${b.household.adults} adulte${b.household.adults>1?'s':''}${b.household.children?` · ${b.household.children} enfant${b.household.children>1?'s':''}`:''}`}
 function cleanWords(s){
   return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')
@@ -8496,6 +8853,7 @@ function renderPilot(){
   $$('[data-provision-postpone]',c).forEach(x=>x.addEventListener('click',()=>postponeProvision(x.dataset.provisionPostpone)));
     $('#pilotSalaryReceivedToday')?.addEventListener('click',()=>forceEarlySalaryReceivedToday(b));
 $('#pilotNowBalance')?.addEventListener('click',()=>openBalanceAssistant('auto'));
+  $('#pilotNowAdjustEnvelopes')?.addEventListener('click',()=>startWizard(b.id,3));
   $('#pilotNowInbox')?.addEventListener('click',()=>openNotificationCenter());
   $('#pilotNowMovements')?.addEventListener('click',()=>showPage('movements'));
   $('#pilotNextPeriod')?.addEventListener('click',()=>openNextPeriodPreview(b));
@@ -9758,6 +10116,15 @@ function makeBalanceProposal(b,reserveUse=0){
 }
 function openBalanceAssistant(mode='auto'){
   const b=active();if(!b)return;
+  const reb=rebalanceAvailability(b);
+  if(!reb.overAmount){
+    showToast('Rééquilibrage indisponible : aucune enveloppe n’est dépassée.');
+    return
+  }
+  if(!reb.possible){
+    showToast('Rééquilibrage impossible : il n’y a pas assez de marge dans les autres enveloppes.');
+    return
+  }
   balanceMode=mode;balanceReserveUse=0;balancePredictivePlan=predictiveCyclePlan(b,0);balanceDraft={amounts:amountMap(b)};
   b.envelopes.forEach(e=>balanceDraft.amounts[e.id]=Math.max(balanceDraft.amounts[e.id],spentFor(b,e.id)));
   const over=b.envelopes.filter(e=>envRemain(b,e)<-.01);
@@ -9765,7 +10132,7 @@ function openBalanceAssistant(mode='auto'){
     ?`B² anticipe environ ${euro(balancePredictivePlan.totalRisk)} à rééquilibrer avant le prochain revenu. Rien ne change sans ton accord.`
     :remaining(b)<-.01
       ?`Il manque ${euro(Math.abs(remaining(b)))} sur le budget global.`
-      :over.length?`${over.length} enveloppe${over.length>1?'s ont':' a'} dépassé le montant prévu.`:'B² t’aide à remettre les enveloppes en équilibre.';
+      :over.length?`${over.length} enveloppe${over.length>1?'s ont':' a'} dépassé le montant prévu.`:'Aucune enveloppe n’est dépassée.';
   renderBalanceAssistant();openModal('balanceModal')
 }
 function refreshBalanceManual(){
@@ -11008,7 +11375,16 @@ function nextWizard(){
     }
   }
   saveWizardDraft();if(wizardStep<STEPS-1){wizardStep=wizardStep===4?6:wizardStep+1;renderWizard();wizardTop();return}
-  const base=wizardPlanningPool(wizard),gap=r2(base-allocated(wizard));if(gap<-.01){showToast('Le budget reste trop juste avec les ressources enregistrées. Ajuste ce que tu as prévu.');return}
+  const rawPool=pool(wizard);
+  if(rawPool<-.01){
+    showToast(`Impossible de valider : tes charges, ta réserve et l’argent mis de côté dépassent les ressources de la période d’environ ${euro(Math.abs(rawPool))}.`);
+    return
+  }
+  const base=wizardPlanningPool(wizard),gap=r2(base-allocated(wizard));
+  if(gap<-.01){
+    showToast(`Impossible de valider : tu as réparti environ ${euro(Math.abs(gap))} de plus que ce qui est réellement disponible. Réduis certaines enveloppes ou ce que tu mets de côté.`);
+    return
+  }
   const finalCtx=shortTermMoneyContext(wizard);
   if(!finalCtx.nextIncome&&wizard._noIncomeMode!=='current'){showToast('Choisis d’abord comment B² doit gérer l’absence de revenu futur.');return}
   const shouldCelebrateFinal=v11WizardCreatingBudget||!!wizardEditId;
