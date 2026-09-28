@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#075a4d">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<title>B² v14.05 — partager un budget existant</title>
+<title>B² v14.06 — partage lisible, e-mail et résiliation propre</title>
 <style>
 :root{
   --brand:#075a4d;--brand2:#0a7965;--brand3:#0f8f72;--lime:#b9ef68;
@@ -1964,6 +1964,20 @@ button{
 .archive-private-row{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid var(--line)}.archive-private-row:last-child{border-bottom:0}
 .archive-private-row strong{display:block;font-size:10px}.archive-private-row span{display:block;font-size:8.5px;color:var(--muted);margin-top:2px}.archive-private-row b{font-size:10px;white-space:nowrap}.archive-private-row b.down{color:#a23b45}.archive-private-row b.up{color:var(--brand)}
 
+
+/* v14.06 — partage immédiatement identifiable */
+.share-history-choices .choice-icon .ui-ico{width:28px;height:28px}
+.budget-status-stack{display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex:0 0 auto}
+.budget-status-stack .badge{margin:0;white-space:nowrap}
+.badge.shared-primary{background:#075f51;color:#fff;border-color:#075f51}
+.badge.shared-state{background:#edf8f4;color:#19695b;border:1px solid #cfe9df}
+.shared-budget-row{border-color:#b9ded2}
+.shared-budget-row:not(.active){box-shadow:inset 4px 0 0 #bfe8dc}
+.shared-budget-row.locked-feature{opacity:1;background:#fafafa}
+.shared-budget-row.locked-feature .budget-main{opacity:.72}
+.shared-budget-row.locked-feature .badge.shared-primary{opacity:1}
+#sendShareInvite .ui-ico{width:18px;height:18px;margin-right:7px;vertical-align:-4px}
+
 </style>
 </head>
 <body>
@@ -2116,8 +2130,8 @@ button{
 <p class="lead" id="shareConversionLead">Choisis ce que la personne invitée pourra voir.</p>
 <div class="share-conversion-info"><strong>Ton budget actuel sera conservé.</strong><span>Comptes, enveloppes, charges, réserve et objectifs restent en place. Tes autres budgets resteront privés.</span></div>
 <div class="choice-stack share-history-choices" id="shareHistoryChoices">
-<button class="choice on" data-share-history="today" type="button"><span class="choice-icon">${ico('shield')}</span><div><strong>Partager à partir d’aujourd’hui</strong><span>Recommandé · ton ancien historique reste privé sur ton compte B².</span></div></button>
-<button class="choice" data-share-history="all" type="button"><span class="choice-icon">${ico('history')}</span><div><strong>Partager aussi l’historique</strong><span>Les anciens mouvements et périodes de ce budget seront visibles par les membres.</span></div></button>
+<button class="choice on" data-share-history="today" type="button"><span class="choice-icon" id="shareTodayIcon"></span><div><strong>Partager à partir d’aujourd’hui</strong><span>Recommandé · ton ancien historique reste privé sur ton compte B².</span></div></button>
+<button class="choice" data-share-history="all" type="button"><span class="choice-icon" id="shareAllIcon"></span><div><strong>Partager aussi l’historique</strong><span>Les anciens mouvements et périodes de ce budget seront visibles par les membres.</span></div></button>
 </div>
 <div class="status info compact" id="shareConversionSummary">Le partage commencera aujourd’hui. B² conservera une archive privée de ce qui précède.</div>
 <div class="modal-actions"><button class="btn btn-soft" data-close="shareConversionModal" type="button">Annuler</button><button class="btn btn-primary" id="confirmShareConversion" type="button">Continuer</button></div>
@@ -2132,10 +2146,10 @@ button{
 <h3 id="shareBudgetTitle">Inviter quelqu’un</h3>
 <p class="lead" id="shareBudgetLead">Cette personne pourra utiliser le même budget depuis son compte B².</p>
 <div class="field"><label for="shareName">Prénom <span class="muted">(facultatif)</span></label><input id="shareName" autocomplete="off" placeholder="Ex. Léa"></div>
-<div class="field"><label for="shareRecipient">E-mail du compte B²</label><input id="shareRecipient" type="email" autocomplete="email" placeholder="ex. nom@exemple.fr"></div>
-<button class="btn btn-primary btn-full" id="sendShareInvite" type="button">Envoyer l’invitation</button>
-<button class="btn btn-white btn-full" id="createShareLink" type="button" style="margin-top:8px">Créer un lien d’invitation</button>
-<div class="help" style="margin-top:10px">Si cette personne a déjà B², l’invitation apparaîtra directement dans son compte et, si elle les a autorisées, dans ses notifications Android. Sinon, B² te proposera un lien à lui envoyer.</div>
+<div class="field"><label for="shareRecipient">E-mail de la personne</label><input id="shareRecipient" type="email" autocomplete="email" placeholder="ex. nom@exemple.fr"></div>
+<button class="btn btn-primary btn-full" id="sendShareInvite" type="button">${ico('mail')} Envoyer l’invitation par e-mail</button>
+<button class="btn btn-white btn-full" id="createShareLink" type="button" style="margin-top:8px">Créer seulement un lien d’invitation</button>
+<div class="help" style="margin-top:10px">Si cette personne a déjà B², elle recevra aussi l’invitation dans son compte. Sinon, le lien contenu dans l’e-mail lui permettra de rejoindre le budget après création de son compte.</div>
 <button class="btn btn-soft btn-full" data-close="shareBudgetModal" type="button" style="margin-top:12px">Fermer</button>
 </div></div>
 <div class="modal" id="sharedMembersModal"><div class="sheet"><div class="grab"></div>
@@ -2248,13 +2262,13 @@ button{
 
 <div class="modal" id="cancelPlusModal"><div class="sheet"><div class="grab"></div>
   <h3>Résilier B²+ ?</h3>
-  <p class="lead">Choisis le budget qui restera utilisable avec la version gratuite.</p>
+  <p class="lead">Tu garderas B²+ jusqu’à la fin de la période déjà payée. Choisis maintenant le budget personnel qui restera utilisable gratuitement ensuite.</p>
   <div class="field">
     <label for="freeAccountChoice">Budget conservé</label>
     <select id="freeAccountChoice"></select>
   </div>
   <div class="status warn" id="cancelPlusImpact"></div>
-  <p class="small muted">Tes autres budgets seront conservés et verrouillés jusqu’à une nouvelle activation de B²+.</p>
+  <p class="small muted">Aucune donnée ne sera supprimée. À la fin de B²+, les fonctions premium seront simplement verrouillées jusqu’à une nouvelle activation.</p>
   <button class="btn btn-danger btn-full" id="confirmCancelPlus" type="button">Confirmer la résiliation</button>
   <button class="btn btn-soft btn-full" data-close="cancelPlusModal" type="button" style="margin-top:8px">Annuler</button>
 </div></div>
@@ -2392,6 +2406,7 @@ const SVG_ICONS={
   plus:`<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>`,
   check:`<svg viewBox="0 0 24 24"><path d="M5 12.5l4.2 4.2L19 7.8"/></svg>`,
   globe:`<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M3.7 12h16.6M12 3.5c2.2 2.3 3.4 5.1 3.4 8.5S14.2 18.2 12 20.5M12 3.5C9.8 5.8 8.6 8.6 8.6 12s1.2 6.2 3.4 8.5"/></svg>`,
+  mail:`<svg viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="12" rx="2.2"/><path d="m5 8 7 5 7-5"/></svg>`,
   settings:`<svg viewBox="0 0 24 24"><path d="M12 8.5a3.5 3.5 0 1 0 0 7a3.5 3.5 0 0 0 0-7Z"/><path d="M19 12a7.6 7.6 0 0 0-.08-1l2.03-1.57-2-3.46-2.47 1a8.33 8.33 0 0 0-1.72-1L14.4 3h-4.8l-.36 2.97c-.6.24-1.18.57-1.72 1l-2.47-1-2 3.46L5.08 11a8.6 8.6 0 0 0 0 2l-2.03 1.57 2 3.46 2.47-1c.54.43 1.12.76 1.72 1L9.6 21h4.8l.36-2.97c.6-.24 1.18-.57 1.72-1l2.47 1 2-3.46L18.92 13c.05-.33.08-.67.08-1Z"/></svg>`,
   analysis:`<svg viewBox="0 0 24 24"><path d="M5 19V10"/><path d="M12 19V5"/><path d="M19 19v-8"/><path d="M4 19h16"/></svg>`,
   grid:`<svg viewBox="0 0 24 24"><rect x="4" y="4" width="6.5" height="6.5" rx="1.2"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.2"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.2"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.2"/></svg>`,
@@ -3130,6 +3145,19 @@ function sharedInviteHomeCard(){
   const i=b2PendingSharedInvites[0];if(!i)return '';
   return `<div class="card shared-invite-home"><div class="status-icon-row"><div class="status-icon">${ico('group')}</div><div class="square-copy"><strong>${esc(i.inviter_name||'Un utilisateur B²')} t’invite</strong><span>Rejoindre « ${esc(i.budget_name||'Budget partagé')} » ? Ton budget personnel restera privé.</span></div></div><div class="two" style="margin-top:10px"><button class="btn btn-primary" id="homeAcceptSharedInvite" type="button">Rejoindre</button><button class="btn btn-soft" id="homeDeclineSharedInvite" type="button">Refuser</button></div></div>`
 }
+
+async function sendSharedInviteEmail(inviteId){
+  if(!inviteId||!b2supabase||!cloudSession?.user)return {ok:false,reason:'unavailable'};
+  try{
+    const {data,error}=await b2supabase.functions.invoke('b2-invite-email',{body:{invite_id:inviteId}});
+    if(error)throw error;
+    return {ok:data?.ok===true,data}
+  }catch(e){
+    console.warn('B² invite email unavailable',e);
+    return {ok:false,reason:'not_configured'}
+  }
+}
+
 async function shareInviteLink(token){
   const link=`${B2_SITE_URL}?join=${encodeURIComponent(token)}`;
   try{if(navigator.share){await navigator.share({title:'Invitation B²',text:'Rejoins mon budget partagé B².',url:link});return}}catch(e){}
@@ -3370,7 +3398,7 @@ function fmtDateFull(iso){if(!iso)return '—';const {y,m,d}=dateParts(iso);retu
 function daysUntil(iso){const a=dateParts(todayISO()),b=dateParts(iso);return Math.max(0,Math.ceil((Date.UTC(b.y,b.m-1,b.d)-Date.UTC(a.y,a.m-1,a.d))/86400000))}
 function daysBetweenISO(from,to){const a=dateParts(from),b=dateParts(to);return Math.round((Date.UTC(b.y,b.m-1,b.d)-Date.UTC(a.y,a.m-1,a.d))/86400000)}
 function monthsUntil(from,to){const a=dateParts(from),b=dateParts(to);let n=(b.y-a.y)*12+(b.m-a.m);if(b.d>a.d)n++;return Math.max(1,n)}
-function emptyState(){return {version:10,plan:{tier:'free',plusSince:null,billingAccountId:null,freeAccountId:null,subscriptionOffer:null,subscriptionPrice:null,priceLocked:false},budgets:[],shareArchives:[],settings:{essential:true,afterExpense:true,thresholds:true,weekly:false,pushShared:true,pushSmart:false,voiceConfirm:true,language:'fr',bankAssist:null,bankSources:[]},ui:{movementFilter:'all',pilotTab:'envelopes'}}}
+function emptyState(){return {version:10,plan:{tier:'free',plusSince:null,billingAccountId:null,freeAccountId:null,subscriptionOffer:null,subscriptionPrice:null,priceLocked:false,cancelAtPeriodEnd:false,subscriptionCanceledAt:null,subscriptionPeriodEnd:null},budgets:[],shareArchives:[],settings:{essential:true,afterExpense:true,thresholds:true,weekly:false,pushShared:true,pushSmart:false,voiceConfirm:true,language:'fr',bankAssist:null,bankSources:[]},ui:{movementFilter:'all',pilotTab:'envelopes'}}}
 const PRIORITIES=[{id:'flexible',label:'↔ Flexible',hint:'B² peut réduire cette enveloppe en premier.'},{id:'important',label:'◆ Important',hint:'B² la préserve autant que possible.'},{id:'essential',label:'♥ Essentiel',hint:'B² la réduit en dernier, si nécessaire.'}];
 function priorityOf(e){return PRIORITIES.some(p=>p.id===e.priority)?e.priority:(e.important||num(e.priority)>=3?'important':'flexible')}
 function priorityRank(e){return PRIORITIES.findIndex(p=>p.id===priorityOf(e))}
@@ -3496,7 +3524,34 @@ function save(){
     postB2LocalNotification('B² · Ton budget change',healthNotice,'essential',{type:'budget_health'})
   },850)
 }
-function hasPaidPlus(){return state.plan?.tier==='plus'}
+function plusAddMonth(ms){
+  const d=new Date(ms),day=d.getUTCDate(),out=new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth()+1,1,d.getUTCHours(),d.getUTCMinutes(),d.getUTCSeconds()));
+  const last=new Date(Date.UTC(out.getUTCFullYear(),out.getUTCMonth()+1,0)).getUTCDate();
+  out.setUTCDate(Math.min(day,last));return out.getTime()
+}
+function paidPlusPeriodEndMs(){
+  if(state.plan?.tier!=='plus')return 0;
+  let end=Date.parse(state.plan?.subscriptionPeriodEnd||'');
+  const start=num(state.plan?.plusSince)||Date.now();
+  if(!Number.isFinite(end)||end<=0)end=plusAddMonth(start);
+  if(state.plan?.cancelAtPeriodEnd!==true){
+    while(end<=Date.now())end=plusAddMonth(end);
+    state.plan.subscriptionPeriodEnd=new Date(end).toISOString()
+  }
+  return end
+}
+function paidPlusCancellationPending(){
+  return state.plan?.tier==='plus'&&state.plan?.cancelAtPeriodEnd===true&&paidPlusPeriodEndMs()>Date.now()
+}
+function hasPaidPlus(){
+  if(state.plan?.tier!=='plus')return false;
+  if(state.plan?.cancelAtPeriodEnd===true)return paidPlusPeriodEndMs()>Date.now();
+  return true
+}
+function paidPlusPeriodEndText(){
+  const t=paidPlusPeriodEndMs();if(!t)return '';
+  return new Intl.DateTimeFormat('fr-FR',{day:'numeric',month:'long',year:'numeric'}).format(new Date(t))
+}
 function isPlus(){return hasPaidPlus()||hasReferralPlus()}
 function freeAccount(){
   if(isPlus())return null;
@@ -3549,7 +3604,7 @@ function founderOfferText(){
   return left===1?'Plus qu’une place au tarif fondateur.':`${left} places restantes au tarif fondateur.`
 }
 function ensurePlusBill(candidate=active()){
-  if(!hasPaidPlus()){
+  if(!hasPaidPlus()||paidPlusCancellationPending()){
     state.budgets.forEach(b=>{b.fixed=(b.fixed||[]).filter(x=>x.systemKey!=='b2plus')});
     if(state.plan)state.plan.billingAccountId=null;
     return
@@ -3571,7 +3626,15 @@ function ensurePlusBill(candidate=active()){
 }
 function removePlusBills(){state.budgets.forEach(b=>{b.fixed=(b.fixed||[]).filter(x=>x.systemKey!=='b2plus')});if(state.plan)state.plan.billingAccountId=null}
 function active(){
-  const g=activeBudgetGroup();if(!g||!canUseBudgetGroup(g))return null;
+  let g=activeBudgetGroup();
+  if(g&&!canUseBudgetGroup(g)){
+    const fallback=freeBudgetGroup()||state.budgetGroups.find(x=>canUseBudgetGroup(x))||null;
+    if(fallback){
+      state.budgetGroups.forEach(x=>x.active=String(x.id)===String(fallback.id));
+      g=fallback
+    }
+  }
+  if(!g||!canUseBudgetGroup(g))return null;
   return byId(g.activeAccountId)||accountsForBudget(g.id)[0]||null
 } function byId(id){return state.budgets.find(b=>String(b.id)===String(id))||null}
 function sum(arr,key='amount'){return (arr||[]).reduce((s,x)=>s+num(x[key]),0)}
@@ -6360,9 +6423,10 @@ function renderAll(){renderPlanBrand();renderHome();renderPilot();renderMovement
 function renderPlanBrand(){
   const logo=$('#brandLogo');if(logo)logo.classList.toggle('plus',isPlus());
   const t=$('#plusCardTitle'),copy=$('#plusCardCopy');
-  if(t)t.textContent=isPlus()?'B²+ actif':'B²+';
+  if(t)t.textContent=paidPlusCancellationPending()?'B²+ jusqu’à la fin de période':isPlus()?'B²+ actif':'B²+';
   if(copy){
-    if(hasReferralPlus()&&!hasPaidPlus())copy.textContent=`B²+ offert jusqu’au ${referralPlusDateText()} · sans publicité.`;
+    if(paidPlusCancellationPending())copy.textContent=`Résilié · accès conservé jusqu’au ${paidPlusPeriodEndText()} · aucun renouvellement ensuite.`;
+    else if(hasReferralPlus()&&!hasPaidPlus())copy.textContent=`B²+ offert jusqu’au ${referralPlusDateText()} · sans publicité.`;
     else if(hasPaidPlus()&&hasFounderRate())copy.textContent='Tarif fondateur 1,99 €/mois conservé · sans publicité.';
     else if(hasPaidPlus())copy.textContent=`Abonnement ${euro(currentPlusPrice())}/mois · sans publicité.`;
     else copy.textContent=founderOfferAvailable()?'Tarif fondateur 1,99 €/mois · réservé aux 500 premiers abonnés.':'B²+ · 2,99 €/mois · plusieurs budgets, partage et zéro publicité.'
@@ -6438,11 +6502,14 @@ function activatePlusDemo(){
   if(hasReferralPlus()&&!hasPaidPlus()){closeModal('plusModal');showPage('referral');return}
   if(hasPaidPlus()){closeModal('plusModal');openSubscriptionManager();return}
   const founder=founderOfferAvailable();
-  state.plan={...(state.plan||{}),tier:'plus',plusSince:Date.now(),freeBudgetId:state.plan?.freeBudgetId||activeBudgetGroup()?.id||null,
+  const startedAt=Date.now();
+  state.plan={...(state.plan||{}),tier:'plus',plusSince:startedAt,freeBudgetId:state.plan?.freeBudgetId||activeBudgetGroup()?.id||null,
     subscriptionOffer:founder?B2_PLUS_FOUNDER_ID:'standard',
     subscriptionPrice:founder?B2_PLUS_FOUNDER_PRICE:B2_PLUS_STANDARD_PRICE,
-    priceLocked:founder
+    priceLocked:founder,cancelAtPeriodEnd:false,subscriptionCanceledAt:null,
+    subscriptionPeriodEnd:new Date(plusAddMonth(startedAt)).toISOString()
   };
+  state.budgetGroups.filter(isOwnedSharedBudget).forEach(g=>{g.ownerAccessUntil=null;if(g.remoteShared)queueRemoteSharedSave(g)});
   if(!state.plan.billingAccountId)state.plan.billingAccountId=active()?.id||state.budgets[0]?.id||null;
   ensurePlusBill(active());
   const next=plusAfterAction;plusAfterAction=null;closeModal('plusModal');save();
@@ -6458,10 +6525,18 @@ function openSubscriptionManager(){
   const current=byId(state.plan?.billingAccountId)||active()||state.budgets[0];if(current)sel.value=current.id;
   $('#subscriptionOfferName').textContent=founder?'Tarif fondateur B²+':'B²+';
   $('#subscriptionPrice').textContent=`${euro(price)} / mois`;
-  $('#subscriptionStatus').innerHTML=founder
-    ?`<strong>B²+ est actif · tarif fondateur</strong><br>Tu gardes ${euro(B2_PLUS_FOUNDER_PRICE)} / mois tant que l’abonnement reste actif.`
-    :`<strong>B²+ est actif</strong><br>${euro(price)} / mois.`;
-  $('#subscriptionBillingHelp').textContent=`La charge de ${euro(price)} apparaît uniquement dans le budget du compte choisi.`;
+  const cancelPending=paidPlusCancellationPending();
+  $('#subscriptionStatus').className=`status ${cancelPending?'warn':'good'}`;
+  $('#subscriptionStatus').innerHTML=cancelPending
+    ?`<strong>Résiliation programmée</strong><br>B²+ reste actif jusqu’au ${paidPlusPeriodEndText()}. Aucun renouvellement ensuite.`
+    :founder
+      ?`<strong>B²+ est actif · tarif fondateur</strong><br>Tu gardes ${euro(B2_PLUS_FOUNDER_PRICE)} / mois tant que l’abonnement reste actif.`
+      :`<strong>B²+ est actif</strong><br>${euro(price)} / mois.`;
+  $('#subscriptionBillingHelp').textContent=cancelPending
+    ?'Le renouvellement est arrêté. Aucun nouveau mois B²+ ne sera ajouté après cette date.'
+    :`La charge de ${euro(price)} apparaît uniquement dans le budget du compte choisi.`;
+  $('#startCancelPlus').textContent=cancelPending?'Annuler la résiliation':'Résilier B²+';
+  $('#startCancelPlus').className=`btn ${cancelPending?'btn-white':'btn-danger'} btn-full`;
   openModal('subscriptionModal')
 }
 function saveSubscriptionBilling(){
@@ -6474,31 +6549,53 @@ function saveSubscriptionBilling(){
   showToast(`B²+ sera payé depuis « ${b.name} ».`)
 }
 function openCancelPlus(){
-  if(!isPlus())return;
+  if(!hasPaidPlus())return;
   const sel=$('#freeAccountChoice'),personal=state.budgetGroups.filter(g=>g.type!=='shared'),preferred=activeBudgetGroup()?.type!=='shared'?activeBudgetGroup():personal[0]||null;
   if(personal.length){sel.innerHTML=personal.map(g=>`<option value="${g.id}">${esc(g.name)}</option>`).join('');if(preferred)sel.value=preferred.id}
   else sel.innerHTML='<option value="__new__">Créer un nouveau budget personnel</option>';
-  const extras=Math.max(0,state.budgetGroups.length-1),shared=state.budgetGroups.filter(g=>g.type==='shared').length,lines=[];
-  if(extras)lines.push(`${extras} autre${extras>1?'s':''} budget${extras>1?'s':''} sera${extras>1?'ont':''} conservé${extras>1?'s':''} mais verrouillé${extras>1?'s':''}.`);
-  if(shared)lines.push('Mon budget partagé nécessitera B²+ pour rester utilisable.');
-  lines.push('Tous les comptes du budget gratuit conservé resteront utilisables.');
-  lines.push('Les analyses B²+ et le mode sans publicité seront désactivés. Le tarif fondateur n’est garanti que tant que l’abonnement reste actif.');
-  $('#cancelPlusImpact').innerHTML=`<strong>Ce qui change :</strong><br>${lines.join('<br>')}`;
+  const extras=Math.max(0,state.budgetGroups.length-1),ownedShared=state.budgetGroups.filter(g=>isOwnedSharedBudget(g)).length,lines=[];
+  lines.push(`B²+ restera actif jusqu’au ${paidPlusPeriodEndText()}. Aucun nouveau renouvellement ne sera lancé ensuite.`);
+  if(extras)lines.push(`${extras} autre${extras>1?'s':''} budget${extras>1?'s':''} sera${extras>1?'ont':''} conservé${extras>1?'s':''}.`);
+  if(ownedShared)lines.push(`${ownedShared>1?'Tes budgets partagés créés par toi seront':'Ton budget partagé créé par toi sera'} mis en pause à cette date, sans suppression des données.`);
+  lines.push('Les budgets partagés auxquels tu es seulement invité restent accessibles tant que leur propriétaire les maintient actifs.');
+  lines.push('Les analyses B²+ et le mode sans publicité s’arrêteront à la fin de la période.');
+  $('#cancelPlusImpact').innerHTML=`<strong>Ce qui va se passer :</strong><br>${lines.join('<br>')}`;
   closeModal('subscriptionModal');openModal('cancelPlusModal')
 }
 function confirmDeactivatePlus(){
   const selected=$('#freeAccountChoice').value;
   let keep=selected==='__new__'?null:budgetById(selected);
-  removePlusBills();
   if(!keep){
     const gid=uid(),a=makeBlankAccountV11(gid,'Compte principal',false);
-    keep=normalizeBudgetGroupV11({id:gid,name:'Mon budget',type:'personal',active:true,accountIds:[a.id],activeAccountId:a.id});
+    keep=normalizeBudgetGroupV11({id:gid,name:'Mon budget',type:'personal',active:false,accountIds:[a.id],activeAccountId:a.id});
     a.budgetGroupId=gid;state.budgetGroups.push(keep);state.budgets.push(a)
   }
-  state.plan={...(state.plan||{}),tier:'free',plusSince:null,billingAccountId:null,freeBudgetId:keep.id,subscriptionOffer:null,subscriptionPrice:null,priceLocked:false};
-  state.budgetGroups.forEach(g=>g.active=String(g.id)===String(keep.id));
-  keep.activeAccountId=keep.activeAccountId||accountsForBudget(keep.id)[0]?.id||null;
-  ensureActive();closeModal('cancelPlusModal');save();showToast(`B²+ résilié · « ${keep.name} » reste utilisable.`)
+  const accessEnd=Math.max(paidPlusPeriodEndMs(),referralPlusUntilMs());
+  state.plan={...(state.plan||{}),
+    tier:'plus',
+    freeBudgetId:keep.id,
+    cancelAtPeriodEnd:true,
+    subscriptionCanceledAt:new Date().toISOString(),
+    subscriptionPeriodEnd:new Date(paidPlusPeriodEndMs()).toISOString()
+  };
+  state.budgetGroups.filter(isOwnedSharedBudget).forEach(g=>{
+    g.ownerAccessUntil=new Date(accessEnd).toISOString();
+    if(g.remoteShared)queueRemoteSharedSave(g)
+  });
+  removePlusBills();
+  closeModal('cancelPlusModal');save();
+  showToast(`Résiliation enregistrée · B²+ reste actif jusqu’au ${paidPlusPeriodEndText()}.`)
+}
+function resumePlusRenewal(){
+  if(state.plan?.tier!=='plus')return;
+  state.plan.cancelAtPeriodEnd=false;state.plan.subscriptionCanceledAt=null;
+  if(paidPlusPeriodEndMs()<=Date.now())state.plan.subscriptionPeriodEnd=new Date(plusAddMonth(Date.now())).toISOString();
+  state.budgetGroups.filter(isOwnedSharedBudget).forEach(g=>{g.ownerAccessUntil=null;if(g.remoteShared)queueRemoteSharedSave(g)});
+  ensurePlusBill(active());save();showToast('Renouvellement B²+ réactivé.')
+}
+function handleSubscriptionAction(){
+  if(paidPlusCancellationPending()){resumePlusRenewal();closeModal('subscriptionModal');return}
+  openCancelPlus()
 }
 function incomeClosingReminderKey(b){return `B2_INCOME_CLOSE_REMINDER_${b?.id||'none'}`}
 function shouldAskIncomeClosing(b){
@@ -6863,7 +6960,7 @@ function renderBudgets(){
     $('#emptySharedBudget').addEventListener('click',startSharedBudget);
     wireAds(c);return
   }
-  const budgetsHtml=state.budgetGroups.map(g=>{const a=accountsForBudget(g.id),locked=!canUseBudgetGroup(g),cur=byId(g.activeAccountId)||a[0];return `<div class="budget-row ${g.active?'active':''} ${locked?'locked-feature':''}"><div class="budget-main"><div class="budget-icon">${ico(g.type==='shared'?'group':'grid')}</div><div class="budget-copy"><strong>${esc(g.name)}${locked?' <span class="plus-badge">B²+</span>':''}</strong><span>${g.type==='shared'?'Partagé':'Personnel'} · ${a.length} compte${a.length>1?'s':''}${cur?` · ${esc(cur.name)} actif`:''}</span></div><span class="badge ${g.type==='shared'?'shared':''}">${g.active?'ACTIF':locked?'B²+':g.type==='shared'?'PARTAGÉ':'BUDGET'}</span><button class="dots" data-menu-budget="${g.id}" type="button">•••</button></div><div class="action-menu" id="menu-${g.id}">${!g.active&&!locked?`<button data-activate="${g.id}" type="button">✓ Utiliser ce budget</button>`:locked?`<button data-unlock-budget="${g.id}" type="button">Débloquer avec B²+</button>`:''}<button data-open-budget="${g.id}" type="button">Voir le budget</button><button data-rename-budget="${g.id}" type="button">Renommer</button>${g.type!=='shared'&&isPlus()?`<button data-share-budget="${g.id}" type="button">Partager ce budget</button>`:''}<button data-duplicate="${g.id}" type="button" ${!isPlus()?'disabled':''}>Dupliquer le budget <span class="plus-badge">B²+</span></button><button class="danger" data-delete-budget="${g.id}" type="button">${g.remoteShared&&g.remoteRole!=='owner'?'Quitter le budget':'Supprimer le budget'}</button></div></div>`}).join('');
+  const budgetsHtml=state.budgetGroups.map(g=>{const a=accountsForBudget(g.id),locked=!canUseBudgetGroup(g),cur=byId(g.activeAccountId)||a[0],shared=g.type==='shared';return `<div class="budget-row ${g.active?'active':''} ${shared?'shared-budget-row':''} ${locked?'locked-feature':''}"><div class="budget-main"><div class="budget-icon">${ico(shared?'group':'grid')}</div><div class="budget-copy"><strong>${esc(g.name)}${locked&&shared&&isOwnedSharedBudget(g)?' <span class="plus-badge">B²+</span>':''}</strong><span>${shared?'Budget partagé':'Personnel'} · ${a.length} compte${a.length>1?'s':''}${cur?` · ${esc(cur.name)} actif`:''}</span></div><div class="budget-status-stack">${shared?'<span class="badge shared shared-primary">PARTAGÉ</span>':''}<span class="badge ${shared?'shared-state':''}">${locked?'VERROUILLÉ':g.active?'ACTIF':shared?'COMMUN':'BUDGET'}</span></div><button class="dots" data-menu-budget="${g.id}" type="button">•••</button></div><div class="action-menu" id="menu-${g.id}">${!g.active&&!locked?`<button data-activate="${g.id}" type="button">✓ Utiliser ce budget</button>`:locked?`<button data-unlock-budget="${g.id}" type="button">Débloquer avec B²+</button>`:''}<button data-open-budget="${g.id}" type="button">Voir le budget</button><button data-rename-budget="${g.id}" type="button">Renommer</button>${g.type!=='shared'&&isPlus()?`<button data-share-budget="${g.id}" type="button">Partager ce budget</button>`:''}<button data-duplicate="${g.id}" type="button" ${!isPlus()?'disabled':''}>Dupliquer le budget <span class="plus-badge">B²+</span></button><button class="danger" data-delete-budget="${g.id}" type="button">${g.remoteShared&&g.remoteRole!=='owner'?'Quitter le budget':'Supprimer le budget'}</button></div></div>`}).join('');
   c.innerHTML=`<button class="choice ${isPlus()?'':'locked-feature'}" id="extraBudgetShortcut" type="button" style="margin-bottom:10px"><span class="choice-icon">${ico('grid')}</span><div><strong>Créer un autre budget <span class="plus-badge">B²+</span></strong><span>${isPlus()?'Perso, pro, projet… garde chaque univers séparé.':'B²+ permet de séparer plusieurs univers de budget.'}</span></div></button><button class="choice ${isPlus()?'':'locked-feature'}" id="sharedBudgetShortcut" type="button" style="margin-bottom:12px"><span class="choice-icon">${ico('group')}</span><div><strong>Mon budget partagé <span class="plus-badge">B²+</span></strong><span>${isPlus()?'Crée un budget à gérer à plusieurs.':'Un budget commun à gérer ensemble.'}</span></div></button>${adCard('budgets')}${budgetsHtml}`;
   $('#extraBudgetShortcut').addEventListener('click',()=>startNewBudget(false));
   $('#sharedBudgetShortcut').addEventListener('click',startSharedBudget);
@@ -6877,7 +6974,7 @@ function renderBudgetDetail(){
   const g=budgetById(detailId),c=$('#budgetDetailBody');if(!g){c.innerHTML='<div class="empty">Budget introuvable.</div>';return}
   $('#budgetDetailTitle').textContent=g.name;const accounts=accountsForBudget(g.id),locked=!canUseBudgetGroup(g);if(g.type==='shared')ensureBudgetOwner(g);
   const sharedTop=g.type==='shared'?`<div class="shared-hero"><div class="small">BUDGET PARTAGÉ${g.remoteRole==='owner'?' · CRÉÉ AVEC B²+':''}</div><strong>${esc(g.name)}</strong><div class="small" style="margin-top:5px">${g.members.filter(m=>m.status==='joined').length} membre${g.members.filter(m=>m.status==='joined').length>1?'s':''} actif${g.members.filter(m=>m.status==='joined').length>1?'s':''} · tes autres budgets restent privés</div><div class="shared-actions">${g.remoteRole==='owner'||(!g.remoteShared&&isPlus())?'<button class="btn btn-white" id="detailInviteMember" type="button">Inviter</button>':''}<button class="btn btn-white" id="detailManageMembers" type="button">Membres</button></div></div>`:'';
-  c.innerHTML=`${sharedTop}${locked?'<div class="status warn"><strong>Budget verrouillé.</strong><br>Réactive B²+ pour l’utiliser. Tes données sont conservées.</div>':''}<div class="card"><div class="card-title"><h3>Comptes de ce budget</h3><span class="badge">${accounts.length}</span></div><div class="small muted">Choisis le compte à consulter ou à modifier.</div></div>${accounts.map(a=>{const future=a.startMode==='next'&&String(a.cycleStart)>todayISO(),on=g.active&&String(g.activeAccountId)===String(a.id);return `<div class="card account-detail-card"><div class="account-detail-head"><div class="budget-icon">${ico(accountIcon(a))}</div><div class="account-detail-copy"><strong>${esc(a.name)}</strong><span>${future?'Prévision':'Disponible'} ${euro(remaining(a))} · ${accountChargeCount(a)} charge${accountChargeCount(a)>1?'s':''}</span></div>${on?'<span class="badge">ACTIF</span>':''}</div><div class="account-detail-actions">${locked?'<button class="mini-btn" data-unlock-detail type="button">B²+</button>':`<button class="mini-btn account-action-main" data-view-account="${a.id}" type="button">Voir le résumé</button><button class="mini-btn" data-edit-account="${a.id}" type="button">Modifier</button>${accounts.length>1?`<button class="mini-btn danger" data-delete-account="${a.id}" type="button">Supprimer</button>`:''}`}</div></div>`}).join('')}<button class="btn ${locked?'btn-soft':'btn-primary'} btn-full" id="detailAddAccount" type="button">${locked?'Débloquer ce budget avec B²+':'＋ Ajouter un compte'}</button>${g.type!=='shared'&&isPlus()?`<button class="btn btn-white btn-full" id="detailShareBudget" type="button" style="margin-top:8px">${ico('group')} Partager ce budget</button>`:''}${g.type==='shared'&&g.remoteRole==='owner'&&shareArchiveForGroup(g.id)?`<button class="btn btn-white btn-full" id="detailPrivateArchive" type="button" style="margin-top:8px">${ico('shield')} Historique privé avant partage</button>`:''}`;
+  c.innerHTML=`${sharedTop}${locked?`<div class="status warn"><strong>Budget partagé en pause.</strong><br>${isOwnedSharedBudget(g)?'Réactive B²+ pour le rendre de nouveau utilisable par tous les membres.':'Le propriétaire doit réactiver B²+ pour reprendre les modifications.'} Les données sont conservées.</div>`:''}<div class="card"><div class="card-title"><h3>Comptes de ce budget</h3><span class="badge">${accounts.length}</span></div><div class="small muted">Choisis le compte à consulter ou à modifier.</div></div>${accounts.map(a=>{const future=a.startMode==='next'&&String(a.cycleStart)>todayISO(),on=g.active&&String(g.activeAccountId)===String(a.id);return `<div class="card account-detail-card"><div class="account-detail-head"><div class="budget-icon">${ico(accountIcon(a))}</div><div class="account-detail-copy"><strong>${esc(a.name)}</strong><span>${future?'Prévision':'Disponible'} ${euro(remaining(a))} · ${accountChargeCount(a)} charge${accountChargeCount(a)>1?'s':''}</span></div>${on?'<span class="badge">ACTIF</span>':''}</div><div class="account-detail-actions">${locked?'<button class="mini-btn" data-unlock-detail type="button">B²+</button>':`<button class="mini-btn account-action-main" data-view-account="${a.id}" type="button">Voir le résumé</button><button class="mini-btn" data-edit-account="${a.id}" type="button">Modifier</button>${accounts.length>1?`<button class="mini-btn danger" data-delete-account="${a.id}" type="button">Supprimer</button>`:''}`}</div></div>`}).join('')}<button class="btn ${locked?'btn-soft':'btn-primary'} btn-full" id="detailAddAccount" type="button">${locked?'Débloquer ce budget avec B²+':'＋ Ajouter un compte'}</button>${g.type!=='shared'&&isPlus()?`<button class="btn btn-white btn-full" id="detailShareBudget" type="button" style="margin-top:8px">${ico('group')} Partager ce budget</button>`:''}${g.type==='shared'&&g.remoteRole==='owner'&&shareArchiveForGroup(g.id)?`<button class="btn btn-white btn-full" id="detailPrivateArchive" type="button" style="margin-top:8px">${ico('shield')} Historique privé avant partage</button>`:''}`;
   if(g.type==='shared'){$('#detailInviteMember')?.addEventListener('click',()=>shareBudget(g.id));$('#detailManageMembers')?.addEventListener('click',()=>openSharedMembers(g.id))}
   $('#detailShareBudget')?.addEventListener('click',()=>shareBudget(g.id));
   $('#detailPrivateArchive')?.addEventListener('click',()=>renderShareArchive(g.id));
@@ -9555,6 +9652,8 @@ function restoreBudgetConversionSnapshot(groupSnapshot,accountSnapshots){
 function openShareConversion(id){
   const g=budgetById(id);if(!g)return;if(!isPlus()){openPlus('Budget partagé');return}
   shareConversionBudgetId=g.id;shareConversionMode='today';$('#shareConversionLead').textContent=`« ${g.name} » peut devenir un budget commun sans être recréé.`;
+  if($('#shareTodayIcon'))$('#shareTodayIcon').innerHTML=ico('shield');
+  if($('#shareAllIcon'))$('#shareAllIcon').innerHTML=ico('calendar');
   $$('[data-share-history]',$('#shareHistoryChoices')).forEach(x=>x.classList.toggle('on',x.dataset.shareHistory==='today'));
   $('#shareConversionSummary').textContent='Le partage commencera aujourd’hui. B² conservera une archive privée de ce qui précède.';openModal('shareConversionModal')
 }
@@ -9613,9 +9712,26 @@ function freeBudgetGroup(){
   if(isPlus())return null;
   return budgetById(state.plan?.freeBudgetId)||state.budgetGroups.find(g=>g.type!=='shared')||null
 };
+function isOwnedSharedBudget(g){
+  if(!g||g.type!=='shared')return false;
+  if(g.remoteRole==='owner')return true;
+  if(g.remoteOwnerId&&cloudSession?.user?.id&&String(g.remoteOwnerId)===String(cloudSession.user.id))return true;
+  const me=(g.members||[]).find(m=>m.current||String(m.userId||m.id)===String(cloudSession?.user?.id||''));
+  return me?.role==='owner'
+}
+function sharedOwnerAccessExpired(g){
+  const t=Date.parse(g?.ownerAccessUntil||'');
+  return Number.isFinite(t)&&t<=Date.now()
+}
 function canUseBudgetGroup(g){
-  if(!g)return false;if(isPlus())return true;
-  if(g.type==='shared'&&g.remoteShared)return true;
+  if(!g)return false;
+  if(g.type==='shared'&&g.remoteShared){
+    if(sharedOwnerAccessExpired(g))return false;
+    if(isOwnedSharedBudget(g))return isPlus();
+    // L'invité peut rester en offre gratuite : son accès dépend de l'abonnement du créateur.
+    return true
+  }
+  if(isPlus())return true;
   const free=freeBudgetGroup();
   return g.type!=='shared'&&!!free&&String(g.id)===String(free.id)
 };
@@ -9821,7 +9937,7 @@ $$('[data-billmode]',$('#billModes')).forEach(x=>x.addEventListener('click',()=>
   const raw=$('#billDueDay')?.value;billDraft.dueDay=raw?clamp(Math.round(num(raw)),1,31):billDraft.dueDay;
   billDraft.mode=x.dataset.billmode;
   $$('[data-billmode]',$('#billModes')).forEach(y=>y.classList.toggle('on',y===x));renderBillFields()
-}));$('#saveBillBtn').addEventListener('click',saveBill);$$('[data-savingmode]',$('#savingModes')).forEach(x=>x.addEventListener('click',()=>{savingDraft.amount=num($('#savingAmount')?.value)||savingDraft.amount;savingDraft.target=num($('#savingTarget')?.value)||savingDraft.target;savingDraft.due=$('#savingDue')?.value||savingDraft.due;savingDraft.mode=x.dataset.savingmode;$$('[data-savingmode]',$('#savingModes')).forEach(y=>y.classList.toggle('on',y===x));renderSavingFields()}));$('#saveSavingBtn').addEventListener('click',saveSaving);$('#simpleSave').addEventListener('click',()=>{if(simpleSaveHandler?.()!==false){closeModal('simpleModal');if(currentPage==='wizard')renderWizard();else renderPage(currentPage)}});$('#plusPrimary').addEventListener('click',activatePlusDemo);$('#saveSubscriptionBilling')?.addEventListener('click',saveSubscriptionBilling);$('#startCancelPlus')?.addEventListener('click',openCancelPlus);$('#confirmCancelPlus')?.addEventListener('click',confirmDeactivatePlus);$('#anotherAccountAdd')?.addEventListener('click',()=>{const id=v11PostWizardGroupId;closeModal('anotherAccountModal');if(id)startAccountWizard(id)});$('#anotherAccountDone')?.addEventListener('click',()=>{const id=v11PostWizardGroupId;closeModal('anotherAccountModal');if(id){detailId=id;showPage('budget-detail')}else showPage('budgets')});$('#confirmAction').addEventListener('click',()=>{const fn=confirmHandler;confirmHandler=null;closeModal('confirmModal');fn?.()});
+}));$('#saveBillBtn').addEventListener('click',saveBill);$$('[data-savingmode]',$('#savingModes')).forEach(x=>x.addEventListener('click',()=>{savingDraft.amount=num($('#savingAmount')?.value)||savingDraft.amount;savingDraft.target=num($('#savingTarget')?.value)||savingDraft.target;savingDraft.due=$('#savingDue')?.value||savingDraft.due;savingDraft.mode=x.dataset.savingmode;$$('[data-savingmode]',$('#savingModes')).forEach(y=>y.classList.toggle('on',y===x));renderSavingFields()}));$('#saveSavingBtn').addEventListener('click',saveSaving);$('#simpleSave').addEventListener('click',()=>{if(simpleSaveHandler?.()!==false){closeModal('simpleModal');if(currentPage==='wizard')renderWizard();else renderPage(currentPage)}});$('#plusPrimary').addEventListener('click',activatePlusDemo);$('#saveSubscriptionBilling')?.addEventListener('click',saveSubscriptionBilling);$('#startCancelPlus')?.addEventListener('click',handleSubscriptionAction);$('#confirmCancelPlus')?.addEventListener('click',confirmDeactivatePlus);$('#anotherAccountAdd')?.addEventListener('click',()=>{const id=v11PostWizardGroupId;closeModal('anotherAccountModal');if(id)startAccountWizard(id)});$('#anotherAccountDone')?.addEventListener('click',()=>{const id=v11PostWizardGroupId;closeModal('anotherAccountModal');if(id){detailId=id;showPage('budget-detail')}else showPage('budgets')});$('#confirmAction').addEventListener('click',()=>{const fn=confirmHandler;confirmHandler=null;closeModal('confirmModal');fn?.()});
 $$('[data-share-history]',$('#shareHistoryChoices')).forEach(x=>x.addEventListener('click',()=>{
   shareConversionMode=x.dataset.shareHistory==='all'?'all':'today';$$('[data-share-history]',$('#shareHistoryChoices')).forEach(y=>y.classList.toggle('on',y===x));
   $('#shareConversionSummary').textContent=shareConversionMode==='all'?'Les anciens mouvements et périodes de ce budget seront partagés avec les membres que tu inviteras.':'Le partage commencera aujourd’hui. B² conservera une archive privée de ce qui précède.'
@@ -9836,8 +9952,15 @@ $('#sendShareInvite')?.addEventListener('click',async()=>{
   if(!await ensureRemoteSharedBudget(g))return;
   try{
     const {data,error}=await b2supabase.rpc('b2_shared_invite',{p_budget_id:g.remoteSharedId,p_email:email,p_display_name:typed||null});if(error)throw error;
-    await triggerRemotePush(data?.notification_ids||[]);closeModal('shareBudgetModal');
-    if(data?.existing_user)showToast('Invitation envoyée dans B².');else{showToast('Ce compte B² n’existe pas encore. Envoie-lui le lien d’invitation.');await shareInviteLink(data?.token)}
+    const [mailResult]=await Promise.all([
+      sendSharedInviteEmail(data?.invite_id),
+      triggerRemotePush(data?.notification_ids||[])
+    ]);
+    closeModal('shareBudgetModal');
+    if(mailResult?.ok&&data?.existing_user)showToast('Invitation envoyée par e-mail et dans B².');
+    else if(mailResult?.ok)showToast('Invitation envoyée par e-mail.');
+    else if(data?.existing_user)showToast('Invitation créée dans B². L’envoi e-mail doit encore être activé côté serveur.');
+    else{showToast('Invitation créée. L’envoi e-mail doit encore être activé côté serveur.');await shareInviteLink(data?.token)}
     await syncRemoteSharedBudgets({render:false});detailId=g.id;showPage('budget-detail')
   }catch(e){console.warn('B² shared invite',e);const m=String(e?.message||e);showToast(m.includes('already_member')?'Cette personne est déjà membre.':m.includes('cannot_invite_self')?'Tu ne peux pas t’inviter toi-même.':'Impossible d’envoyer cette invitation pour le moment.')}
 });
