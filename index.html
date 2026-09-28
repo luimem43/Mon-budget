@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#075a4d">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<title>B² v14.19 — clôture manuelle et salaire reçu correctement distingués</title>
+<title>B² v14.18 — correctif démarrage + apprentissage salaire sécurisé</title>
 <style>
 :root{
   --brand:#075a4d;--brand2:#0a7965;--brand3:#0f8f72;--lime:#b9ef68;
@@ -2305,16 +2305,6 @@ button{
 <div class="modal" id="simpleModal"><div class="sheet"><div class="grab"></div><h3 id="simpleTitle">Ajouter</h3><p class="lead" id="simpleLead"></p><div id="simpleFields"></div><div class="modal-actions"><button class="btn btn-soft" data-close="simpleModal" type="button">Annuler</button><button class="btn btn-primary" id="simpleSave" type="button">Ajouter</button></div></div></div>
 <div class="modal" id="confirmModal"><div class="sheet"><div class="grab"></div><h3 id="confirmTitle">Confirmer</h3><p class="lead" id="confirmLead"></p><div class="modal-actions"><button class="btn btn-soft" data-close="confirmModal" type="button">Annuler</button><button class="btn btn-danger" id="confirmAction" type="button">Confirmer</button></div></div></div>
 
-<div class="modal" id="salaryArrivalModal"><div class="sheet"><div class="grab"></div>
-  <h3 id="salaryArrivalTitle">Ton salaire est déjà arrivé ?</h3>
-  <p class="lead" id="salaryArrivalLead"></p>
-  <div class="status info compact" id="salaryArrivalInfo"></div>
-  <div class="modal-actions">
-    <button class="btn btn-soft" id="salaryArrivalNo" type="button">Non</button>
-    <button class="btn btn-primary" id="salaryArrivalYes" type="button">Oui, je l’ai reçu</button>
-  </div>
-</div></div>
-
 
 
 <div class="modal" id="anotherAccountModal"><div class="sheet"><div class="grab"></div>
@@ -3217,54 +3207,13 @@ async function syncRemoteSharedBudgets({render=true}={}){
     b2ApplyingRemote=true;
     rows.forEach(applyRemoteSharedRow);
     b2ApplyingRemote=false;
-
-    // IMPORTANT v14.18 :
-    // les budgets partagés viennent d'être rechargés depuis Supabase.
-    // Les réparations locales v14.16/v14.17 doivent donc être appliquées
-    // APRES ce chargement, sinon l'ancienne copie distante les écrase.
-    const repairedSharedGroups=[];
-    state.budgetGroups
-      .filter(g=>g.remoteShared&&g.remoteRole==='owner')
-      .forEach(g=>{
-        const accounts=accountsForBudget(g.id);
-        const before=JSON.stringify(accounts.map(a=>({
-          id:a.id,startMode:a.startMode,startBalance:a.startBalance,
-          openingCarry:a.openingCarry,openingIncomeAmount:a.openingIncomeAmount,
-          openingIncomeAt:a.openingIncomeAt,openingIncomeRepairV1416:a.openingIncomeRepairV1416,
-          incomeSources:a.incomeSources
-        })));
-
-        const repairState={budgets:accounts};
-        repairIncomeArrivalLearningV1417(repairState);
-
-        const after=JSON.stringify(accounts.map(a=>({
-          id:a.id,startMode:a.startMode,startBalance:a.startBalance,
-          openingCarry:a.openingCarry,openingIncomeAmount:a.openingIncomeAmount,
-          openingIncomeAt:a.openingIncomeAt,openingIncomeRepairV1416:a.openingIncomeRepairV1416,
-          incomeSources:a.incomeSources
-        })));
-
-        if(before!==after)repairedSharedGroups.push(g)
-      });
-
     if(activeRemote){const g=state.budgetGroups.find(x=>String(x.remoteSharedId||'')===String(activeRemote));if(g){state.budgetGroups.forEach(x=>x.active=x===g)}}
     ensureActive();
-
     // Ne change jamais le budget choisi par l'utilisateur lors d'une simple resynchronisation.
     restoreLastActiveBudgetSelection();
     persistB2LocalOnly();
-
-    // Le propriétaire renvoie immédiatement la correction dans le budget partagé.
-    // Ainsi Supabase ne pourra plus restaurer l'ancienne valeur au prochain démarrage.
-    for(const g of repairedSharedGroups){
-      await saveRemoteSharedBudget(g.id)
-    }
-
     if(b2PushEnabledOnDevice())queueB2LocalScheduleSync();
     if(render){renderAll();setTimeout(checkB2EntitlementNotices,120)}
-    if(repairedSharedGroups.length){
-      setTimeout(()=>showToast('B² a récupéré le salaire reçu et le report de ta période.'),180)
-    }
     return true
   }catch(e){b2ApplyingRemote=false;console.warn('B² shared sync unavailable',e);return false}
 }
@@ -3444,8 +3393,13 @@ function hydrateStateFromCloud(raw){
     state.budgetGroups=[g]
   }
   ensureActive();
-  const repairedOpeningIncome=false;
-  const repairedIncomeLearning=repairIncomeArrivalLearningV1417(state);
+  let repairedOpeningIncome=false,repairedIncomeLearning=false;
+  try{
+    repairedOpeningIncome=repairLegacyOpeningIncomeV1416(state);
+    repairedIncomeLearning=repairIncomeArrivalLearningV1417(state)
+  }catch(e){
+    console.warn('B² : réparation salaire cloud ignorée sans bloquer le chargement',e)
+  }
   state.settings.v11BudgetGroups=JSON.parse(JSON.stringify(state.budgetGroups||[]));
   pilotTab=state.ui?.pilotTab||'envelopes';movementFilter=state.ui?.movementFilter||'all';
   try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){}
@@ -3581,26 +3535,6 @@ function deleteAccountLocal(){
     closeModal('accountModal');state=emptyState();state.budgetGroups=[];await logoutAuth();showToast('Données B² effacées.')
   })
 }
-function maybePromptLegacyEarlyCloseIncome(){
-  const ordered=[active(),...(state.budgets||[])].filter(Boolean);
-  const seen=new Set();
-  for(const b of ordered){
-    if(seen.has(String(b.id)))continue;seen.add(String(b.id));
-    const c=legacyEarlyCloseIncomeCandidate(b);
-    if(!c)continue;
-
-    openSalaryArrivalQuestion({
-      title:'Ton salaire avait-il déjà été reçu ?',
-      lead:`Cette période a commencé le ${fmtDate(c.actualCloseDate)}, alors que « ${c.primary.name} » était prévu le ${fmtDate(c.oldPeriodExpectedDate)}.`,
-      info:`B² a actuellement repris environ <strong>${euro(c.carry)}</strong> de l’ancienne période, mais aucun salaire n’est compté dans l’argent de départ.<br><br>Si tu avais déjà reçu <strong>${euro(c.income)}</strong>, confirme-le ici : B² repartira sur <strong>${euro(r2(c.carry+c.income))}</strong>.`,
-      yes:()=>applyLegacyEarlyCloseIncome(c),
-      no:()=>dismissLegacyEarlyCloseIncome(c)
-    });
-    return true
-  }
-  return false
-}
-
 async function b2CloudBoot(){
   if(!b2supabase){setAuthMode('login');authFeedback('Connexion Supabase indisponible. Vérifie ta connexion Internet.');showAuth();return}
   try{
@@ -3618,11 +3552,8 @@ async function b2CloudBoot(){
     }
     try{sessionStorage.setItem(B2_SESSION_TAB_KEY,'1')}catch(e){}
     await loadCloudBackupOrSeed();hideAuth();renderAll();showPage('home');
-    const needsIncomeCheck=maybePromptLegacyEarlyCloseIncome();
-    if(!needsIncomeCheck){
-      if(!state.budgetGroups?.length&&!hasSeenSquareIntro())setTimeout(()=>showSquareLearningIntro(true),120);
-      else if(state.settings.bankAssist===null)setTimeout(()=>openModal('bankAssistModal'),120)
-    }
+    if(!state.budgetGroups?.length&&!hasSeenSquareIntro())setTimeout(()=>showSquareLearningIntro(true),120);
+    else if(state.settings.bankAssist===null)setTimeout(()=>openModal('bankAssistModal'),120)
   }catch(err){console.error('B² cloud boot',err);setAuthMode('login');authFeedback('Impossible de joindre la sauvegarde B² pour le moment. Vérifie ta connexion puis réessaie.');showAuth()}
 }
 if(b2supabase){
@@ -3667,7 +3598,7 @@ function normalizeBudget(b){
     id:b.id||uid(),name:b.name||'Compte principal',budgetGroupId:b.budgetGroupId||null,type:b.type==='shared'?'shared':'personal',accountKind:['personal','pro','other'].includes(b.accountKind)?b.accountKind:'personal',active:!!b.active,remoteSharedId:b.remoteSharedId||null,
     startMode:b.startMode==='now'?'now':'next',nextIncomeDate:b.nextIncomeDate||b.cycleEnd||addMonthsISO(todayISO(),1),
     cycleStart:b.cycleStart||todayISO(),cycleEnd:b.cycleEnd||addMonthsISO(todayISO(),1),startBalance:num(b.startBalance),startCash:Math.max(0,num(b.startCash)),heldAside:num(b.heldAside),
-    openingCarry:num(b.openingCarry),openingIncomeAmount:num(b.openingIncomeAmount),openingIncomeSourceId:b.openingIncomeSourceId||null,openingIncomeAt:b.openingIncomeAt||null,openingIncomeRepairV1416:b.openingIncomeRepairV1416===true,openingIncomeResolvedV1419:b.openingIncomeResolvedV1419===true,
+    openingCarry:num(b.openingCarry),openingIncomeAmount:num(b.openingIncomeAmount),openingIncomeSourceId:b.openingIncomeSourceId||null,openingIncomeAt:b.openingIncomeAt||null,openingIncomeRepairV1416:b.openingIncomeRepairV1416===true,
     household:{adults:Math.max(1,Math.round(num(b.household?.adults)||1)),children:Math.max(0,Math.round(num(b.household?.children)||0))},
     budgetProfile:{
       meals:['cook','mixed','out'].includes(b.budgetProfile?.meals)?b.budgetProfile.meals:'mixed',
@@ -3757,7 +3688,7 @@ function ensureActive(s=state){
   }
   s.budgetGroups.forEach(x=>x.active=String(x.id)===String(g?.id));
   s.budgets.forEach(a=>a.active=!!g&&String(a.budgetGroupId)===String(g.id)&&String(a.id)===String(g.activeAccountId));
-  s.budgetGroups.forEach(syncBudgetSharing)
+  s.budgetGroups.forEach(g=>syncBudgetSharing(g,s))
 }
 
 const B2_LAST_ACTIVE_BUDGET_KEY='B2_LAST_ACTIVE_BUDGET_V1';
@@ -3813,63 +3744,1281 @@ function restoreLastActiveBudgetSelection(){
 }
 
 
-function legacyEarlyCloseIncomeCandidate(b){
-  if(!b||b.openingIncomeResolvedV1419===true||num(b.openingIncomeAmount)>.01)return null;
-  const history=Array.isArray(b.history)?b.history:[];
-  const last=history[history.length-1];
-  const primary=primaryIncomeSource(b);
-  if(!last||!primary||!b.cycleStart||!last.cycleEnd||!primary.nextDate||num(primary.amount)<=0)return null;
-
-  const closedRecently=Date.now()-num(last.closedAt)<14*86400000;
-  const earlyCloseDays=daysBetweenISO(b.cycleStart,last.cycleEnd);
-  const nextIncomeDays=daysBetweenISO(b.cycleStart,primary.nextDate);
-
-  // Signature typique : période commencée 1 à 3 jours avant l'ancienne
-  // date de revenu, puis prochain revenu déjà positionné environ un mois plus tard.
-  if(!closedRecently||earlyCloseDays<1||earlyCloseDays>3||nextIncomeDays<26||nextIncomeDays>35)return null;
-
-  return {
-    budget:b,
-    primary,
-    oldPeriodExpectedDate:last.cycleEnd,
-    actualCloseDate:b.cycleStart,
-    carry:r2(Math.abs(num(b.openingCarry))>.001?num(b.openingCarry):num(b.startBalance)),
-    income:r2(num(primary.amount)),
-    earlyCloseDays
-  }
-}
 function repairLegacyOpeningIncomeV1416(s){
-  // v14.19 n'ajoute plus silencieusement un salaire sur une simple supposition.
-  // Le cas historique est présenté à l'utilisateur pour confirmation.
-  return false
+  let changed=false;
+  (s?.budgets||[]).forEach(b=>{
+    if(!b||b.openingIncomeRepairV1416===true||b.startMode!=='next')return;
+    const history=Array.isArray(b.history)?b.history:[];
+    const last=history[history.length-1];
+    const primary=primaryIncomeSource(b);
+    if(!last||!primary||!b.cycleStart||!last.cycleEnd||!primary.nextDate)return;
+
+    const closedRecently=Date.now()-num(last.closedAt)<7*86400000;
+    const earlyCloseDays=daysBetweenISO(b.cycleStart,last.cycleEnd);
+    const nextIncomeDays=daysBetweenISO(b.cycleStart,primary.nextDate);
+
+    // Ancienne anomalie : le salaire a été reçu avant la date prévue.
+    // La période a donc démarré avant l'ancienne cycleEnd, mais l'ancien code
+    // n'a gardé dans startBalance que le reliquat de la période précédente.
+    const exactLegacySignature=
+      closedRecently &&
+      earlyCloseDays>=1 && earlyCloseDays<=3 &&
+      nextIncomeDays>=26 && nextIncomeDays<=35 &&
+      num(primary.amount)>0;
+
+    if(!exactLegacySignature)return;
+
+    const oldCarry=r2(num(b.startBalance));
+    const income=r2(num(primary.amount));
+    b.openingCarry=oldCarry;
+    b.openingIncomeAmount=income;
+    b.openingIncomeSourceId=primary.id||null;
+    b.openingIncomeAt=b.cycleStart;
+    b.startBalance=r2(oldCarry+income);
+    b.startMode='now';
+    b.openingIncomeRepairV1416=true;
+    changed=true
+  });
+  return changed
 }
-function applyLegacyEarlyCloseIncome(candidate){
-  const c=candidate,b=c?.budget,source=c?.primary;
-  if(!b||!source)return false;
 
-  b.openingCarry=r2(num(c.carry));
-  b.openingIncomeAmount=r2(num(c.income));
-  b.openingIncomeSourceId=source.id||null;
-  b.openingIncomeAt=c.actualCloseDate||b.cycleStart||todayISO();
-  b.openingIncomeRepairV1416=true;
-  b.openingIncomeResolvedV1419=true;
-  b.startBalance=r2(b.openingCarry+b.openingIncomeAmount);
-  b.startMode='now';
-
-  source.scheduledDay=clamp(Math.round(num(source.scheduledDay)||dateParts(c.oldPeriodExpectedDate||source.nextDate).d),1,31);
-  recordIncomeArrival(source,b.openingIncomeAt,c.oldPeriodExpectedDate||incomeScheduledDateForMonth(source,source.nextDate));
-
-  save();
-  showToast(`Salaire de ${euro(b.openingIncomeAmount)} ajouté au départ de la période.`);
+let state=emptyState();
+state=migrate();
+let plusAfterAction=null,currentPage='home',pilotTab=state.ui.pilotTab||'envelopes',movementFilter=state.ui.movementFilter||'all',txDraft={type:'expense'},overspendCtx=null,editEnvId=null,envMode='auto',envEditDraft=null,balanceMode='auto',balanceDraft=null,balanceReserveUse=0,balancePredictivePlan=null,detailId=null,wizard=null,wizardStep=0,wizardEditId=null,wizardBalanceMode='auto',billDraft={mode:'monthly',dueThisCycle:true},savingDraft={mode:'regular'},simpleSaveHandler=null,confirmHandler=null,closingStep=0,closingFree=0,closingReview=null,closingReason='manual',wizardAccountBalance=0,wizardCashExtra=0,toastTimer=null,toastAction=null;
+let b2OpeningIncomeRepaired=false,b2IncomeLearningRepaired=false;
+try{
+  b2OpeningIncomeRepaired=repairLegacyOpeningIncomeV1416(state);
+  b2IncomeLearningRepaired=repairIncomeArrivalLearningV1417(state);
+  if(b2OpeningIncomeRepaired||b2IncomeLearningRepaired)localStorage.setItem(KEY,JSON.stringify(state))
+}catch(e){
+  console.warn('B² : réparation salaire au démarrage ignorée sans bloquer l’application',e)
+}
+function save(){
+  ensureActive();
+  rememberActiveBudgetSelection();
+  state.version=14;
+  state.ui.pilotTab=pilotTab;state.ui.movementFilter=movementFilter;
+  let healthNotice=null;
+  const current=active(),currentGroup=activeBudgetGroup();
+  if(current)healthNotice=rememberHealthState(current,budgetHealth(current));
+  state.budgets.forEach(a=>a.updatedAt=Date.now());
+  state.budgetGroups.forEach(g=>g.updatedAt=Date.now());
+  state.settings.v11BudgetGroups=JSON.parse(JSON.stringify(state.budgetGroups));
+  localStorage.setItem(KEY,JSON.stringify(state));
+  queueCloudSave();
+  if(currentGroup?.remoteShared)queueRemoteSharedSave(currentGroup);
+  renderAll();
+  if(current)maybeNotifyEnvelopeThresholds(current);
+  if(b2PushEnabledOnDevice())queueB2LocalScheduleSync();
+  if(healthNotice&&state.settings.essential)setTimeout(()=>{
+    showToast(healthNotice);
+    postB2LocalNotification('B² · Ton budget change',healthNotice,'essential',{type:'budget_health'})
+  },850)
+}
+function plusAddMonth(ms){
+  const d=new Date(ms),day=d.getUTCDate(),out=new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth()+1,1,d.getUTCHours(),d.getUTCMinutes(),d.getUTCSeconds()));
+  const last=new Date(Date.UTC(out.getUTCFullYear(),out.getUTCMonth()+1,0)).getUTCDate();
+  out.setUTCDate(Math.min(day,last));return out.getTime()
+}
+function paidPlusPeriodEndMs(){
+  if(state.plan?.tier!=='plus')return 0;
+  let end=Date.parse(state.plan?.subscriptionPeriodEnd||'');
+  const start=num(state.plan?.plusSince)||Date.now();
+  if(!Number.isFinite(end)||end<=0)end=plusAddMonth(start);
+  if(state.plan?.cancelAtPeriodEnd!==true){
+    while(end<=Date.now())end=plusAddMonth(end);
+    state.plan.subscriptionPeriodEnd=new Date(end).toISOString()
+  }
+  return end
+}
+function paidPlusCancellationPending(){
+  return state.plan?.tier==='plus'&&state.plan?.cancelAtPeriodEnd===true&&paidPlusPeriodEndMs()>Date.now()
+}
+function hasPaidPlus(){
+  if(state.plan?.tier!=='plus')return false;
+  if(state.plan?.cancelAtPeriodEnd===true)return paidPlusPeriodEndMs()>Date.now();
   return true
 }
-function dismissLegacyEarlyCloseIncome(candidate){
-  const b=candidate?.budget;if(!b)return;
-  b.openingIncomeResolvedV1419=true;
-  save()
+function paidPlusPeriodEndText(){
+  const t=paidPlusPeriodEndMs();if(!t)return '';
+  return new Intl.DateTimeFormat('fr-FR',{day:'numeric',month:'long',year:'numeric'}).format(new Date(t))
+}
+function isPlus(){return hasPaidPlus()||hasReferralPlus()}
+function plusFeatureBadge(){
+  return isPlus()
+    ?''
+    :'<span class="premium-lock-note">Débloqué avec B²+</span>'
 }
 
+const B2_PLUS_EXPIRY_SEEN_KEY='B2_PLUS_EXPIRY_SEEN_V1';
+const B2_SHARED_PAUSE_SEEN_KEY='B2_SHARED_PAUSE_SEEN_V1';
 
+function paidPlusAutoRenews(){
+  return state.plan?.tier==='plus'&&state.plan?.cancelAtPeriodEnd!==true
+}
+function finitePlusExpiryInfo(){
+  // Un abonnement payant encore renouvelé n'a pas de date de fin à annoncer.
+  if(paidPlusAutoRenews())return null;
+  const candidates=[];
+  if(state.plan?.tier==='plus'&&state.plan?.cancelAtPeriodEnd===true){
+    const t=Date.parse(state.plan?.subscriptionPeriodEnd||'');
+    if(Number.isFinite(t)&&t>0)candidates.push({end:t,source:'subscription'})
+  }
+  const referral=referralPlusUntilMs();
+  if(referral>0)candidates.push({end:referral,source:'referral'});
+  if(!candidates.length)return null;
+  const end=Math.max(...candidates.map(x=>x.end));
+  const source=candidates.some(x=>x.source==='subscription'&&x.end===end)?'subscription':'referral';
+  return {end,source}
+}
+function plusExpiryFingerprint(info){
+  return info?`${info.source}:${Math.round(info.end)}`:''
+}
+function sharedEntitlementEndMs(){
+  if(paidPlusAutoRenews())return 0;
+  const paid=state.plan?.tier==='plus'&&state.plan?.cancelAtPeriodEnd===true
+    ?Date.parse(state.plan?.subscriptionPeriodEnd||'')||0:0;
+  return Math.max(paid,referralPlusUntilMs())
+}
+function syncOwnedSharedEntitlement({remote=true}={}){
+  const owned=(state.budgetGroups||[]).filter(g=>isOwnedSharedBudget(g));
+  if(!owned.length)return;
+  const unlimited=paidPlusAutoRenews();
+  const end=sharedEntitlementEndMs();
+  owned.forEach(g=>{
+    const before=g.ownerAccessUntil||null;
+    if(unlimited)g.ownerAccessUntil=null;
+    else if(end>0)g.ownerAccessUntil=new Date(end).toISOString();
+    if(remote&&g.remoteShared&&before!==g.ownerAccessUntil)queueRemoteSharedSave(g)
+  })
+}
+function localNoticeRead(key){try{return localStorage.getItem(key)||''}catch(e){return ''}}
+function localNoticeWrite(key,value){try{localStorage.setItem(key,String(value||''))}catch(e){}}
+
+function openPlusEndedNotice(info){
+  const owned=(state.budgetGroups||[]).filter(g=>isOwnedSharedBudget(g));
+  if($('#plusEndedIcon'))$('#plusEndedIcon').innerHTML=ico('spark');
+  $('#plusEndedTitle').textContent=info?.source==='referral'
+    ?'Ton accès offert B²+ est terminé'
+    :'Ton accès B²+ est terminé';
+  $('#plusEndedLead').textContent='Tu retrouves maintenant la version gratuite de B².';
+  $('#plusEndedData').innerHTML='<strong>Rien n’est supprimé.</strong><br>Tes données et tes anciens budgets sont conservés. Les fonctions B²+ sont simplement mises en pause.';
+  const box=$('#plusEndedShared');
+  if(owned.length){
+    box.classList.remove('hidden');
+    box.innerHTML=`<strong>${owned.length>1?'Tes budgets partagés sont en pause.':'Ton budget partagé est en pause.'}</strong><br>Réactive B²+ pour reprendre la gestion commune avec ${owned.length>1?'leurs membres':'ses membres'}.`
+  }else box.classList.add('hidden');
+  openModal('plusEndedModal')
+}
+function pausedSharedForMember(){
+  return (state.budgetGroups||[]).find(g=>g.type==='shared'&&g.remoteShared&&!isOwnedSharedBudget(g)&&sharedOwnerAccessExpired(g))||null
+}
+function openSharedPausedNotice(g){
+  if(!g)return;
+  if($('#sharedPausedIcon'))$('#sharedPausedIcon').innerHTML=ico('group');
+  $('#sharedPausedLead').textContent=`« ${g.name} » est temporairement en pause. L’accès B²+ du propriétaire est arrivé à son terme.`;
+  openModal('sharedPausedModal')
+}
+function checkB2EntitlementNotices(){
+  try{
+    syncOwnedSharedEntitlement({remote:true});
+    const info=finitePlusExpiryInfo();
+    if(info&&info.end<=Date.now()&&!isPlus()){
+      const fingerprint=plusExpiryFingerprint(info);
+      if(fingerprint&&localNoticeRead(B2_PLUS_EXPIRY_SEEN_KEY)!==fingerprint){
+        localNoticeWrite(B2_PLUS_EXPIRY_SEEN_KEY,fingerprint);
+        renderAll();
+        openPlusEndedNotice(info);
+        return
+      }
+    }
+    const paused=pausedSharedForMember();
+    if(paused){
+      const key=`${paused.remoteSharedId||paused.id}:${paused.ownerAccessUntil||''}`;
+      if(localNoticeRead(B2_SHARED_PAUSE_SEEN_KEY)!==key){
+        localNoticeWrite(B2_SHARED_PAUSE_SEEN_KEY,key);
+        openSharedPausedNotice(paused)
+      }
+    }
+  }catch(e){console.warn('B² entitlement notice',e)}
+}
+function freeAccount(){
+  if(isPlus())return null;
+  let b=state.plan?.freeAccountId?byId(state.plan.freeAccountId):null;
+  if(!b)b=active()||state.budgets[0]||null;
+  if(b&&state.plan&&!state.plan.freeAccountId)state.plan.freeAccountId=b.id;
+  return b
+}
+function canUseAccount(a){return !!a&&canUseBudgetGroup(budgetById(a.budgetGroupId))}
+const B2_PLUS_STANDARD_PRICE=2.99;
+const B2_PLUS_FOUNDER_PRICE=1.99;
+const B2_PLUS_FOUNDER_LIMIT=500;
+const B2_PLUS_FOUNDER_ID='founder500';
+
+/*
+  La vraie app recevra ces infos du backend / RevenueCat.
+  Tant qu'aucun compteur serveur n'est branché, B² n'invente jamais un nombre de places restantes.
+  Pour tester la fermeture de l'offre dans le prototype :
+  window.B2_BILLING_CATALOG={founderAvailable:false,founderClaimed:500}
+*/
+function billingCatalog(){
+  const raw=window.B2_BILLING_CATALOG||{};
+  const claimed=Number.isFinite(Number(raw.founderClaimed))?Math.max(0,Math.round(Number(raw.founderClaimed))):null;
+  return {
+    founderAvailable:raw.founderAvailable!==false&&(claimed==null||claimed<B2_PLUS_FOUNDER_LIMIT),
+    founderClaimed:claimed
+  }
+}
+function founderRemaining(){
+  const n=billingCatalog().founderClaimed;
+  return n==null?null:Math.max(0,B2_PLUS_FOUNDER_LIMIT-n)
+}
+function founderOfferAvailable(){return billingCatalog().founderAvailable}
+function hasFounderRate(){
+  return hasPaidPlus()&&(state.plan?.subscriptionOffer===B2_PLUS_FOUNDER_ID||
+    (!state.plan?.subscriptionOffer&&state.plan?.subscriptionPrice==null));
+}
+function currentPlusPrice(){
+  if(hasReferralPlus()&&!hasPaidPlus())return 0;
+  if(hasPaidPlus()){
+    if(Number.isFinite(Number(state.plan?.subscriptionPrice))&&Number(state.plan.subscriptionPrice)>0)return num(state.plan.subscriptionPrice);
+    if(hasFounderRate())return B2_PLUS_FOUNDER_PRICE;
+  }
+  return founderOfferAvailable()?B2_PLUS_FOUNDER_PRICE:B2_PLUS_STANDARD_PRICE
+}
+function founderOfferText(){
+  const left=founderRemaining();
+  if(!founderOfferAvailable())return `L’offre fondateur est terminée. B²+ est maintenant à ${euro(B2_PLUS_STANDARD_PRICE)} / mois.`;
+  if(left==null)return `Réservé aux ${B2_PLUS_FOUNDER_LIMIT} premiers abonnés.`;
+  return left===1?'Plus qu’une place au tarif fondateur.':`${left} places restantes au tarif fondateur.`
+}
+function ensurePlusBill(candidate=active()){
+  if(!hasPaidPlus()||paidPlusCancellationPending()){
+    state.budgets.forEach(b=>{b.fixed=(b.fixed||[]).filter(x=>x.systemKey!=='b2plus')});
+    if(state.plan)state.plan.billingAccountId=null;
+    return
+  }
+  let target=state.plan?.billingAccountId?byId(state.plan.billingAccountId):null;
+  if(!target&&candidate){target=candidate;state.plan.billingAccountId=candidate.id}
+  if(!target)return;
+  const all=[...state.budgets];
+  if(candidate&&!all.some(x=>String(x.id)===String(candidate.id)))all.push(candidate);
+  all.forEach(b=>{
+    b.fixed=b.fixed||[];
+    if(String(b.id)===String(state.plan.billingAccountId)){
+      let bill=b.fixed.find(x=>x.systemKey==='b2plus');
+      const price=currentPlusPrice();
+      if(!bill)b.fixed.push({id:uid(),name:'B²+',amount:price,dueThisCycle:true,systemKey:'b2plus'});
+      else{bill.name='B²+';bill.amount=price}
+    }else b.fixed=b.fixed.filter(x=>x.systemKey!=='b2plus')
+  })
+}
+function removePlusBills(){state.budgets.forEach(b=>{b.fixed=(b.fixed||[]).filter(x=>x.systemKey!=='b2plus')});if(state.plan)state.plan.billingAccountId=null}
+function active(){
+  let g=activeBudgetGroup();
+  if(g&&!canUseBudgetGroup(g)){
+    const fallback=freeBudgetGroup()||state.budgetGroups.find(x=>canUseBudgetGroup(x))||null;
+    if(fallback){
+      state.budgetGroups.forEach(x=>x.active=String(x.id)===String(fallback.id));
+      g=fallback
+    }
+  }
+  if(!g||!canUseBudgetGroup(g))return null;
+  return byId(g.activeAccountId)||accountsForBudget(g.id)[0]||null
+} function byId(id){return state.budgets.find(b=>String(b.id)===String(id))||null}
+function sum(arr,key='amount'){return (arr||[]).reduce((s,x)=>s+num(x[key]),0)}
+
+function currentMember(b){return b?.members?.find(m=>m.current)||b?.members?.find(m=>m.status==='joined')||null}
+function memberStatusLabel(m){return m.status==='joined'?'Accès actif':'Invitation en attente'}
+function ensureSharedOwner(b){
+  if(!b.members.length)b.members.push({id:uid(),name:'Moi',contribution:0,current:true,status:'joined',role:'owner',recipient:''});
+  let cur=b.members.find(m=>m.current);
+  if(!cur){cur=b.members.find(m=>m.status==='joined')||b.members[0];cur.current=true}
+  cur.status='joined';cur.role=cur.role||'owner'
+}
+function convertToShared(b){if(b.type!=='shared'){b.type='shared';ensureSharedOwner(b);b.incomeMode=b.incomeMode||'global'}else ensureSharedOwner(b)}
+function inviteToken(){return 'B2-'+Math.random().toString(36).slice(2,7).toUpperCase()}
+function accountKindLabel(b){return b?.accountKind==='pro'?'Pro':b?.accountKind==='other'?'Annexe':'Personnel'}
+function accountIcon(a){return a?.accountKind==='pro'?'briefcase':'accounts'}
+function accountMetaLabel(){return 'Compte'}
+function accountChargeCount(b){return (b?.fixed||[]).length+(b?.oneOffs||[]).length}
+function recurringIncomeTotal(b){
+  if(Array.isArray(b.incomeSources)&&b.incomeSources.length)return b.incomeSources.reduce((s,x)=>s+Math.max(0,num(x.amount)),0);
+  if(b.type==='shared'&&b.incomeMode==='contributions'&&b.members.length)return sum(b.members,'contribution');
+  return num(b.income)
+}
+function primaryIncomeSource(b){
+  const list=Array.isArray(b.incomeSources)?b.incomeSources:[];
+  return list.find(x=>x.primary)||list[0]||null
+}
+function plannedIncome(b){
+  if(Array.isArray(b.incomeSources)&&b.incomeSources.length){
+    /* Lors du premier budget, les revenus futurs servent à préparer la suite
+       mais ne sont pas ajoutés à l'argent réellement disponible aujourd'hui. */
+    return b.startMode==='now'?0:recurringIncomeTotal(b)
+  }
+  if(b.type==='shared'&&b.incomeMode==='contributions'&&b.members.length)return sum(b.members,'contribution');
+  return num(b.income)
+}
+function extraIncome(b){return (b.transactions||[]).filter(t=>t.type==='income'&&t.kind!=='refund').reduce((s,t)=>s+num(t.amount),0)}
+function refundIncome(b){return (b.transactions||[]).filter(t=>t.type==='income'&&t.kind==='refund').reduce((s,t)=>s+num(t.amount),0)}
+function cashIncome(b){return r2(extraIncome(b)+refundIncome(b))}
+function transferNet(b){return r2((b.transactions||[]).filter(t=>t.type==='transfer').reduce((s,t)=>s+(t.direction==='in'?num(t.amount):-num(t.amount)),0))}
+function plannedExceptionalIncome(b){return (b.exceptionalIncomes||[]).reduce((s,x)=>s+Math.max(0,num(x.amount)),0)}
+function expenses(b){return (b.transactions||[]).filter(t=>t.type==='expense').reduce((s,t)=>s+num(t.amount),0)}
+function spentFor(b,id){
+  const out=(b.transactions||[]).filter(t=>t.type==='expense'&&String(t.categoryId)===String(id)).reduce((s,t)=>s+num(t.amount),0);
+  const back=(b.transactions||[]).filter(t=>t.type==='income'&&t.kind==='refund'&&String(t.categoryId)===String(id)).reduce((s,t)=>s+num(t.amount),0);
+  return r2(Math.max(0,out-back))
+}
+function provisionBaseContribution(p,b){
+  if(!p||p.status==='ready'||p.status==='kept')return 0;
+  const remaining=Math.max(0,num(p.targetAmount)-num(p.savedAmount));if(!remaining)return 0;
+  if(p.manualContribution!=null)return Math.min(remaining,Math.max(0,num(p.manualContribution)));
+  return r2(Math.min(remaining,remaining/monthsUntil(b.cycleStart||todayISO(),p.dueDate||b.cycleEnd)))
+}
+function provisionContribution(p,b){
+  if(p?.periodContributionDone===true)return 0;
+  return r2(Math.max(0,provisionBaseContribution(p,b)-Math.max(0,num(p?.cycleReduction))))
+}
+function provisionContributionPreview(p,b){
+  const current=provisionContribution(p,b);
+  if(!p||p.status==='ready'||p.status==='kept')return {current:0,next:0};
+  const remainingAfter=Math.max(0,num(p.targetAmount)-num(p.savedAmount)-current);
+  if(remainingAfter<=.01)return {current,next:0};
+  const nextStart=(b?.cycleEnd&&b.cycleEnd>todayISO())?b.cycleEnd:(nextExpectedIncome(b)?.nextDate||addMonthsISO(b?.cycleStart||todayISO(),1));
+  let next=0;
+  if(p.manualContribution!=null)next=Math.min(remainingAfter,Math.max(0,num(p.manualContribution)));
+  else if(p.dueDate&&nextStart>=p.dueDate)next=remainingAfter;
+  else next=remainingAfter/monthsUntil(nextStart,p.dueDate||addMonthsISO(nextStart,1));
+  return {current:r2(current),next:r2(Math.max(0,next))}
+}
+function savingContribution(g){
+  if(!g||g.dueThisCycle===false)return 0;
+  return r2(Math.max(0,num(g.monthlyAmount)-Math.max(0,num(g.cycleReduction))))
+}
+function syncProvisionStatuses(b,ref=todayISO()){
+  if(!b||!Array.isArray(b.provisions))return false;
+  let changed=false;
+  b.provisions.forEach(p=>{
+    if(p.status!=='active')return;
+    const reachedDate=p.dueDate&&p.dueDate<=ref;
+    if(reachedDate){
+      const finalContribution=provisionContribution(p,b);
+      p.savedAmount=r2(Math.min(num(p.targetAmount),num(p.savedAmount)+finalContribution));
+      p.status='ready';p.readyAt=p.readyAt||Date.now();changed=true
+    }
+  });
+  return changed
+}
+function readyProvisions(b){syncProvisionStatuses(b);return (b.provisions||[]).filter(p=>p.status==='ready')}
+function provisionsThisCycle(b){return b.provisions.reduce((s,p)=>s+provisionContribution(p,b),0)} function savingsThisCycle(b){return b.savings.reduce((s,g)=>s+savingContribution(g),0)}
+function monthlyDueDateInWindow(day,startISO,endISO){
+  const d=clamp(Math.round(num(day)),1,31);if(!d||!startISO||!endISO)return null;
+  const s=dateParts(startISO);
+  for(let off=-1;off<=2;off++){
+    const base=new Date(Date.UTC(s.y,s.m-1+off,1)),y=base.getUTCFullYear(),m=base.getUTCMonth()+1,last=new Date(Date.UTC(y,m,0)).getUTCDate(),dd=Math.min(d,last),iso=`${y}-${String(m).padStart(2,'0')}-${String(dd).padStart(2,'0')}`;
+    if(iso>=startISO&&iso<=endISO)return iso
+  }
+  return null
+}
+function fixedDurationMode(x){
+  if(['unlimited','months','date'].includes(x?.durationMode))return x.durationMode;
+  if(num(x?.remainingPayments)>0)return 'months';
+  if(x?.endDate)return 'date';
+  return 'unlimited'
+}
+function fixedActiveInWindow(x,startISO,endISO){
+  if(!x)return false;
+  const mode=fixedDurationMode(x);
+  if(mode==='months'&&Math.round(num(x.remainingPayments))<=0)return false;
+  if(mode==='date'){
+    const endDate=x.endDate||'';
+    if(!endDate)return true;
+    if(x.dueDay!=null){
+      const due=monthlyDueDateInWindow(x.dueDay,startISO,endISO);
+      return !!due&&due<=endDate
+    }
+    return startISO<=endDate
+  }
+  return true
+}
+function fixedDurationText(x){
+  const mode=fixedDurationMode(x);
+  if(mode==='months'){
+    const left=Math.max(0,Math.round(num(x.remainingPayments)));
+    return `${left} versement${left>1?'s':''} restant${left>1?'s':''}${left?` · ${euro(num(x.amount)*left)} restant${left>1?'s':''}`:''}`
+  }
+  if(mode==='date'&&x.endDate)return `jusqu’au ${fmtDateFull(x.endDate)}`;
+  return 'sans date de fin'
+}
+function fixedDurationShort(x){
+  const mode=fixedDurationMode(x);
+  if(mode==='months'){
+    const left=Math.max(0,Math.round(num(x.remainingPayments)));
+    return `${left} mois restant${left>1?'s':''}`
+  }
+  if(mode==='date'&&x.endDate)return `jusqu’au ${fmtDate(x.endDate)}`;
+  return 'sans fin'
+}
+function fixedDueDate(b,x){
+  if(!x||x.dueThisCycle===false||x.dueDay==null)return null;
+  const start=b.cycleStart||todayISO(),end=b.cycleEnd||addMonthsISO(todayISO(),1);
+  if(!fixedActiveInWindow(x,start,end))return null;
+  const due=monthlyDueDateInWindow(x.dueDay,start,end);
+  if(fixedDurationMode(x)==='date'&&due&&x.endDate&&due>x.endDate)return null;
+  return due
+}
+function fixedIsDueNow(b,x){
+  if(!x||x.dueThisCycle===false)return false;
+  const start=b.cycleStart||todayISO(),end=b.cycleEnd||addMonthsISO(todayISO(),1);
+  if(!fixedActiveInWindow(x,start,end))return false;
+  if(x.dueDay==null)return true;
+  return !!fixedDueDate(b,x)
+}
+function fixedThisCycle(b){return (b.fixed||[]).filter(x=>fixedIsDueNow(b,x)).reduce((s,x)=>s+num(x.amount),0)}
+function upcomingFixedCharges(b){return (b.fixed||[]).map(x=>{const dueDate=fixedDueDate(b,x);return dueDate?{charge:x,dueDate,days:daysUntil(dueDate)}:null}).filter(Boolean).filter(x=>x.dueDate>=todayISO()).sort((a,z)=>a.dueDate.localeCompare(z.dueDate))}
+function fixedTimingText(b,x){
+  if(x.dueThisCycle===false)return 'Déjà payée';
+  if(x.dueDay==null)return 'Montant protégé par B²';
+  const due=fixedDueDate(b,x);
+  return due?`Prévu le ${fmtDate(due)} · montant protégé`:`Le ${x.dueDay} de chaque mois · pris en compte ensuite`
+}
+function protectedThisCycle(b){return fixedThisCycle(b)+sum(b.oneOffs)+provisionsThisCycle(b)+savingsThisCycle(b)}
+function monthEndISO(iso){
+  const p=dateParts(iso||todayISO()),last=new Date(Date.UTC(p.y,p.m,0)).getUTCDate();
+  return `${p.y}-${String(p.m).padStart(2,'0')}-${String(last).padStart(2,'0')}`
+}
+function incomeForecastHorizon(b){
+  const primary=primaryIncomeSource(b);
+  return monthEndISO(primary?.nextDate||b.cycleEnd||todayISO())
+}
+function forecastIncomeUntil(b,endISO){
+  const list=Array.isArray(b.incomeSources)?b.incomeSources:[];
+  if(!list.length)return 0;
+  const from=todayISO();
+  return r2(list.reduce((s,x)=>{
+    const d=x.nextDate||'';
+    return s+(d&&d>=from&&d<=endISO?Math.max(0,num(x.amount)):0)
+  },0))
+}
+function forecastIncomeCurrentPeriod(b,endISO){
+  const list=Array.isArray(b.incomeSources)?b.incomeSources:[];
+  if(!list.length)return 0;
+  const from=todayISO(),primary=primaryIncomeSource(b);
+  return r2(list.reduce((s,x)=>{
+    const d=x.nextDate||'';
+    if(!d||d<from||d>endISO)return s;
+    // Le revenu principal qui marque le début de la période suivante
+    // n'appartient pas à l'argent disponible de la période actuelle.
+    if(primary&&String(x.id)===String(primary.id)&&d===b.cycleEnd)return s;
+    return s+Math.max(0,num(x.amount))
+  },0))
+}
+function forecastFixedUntil(b,endISO){
+  const from=todayISO();
+  return r2((b.fixed||[]).reduce((s,x)=>{
+    if(x.dueThisCycle===false)return s;
+    if(x.dueDay==null)return s+num(x.amount);
+    const due=monthlyDueDateInWindow(x.dueDay,from,endISO);
+    return s+(due?num(x.amount):0)
+  },0))
+}
+function forecastProtectedUntil(b,endISO){
+  return r2(forecastFixedUntil(b,endISO)+sum(b.oneOffs)+provisionsThisCycle(b)+savingsThisCycle(b))
+}
+function forecastPool(b){
+  const end=incomeForecastHorizon(b);
+  return r2(num(b.startBalance)+forecastIncomeUntil(b,end)+plannedExceptionalIncome(b)+cashIncome(b)+transferNet(b)-forecastProtectedUntil(b,end)-num(b.reserve))
+}
+function forecastEndBalance(b){
+  const end=b.cycleEnd||incomeForecastHorizon(b);
+  return r2(num(b.startBalance)+forecastIncomeCurrentPeriod(b,end)+plannedExceptionalIncome(b)+cashIncome(b)+transferNet(b)-forecastProtectedUntil(b,end)-allocated(b))
+}
+function recoveryTarget(b){
+  if(num(b.startBalance)>=0)return 0;
+  const income=forecastIncomeUntil(b,incomeForecastHorizon(b));
+  if(income<=0)return 0;
+  return r2(Math.max(20,Math.min(75,income*.03)))
+}
+function recoveryExtraMargin(b){
+  return r2(Math.max(0,recoveryTarget(b)-num(b.reserve)))
+}
+function wizardPlanningPoolLegacy(b){
+  const f=forecastPool(b);
+  if(!(Array.isArray(b.incomeSources)&&b.incomeSources.length))return pool(b);
+  return r2(f-recoveryExtraMargin(b))
+}
+function wizardUsesUpcomingIncomePlan(b){
+  const ctx=shortTermMoneyContext(b);
+  if(!ctx.nextIncome)return false;
+  const living=estimatedLivingNeedUntilIncome(b,ctx);
+  return num(ctx.cashNow)<=.01 || num(living.predictedBeforeIncome)<-.01
+}
+function wizardPlanningPool(b){
+  // Première période : le budget courant reste basé sur l'argent réellement
+  // disponible avant le prochain revenu. La paie suivante est montrée séparément
+  // dans l'aperçu "Prochaine période".
+  if(b?.startMode==='now'){
+    const current=r2(Math.max(0,pool(b)));
+    if(current>.01)return current;
+  }
+  if(wizardUsesUpcomingIncomePlan(b)){
+    const ctx=shortTermMoneyContext(b),living=estimatedLivingNeedUntilIncome(b,ctx),recovery=nextCycleRecoveryPlan(b,ctx,living);
+    return r2(recovery.availableCapacity)
+  }
+  return wizardPlanningPoolLegacy(b)
+}
+function pool(b){return r2(num(b.startBalance)+plannedIncome(b)+plannedExceptionalIncome(b)+cashIncome(b)+transferNet(b)-protectedThisCycle(b)-num(b.reserve))}
+function allocated(b){return b.envelopes.reduce((s,e)=>s+num(e.amount),0)} function unallocated(b){return r2(pool(b)-allocated(b))} function remaining(b){return r2(allocated(b)-expenses(b)+unallocated(b))} function envRemain(b,e){return r2(num(e.amount)-spentFor(b,e.id))}
+function cycleLabel(b){return `${fmtDate(b.cycleStart)} → ${fmtDate(b.cycleEnd)}`}
+function moneyBuckets(b){
+  return {
+    accountBalance:r2(currentCashEstimate(b)),
+    spendable:r2(remaining(b)),
+    reserve:r2(num(b.reserve)),
+    futureBills:r2((b.provisions||[]).reduce((s,p)=>s+num(p.savedAmount),0)),
+    savings:r2((b.savings||[]).reduce((s,g)=>s+num(g.currentSaved),0)),
+    heldAside:r2(num(b.heldAside))
+  }
+}
+
+function median(nums){
+  const a=(nums||[]).map(num).filter(n=>Number.isFinite(n)).sort((x,y)=>x-y);
+  if(!a.length)return 0;
+  const m=Math.floor(a.length/2);
+  return a.length%2?a[m]:(a[m-1]+a[m])/2
+}
+function latestUnusualExpense(b,progress){
+  const tx=(b.transactions||[]).filter(t=>t.type==='expense').sort((a,z)=>(z.createdAt||0)-(a.createdAt||0));
+  const latest=tx[0];if(!latest||Date.now()-num(latest.createdAt)>36*3600000)return null;
+  const same=tx.slice(1).filter(t=>String(t.categoryId)===String(latest.categoryId)).slice(0,12);
+  const m=median(same.map(t=>t.amount)),env=b.envelopes.find(e=>String(e.id)===String(latest.categoryId));
+  const largeVsHistory=same.length>=3&&m>0&&num(latest.amount)>=Math.max(35,m*2.6);
+  const largeVsEnvelope=env&&num(env.amount)>0&&num(latest.amount)>=Math.max(70,num(env.amount)*.42);
+  if(!(largeVsHistory||largeVsEnvelope))return null;
+  return {tx:latest,env,median:m,amount:num(latest.amount),progress}
+}
+function roundSmartAmount(v){const n=Math.max(0,num(v));const step=n>=300?10:5;return Math.max(step,Math.round(n/step)*step)}
+function learningSuggestions(b){
+  const monthDays=daysInBudgetMonth(b.cycleStart||todayISO());
+  const history=[...(b.history||[]).slice(-4)];
+  const liveDays=Math.max(1,daysBetweenISO(b.cycleStart,todayISO()));
+  const live={cycleStart:b.cycleStart,cycleEnd:todayISO(),envelopes:(b.envelopes||[]).map(e=>({id:e.id,name:e.name,amount:e.amount,spent:spentFor(b,e.id)}))};
+  const rows=[...history,live].map(h=>({...h,_days:Math.max(1,daysBetweenISO(h.cycleStart||addDaysISO(h.cycleEnd||todayISO(),-30),h.cycleEnd||todayISO()))}));
+  // Les fragments trop courts servent au moteur quotidien, mais pas à proposer de recalibrer un budget mensuel.
+  const useful=rows.filter(h=>h._days>=18);if(!useful.length)return [];
+  return (b.envelopes||[]).map(e=>{
+    const vals=useful.map(h=>{
+      const x=(h.envelopes||[]).find(x=>String(x.id)===String(e.id)||normalizeSpeechText(x.name)===normalizeSpeechText(e.name));
+      return x?num(x.spent)/Math.max(1,h._days)*monthDays:null
+    }).filter(v=>v!=null&&Number.isFinite(v));
+    if(!vals.length)return null;
+    const current=Math.max(0,num(e.amount));if(current<=0)return null;
+    let typical=0,proposed=current;
+    if(vals.length===1){
+      const actual=vals[0];if(actual<=0)return null;
+      typical=roundSmartAmount(actual);
+      const diff=actual-current,meaningfulUp=diff>=Math.max(20,current*.15),meaningfulDown=-diff>=Math.max(25,current*.28);
+      if(!meaningfulUp&&!meaningfulDown)return null;
+      const maxUp=Math.max(10,current*.15),maxDown=Math.max(10,current*.12);
+      proposed=roundSmartAmount(current+clamp(diff,-maxDown,maxUp));
+    }else{
+      const recent=vals.slice(-4),weights=recent.map((_,i)=>i+1),weighted=recent.reduce((sum,v,i)=>sum+v*weights[i],0)/(weights.reduce((a,z)=>a+z,0)||1);
+      typical=roundSmartAmount(median(recent)*.38+weighted*.62);
+      const up=typical>current*1.08&&typical-current>=10,down=typical<current*.78&&current-typical>=15;
+      if(!up&&!down)return null;
+      const maxMove=vals.length>=3?.28:.20;
+      proposed=roundSmartAmount(current+clamp(typical-current,-current*maxMove,current*maxMove));
+    }
+    if(Math.abs(proposed-current)<5)return null;
+    return {envId:e.id,name:e.name,current:r2(current),proposed:r2(proposed),typical:r2(typical),direction:proposed>current?'up':'down',periods:vals.length,confidence:vals.length===1?'première tendance':vals.length>=3?'tendance solide':'tendance en cours'}
+  }).filter(Boolean).sort((a,z)=>Math.abs(z.proposed-z.current)-Math.abs(a.proposed-a.current)).slice(0,3)
+}
+function envelopeHistoryStats(b,e){
+  const rows=(b.history||[]).slice(-6).map(h=>{
+    const x=(h.envelopes||[]).find(y=>String(y.id)===String(e.id)||String(y.name||'').toLocaleLowerCase()===String(e.name||'').toLocaleLowerCase());
+    return x?{spent:num(x.spent),amount:num(x.amount)}:null
+  }).filter(Boolean);
+  if(rows.length<2)return null;
+  return {count:rows.length,medianSpent:median(rows.map(x=>x.spent)),medianAmount:median(rows.map(x=>x.amount))}
+}
+function envelopeCategoryKind(e){
+  const n=normalizeSpeechText(e?.name||'');
+  if(/course|aliment|quotidien/.test(n))return 'food';
+  if(/carbur|transport|deplacement|essence|diesel/.test(n))return 'transport';
+  if(/soin.*beaute|beaute|coiffeur|estheti/.test(n))return 'beauty';
+  if(/sante|pharm|medec|medical/.test(n))return 'health';
+  if(/enfant|scolaire/.test(n))return 'children';
+  if(/animaux|animal|chien|chat/.test(n))return 'pets';
+  if(/maison|travaux|entretien|bricol/.test(n))return 'home';
+  if(/vetement/.test(n))return 'clothes';
+  if(/loisir|sortie|restaurant|petit plaisir/.test(n))return 'leisure';
+  if(/cadeau|evenement/.test(n))return 'gifts';
+  if(/vacance|voyage/.test(n))return 'travel';
+  if(/achat plaisir|shopping/.test(n))return 'shopping';
+  return 'other'
+}
+function essentialityOfEnvelope(e,b){
+  const p=budgetProfileOf(b),kind=envelopeCategoryKind(e),priority=priorityOf(e);
+  let v={food:1,children:.42,transport:p.mobility==='high'?.90:p.mobility==='low'?.55:.74,health:.82,home:.42,clothes:.28,pets:.46,beauty:.08,leisure:.12,gifts:.06,travel:.04,shopping:.04,other:.24}[kind]??.24;
+  if(priority==='essential')v=Math.max(v,kind==='children'?.62:.88);
+  if(priority==='important')v=Math.max(v,.56);
+  if(priority==='flexible')v=Math.min(v,.52);
+  return clamp(v,.03,1)
+}
+function normalCycleIncome(b){
+  const sources=(b.incomeSources||[]).filter(x=>num(x.amount)>0);
+  if(sources.length)return r2(sources.reduce((sum,x)=>sum+num(x.amount),0));
+  return r2(Math.max(0,plannedIncome(b)))
+}
+function normalCycleProtected(b){
+  const fixed=r2((b.fixed||[]).filter(x=>fixedActiveInWindow(x,b.cycleStart||todayISO(),b.cycleEnd||addMonthsISO(todayISO(),1))).reduce((sum,x)=>sum+Math.max(0,num(x.amount)),0));
+  const savings=r2((b.savings||[]).reduce((sum,x)=>sum+Math.max(0,num(x.monthlyAmount)),0));
+  const provisions=r2((b.provisions||[]).reduce((sum,p)=>sum+Math.max(0,provisionBaseContribution(p,b)),0));
+  const reserveTopUp=r2(Math.max(0,num(b.reserveTarget)-num(b.reserve)));
+  return {fixed,savings,provisions,reserveTopUp,total:r2(fixed+savings+provisions+reserveTopUp)}
+}
+function normalVariableCapacity(b){
+  const income=normalCycleIncome(b),protectedPart=normalCycleProtected(b);
+  return r2(Math.max(0,income-protectedPart.total))
+}
+function profileBaselineEnvelopePlan(b){
+  const envs=b.envelopes||[],cap=r2(normalVariableCapacity(b)*profileAllocationShare(b));
+  if(!envs.length)return {capacity:cap,amounts:{}};
+  const weights=envs.map(e=>Math.max(.05,allocationWeight(e,b))),total=weights.reduce((a,z)=>a+z,0)||1,amounts={};
+  envs.forEach((e,i)=>amounts[e.id]=r2(cap*weights[i]/total));
+  return {capacity:cap,amounts}
+}
+function daysInBudgetMonth(iso=todayISO()){
+  const m=String(iso||todayISO()).match(/^(\d{4})-(\d{2})/);if(!m)return 30.4;
+  return new Date(Number(m[1]),Number(m[2]),0).getDate()
+}
+function envelopeHistoryDailyRates(b,e){
+  return (b.history||[]).slice(-8).map(h=>{
+    const x=(h.envelopes||[]).find(y=>String(y.id)===String(e.id)||normalizeSpeechText(y.name||'')===normalizeSpeechText(e.name||''));
+    if(!x)return null;
+    const days=Math.max(1,daysBetweenISO(h.cycleStart||addDaysISO(h.cycleEnd||todayISO(),-30),h.cycleEnd||todayISO()));
+    return {rate:r2(num(x.spent)/days),spent:num(x.spent),days,end:h.cycleEnd||''}
+  }).filter(Boolean)
+}
+function learnedEnvelopePattern(b,e,baselineAmount=null){
+  // Première phase : le budget créé par l'utilisateur reste la référence.
+  // Les dépenses réelles prennent du poids selon le nombre de JOURS réellement observés,
+  // afin qu'une petite période de 4 ou 5 jours ne soit jamais traitée comme un mois complet.
+  const baseAmount=baselineAmount==null?Math.max(0,num(e.amount)):Math.max(0,num(baselineAmount));
+  const monthDays=daysInBudgetMonth(b.cycleStart||todayISO());
+  const fallbackRate=baseAmount>0?baseAmount/monthDays:0;
+  const rows=envelopeHistoryDailyRates(b,e),rates=rows.map(x=>x.rate).filter(x=>x>=0),historyCount=rates.length;
+  const historyDays=rows.reduce((sum,x)=>sum+Math.min(35,Math.max(1,num(x.days))),0);
+  let historyDaily=null;
+  if(historyCount){
+    const med=median(rates),weights=rows.map((x,i)=>Math.max(1,Math.min(35,num(x.days)))*(i+1)),den=weights.reduce((a,z)=>a+z,0)||1;
+    const recentWeighted=rates.reduce((sum,v,i)=>sum+v*weights[i],0)/den;
+    historyDaily=med*.40+recentWeighted*.60
+  }
+  const historyWeight=historyDays===0?0:historyDays<14?.12:historyDays<28?.30:historyDays<55?.50:historyDays<85?.68:historyDays<115?.80:.88;
+  let learned=historyDaily==null?fallbackRate:fallbackRate*(1-historyWeight)+historyDaily*historyWeight;
+
+  const elapsed=Math.max(0,daysBetweenISO(b.cycleStart,todayISO()));
+  const txCount=(b.transactions||[]).filter(t=>(t.type==='expense'||(t.type==='income'&&t.kind==='refund'))&&String(t.categoryId)===String(e.id)).length;
+  const currentRate=elapsed>=6&&txCount>=2?spentFor(b,e.id)/Math.max(1,elapsed):null;
+  let currentWeight=0;
+  if(historyDays>=21&&currentRate!=null){
+    const cycleProgress=clamp(elapsed/Math.max(21,monthDays),0,1),evidenceFactor=clamp(txCount/6,0,1);
+    const maxCurrent=historyDays>=85?.24:historyDays>=55?.21:.17;
+    currentWeight=maxCurrent*cycleProgress*(.55+.45*evidenceFactor);
+    const low=Math.max(0,learned*.42),high=Math.max(learned*1.9,learned+2),capped=clamp(currentRate,low,high);
+    learned=learned*(1-currentWeight)+capped*currentWeight
+  }
+  learned=Math.max(0,learned);
+  const confidence=historyDays>=90?'forte':historyDays>=45?'bonne':historyDays>=21?'en apprentissage':'budget';
+  return {
+    envId:e.id,name:e.name,kind:envelopeCategoryKind(e),daily:r2(learned),fallbackDaily:r2(fallbackRate),budgetDaily:r2(fallbackRate),
+    historyDaily:historyDaily==null?null:r2(historyDaily),monthly:r2(learned*monthDays),historyCount,historyDays,currentRate:currentRate==null?null:r2(currentRate),
+    historyWeight:r2(historyWeight),currentWeight:r2(currentWeight),confidence,evidence:historyCount+(currentRate!=null?1:0)
+  }
+}
+function adaptiveLearningSummary(b){
+  const patterns=(b.envelopes||[]).map(e=>learnedEnvelopePattern(b,e));
+  const historyPeriods=(b.history||[]).length;
+  const historyDays=(b.history||[]).reduce((sum,h)=>sum+Math.min(35,Math.max(1,daysBetweenISO(h.cycleStart||addDaysISO(h.cycleEnd||todayISO(),-30),h.cycleEnd||todayISO()))),0);
+  const trackedTxCount=(b.transactions||[]).filter(t=>t.type==='expense').length;
+  const historySpend=(b.history||[]).reduce((sum,h)=>sum+Math.max(0,num(h.expenses)),0);
+  const evidence=patterns.reduce((sum,p)=>sum+p.historyCount+(p.currentRate!=null?1:0),0);
+  // Environ trois semaines d'historique archivé sont nécessaires avant d'afficher
+  // un besoin quotidien personnalisé. Avant cela, le moteur travaille mais reste discret.
+  const canShowEssential=historyDays>=21&&historySpend>0;
+  const level=historyDays>=75&&historySpend>0?'habitudes solides':historyDays>=21?'habitudes en cours d’apprentissage':'budget de départ';
+  const maturityPct=historyDays<21
+    ?clamp(12+Math.min(16,trackedTxCount*1.6)+historyDays*.25,12,32)
+    :clamp(38+Math.min(46,historyDays*.48)+Math.min(12,evidence*.55),38,96);
+  return {patterns,evidence,historyPeriods,historyDays,trackedTxCount,historySpend,canShowEssential,level,maturityPct:r2(maturityPct)}
+}
+
+function predictedSpendableBeforeIncome(b,living=null){
+  const l=living||estimatedLivingNeedUntilIncome(b,shortTermMoneyContext(b));
+  return r2(num(l.predictedBeforeIncome)-Math.max(0,num(b?.reserve)))
+}
+
+function b2EstimateExplanationHTML(b,h){
+  const ctx=shortTermMoneyContext(b),living=estimatedLivingNeedUntilIncome(b,ctx),a=adaptiveLearningSummary(b);
+  const need=r2(living.variableNeed+living.obligations),projected=living.predictedBeforeIncome,spendable=predictedSpendableBeforeIncome(b,living),ready=living.canShowEssential;
+  const openingCarry=r2(num(b.openingCarry)),openingIncome=r2(num(b.openingIncomeAmount));
+  const openingBreakdown=(Math.abs(openingCarry)>.01||openingIncome>.01)
+    ?`<div class="b2-estimate-row"><span>Départ de cette période</span><strong>${euro(num(b.startBalance))}</strong></div>
+      ${openingIncome>.01?`<div class="b2-estimate-row"><span>↳ Salaire déjà reçu</span><strong>＋ ${euro(openingIncome)}</strong></div>`:''}
+      ${Math.abs(openingCarry)>.01?`<div class="b2-estimate-row"><span>↳ Report de la période précédente</span><strong>${openingCarry<0?'−':'＋'} ${euro(Math.abs(openingCarry))}</strong></div>`:''}`
+    :'';
+  const rows=(living.breakdown||[]).filter(x=>num(x.amount)>.01).slice(0,5);
+  const source=ready
+    ?(a.historyPeriods>=3?'B² s’appuie surtout sur plusieurs périodes de dépenses réelles, tout en gardant ton budget comme garde-fou.':'B² combine maintenant ton budget avec les dépenses réellement observées. Le réel prendra encore plus de poids au fil des périodes.')
+    :'Première période : B² ne connaît pas encore ton rythme réel. Il utilise ton budget actuel comme base provisoire et apprend à mesure que tu enregistres tes dépenses.';
+  const obligations=living.obligations>0?`<div class="b2-estimate-row"><span>Charges obligatoires avant le revenu</span><strong>${euro(living.obligations)}</strong></div>`:'';
+  const rowsHtml=rows.map(x=>`<div class="b2-estimate-row"><span>${esc(x.name)}${num(x.coverageCredit)>.5?`<small style="display:block;margin-top:2px;color:var(--muted);font-size:9px">${euro(x.coverageCredit)} déjà couverts par des dépenses récentes</small>`:''}</span><strong>${ready?euro(x.amount):`≈ ${euro(Math.round(x.amount))}`}</strong></div>`).join('');
+  const totalLabel=ready
+    ?`Besoin essentiel estimé pour les ${living.days} prochain${living.days>1?'s':''} jour${living.days>1?'s':''} : <strong>${euro(need)}</strong>`
+    :`Marge provisoire intégrée à la projection : <strong>≈ ${euro(Math.round(need))}</strong>`;
+  const learningNote=ready
+    ?'Cette estimation continuera d’évoluer : les périodes récentes comptent davantage que les anciennes.'
+    :'B² n’affiche pas encore de besoin quotidien personnalisé : un chiffre précis donnerait une fausse impression de certitude.';
+  const coverageNote=living.recentlyCovered>.5?` B² tient aussi compte d’environ ${euro(living.recentlyCovered)} de besoins déjà couverts par des dépenses récentes (par exemple courses ou carburant), au lieu de les compter une deuxième fois.`:'';
+  return `<details class="b2-estimate-details"><summary>Comment B² arrive à cette estimation ?</summary><div class="b2-estimate-explain"><div class="estimate-intro">${source}</div>${openingBreakdown}<div class="b2-estimate-row"><span>Argent disponible aujourd’hui</span><strong>${ctx.cashNow<0?'−':'＋'} ${euro(Math.abs(ctx.cashNow))}</strong></div>${obligations}${rowsHtml}<div class="b2-estimate-total">${totalLabel}<br>Projection avant le prochain revenu : <strong>${projected<0?'−':''}${euro(Math.abs(projected))}</strong>${num(b.reserve)>0?`<br>Réserve protégée : <strong>${euro(b.reserve)}</strong><br>Disponible après réserve : <strong>${spendable<0?'−':''}${euro(Math.abs(spendable))}</strong>`:''}</div><div class="b2-estimate-learning">${learningNote}${coverageNote} Le calendrier compte aussi : une journée sans dépense laisse un jour de moins à financer, tandis que les charges encore dues restent protégées.</div></div></details>`;
+}
+function b2LearningMaturity(b){
+  const a=adaptiveLearningSummary(b),periods=a.historyPeriods,evidence=a.evidence,days=a.historyDays;
+  let level=1,label='Je découvre ton budget',copy='B² s’appuie surtout sur le budget que tu as construit. Une courte période ne suffit pas encore pour connaître ton vrai rythme.';
+  if(days>=75&&a.historySpend>0){
+    level=3;label='Je connais mieux ton rythme';copy='Plusieurs semaines de dépenses réelles pèsent maintenant davantage dans les prévisions et les propositions de recalibrage.';
+  }else if(days>=21){
+    level=2;label='J’apprends tes habitudes';copy='B² mélange ton budget avec ce que tu dépenses réellement. Plus l’historique grandit, plus le réel prend de poids.';
+  }
+  return {level,label,copy,periods,evidence,days,pct:a.maturityPct}
+}
+function b2LearningHTML(b,compact=false){
+  if(!advancedIntelligenceEnabled()){
+    return `<div class="b2-learning ${compact?'compact':''} b2-learning-free">
+      <div class="b2-learning-head"><strong>Intelligence B²</strong><span class="b2-learning-plus">période actuelle</span></div>
+      <div class="b2-learning-copy"><b>B² surveille ce qui se passe maintenant</b><br>Disponible, rythme de dépense, enveloppes, charges, réserve et prochain revenu.</div>
+      <div class="b2-free-intelligence-note"><strong>B²+ ajoute la mémoire dans le temps</strong><span>Habitudes, schémas récurrents, prévisions personnalisées et recommandations de période en période.</span></div>
+    </div>`;
+  }
+  const m=b2LearningMaturity(b);
+  const pct=clamp(num(m.pct),8,96);
+  const step1=m.level===1?'on':'',step2=m.level===2?'on':'',step3=m.level===3?'on':'';
+  return `<div class="b2-learning ${compact?'compact':''}">
+    <div class="b2-learning-head"><strong>B² apprend à te connaître</strong><span class="b2-learning-plus">au fil du temps</span></div>
+    <div class="b2-learning-copy"><b>${m.label}</b><br>${m.copy}</div>
+    <div class="b2-learning-meter" role="progressbar" aria-valuemin="1" aria-valuemax="3" aria-valuenow="${m.level}" aria-label="Progression de l’apprentissage de B²">
+      <div class="b2-learning-meter-fill" style="width:${pct}%"></div>
+      <span class="b2-learning-cursor" style="left:${pct}%"></span>
+    </div>
+    <div class="b2-learning-steps">
+      <div class="b2-learning-step ${step1}">1<small>Je découvre</small></div>
+      <div class="b2-learning-step ${step2}">2<small>J’apprends</small></div>
+      <div class="b2-learning-step ${step3}">3<small>Je connais ton rythme</small></div>
+    </div>
+    <button class="b2-learning-more" data-open-square-learning type="button">Comment le carré apprend ? →</button>
+  </div>`;
+}
+function b2PlusIntelligenceTeaserHTML(){
+  if(advancedIntelligenceEnabled())return `<div class="b2-smart-plus" data-open-analysis><strong>B²+ analyse ton histoire, pas seulement ton mois</strong><span>Schémas récurrents, fourchettes de prévision, comparaison entre périodes et plan personnalisé pour la suite. <b>Voir mon analyse →</b></span></div>`;
+  return `<div class="b2-smart-plus" data-smart-plus><strong>B²+ active la mémoire longue du Carré</strong><span>B² gratuit surveille le présent. B²+ apprend d’une période à l’autre, repère ce qui se répète et prépare des recommandations personnalisées. <b>Comparer →</b></span></div>`;
+}
+
+function survivalEssentialityOfEnvelope(e,b){
+  const kind=envelopeCategoryKind(e),priority=priorityOf(e),p=budgetProfileOf(b);
+  // Ce calcul concerne uniquement ce qui peut réellement être nécessaire avant le prochain revenu.
+  // Une enveloppe « Enfants » n'est pas vitale en soi : repas, vêtements et sorties vivent déjà dans leurs catégories.
+  if(['leisure','travel','shopping','clothes','beauty','gifts'].includes(kind))return 0;
+  if(kind==='food')return 1;
+  if(kind==='transport')return p.mobility==='high'?.82:p.mobility==='low'?.42:.62;
+  if(kind==='health')return priority==='essential'?.58:priority==='important'?.32:.14;
+  if(kind==='children')return priority==='essential'?.34:0;
+  if(kind==='pets')return priority==='essential'?.38:priority==='important'?.20:0;
+  if(kind==='home')return priority==='essential'?.24:0;
+  return priority==='essential'?.18:0
+}
+
+/* v12.87 — une dépense peut aussi couvrir une partie des besoins à venir.
+   Le carré ne doit pas compter deux fois des courses, un plein ou une autre dépense
+   de consommation qui réduit réellement ce qu'il reste à financer avant le prochain revenu. */
+function futureCoverageBehavior(e,b){
+  const kind=envelopeCategoryKind(e),priority=priorityOf(e);
+  if(kind==='food')return {factor:1,maxDays:6,label:'courses'};
+  if(kind==='transport')return {factor:.92,maxDays:10,label:'carburant et déplacements'};
+  if(kind==='pets')return {factor:priority==='essential'?.82:.58,maxDays:8,label:'besoins des animaux'};
+  if(kind==='health')return {factor:priority==='essential'?.66:priority==='important'?.46:.22,maxDays:5,label:'santé'};
+  if(kind==='children'&&priority==='essential')return {factor:.34,maxDays:3,label:'besoins des enfants'};
+  if(kind==='home'&&priority==='essential')return {factor:.22,maxDays:2,label:'maison'};
+  if(kind==='other'&&priority==='essential')return {factor:.16,maxDays:2,label:'besoin essentiel'};
+  return {factor:0,maxDays:0,label:''}
+}
+function recentFutureCoverage(b,e,daily,horizonDays){
+  const behavior=futureCoverageBehavior(e,b),days=Math.max(0,num(horizonDays)),rate=Math.max(0,num(daily));
+  const rawNeed=r2(rate*days);
+  if(rawNeed<=.01||behavior.factor<=0||behavior.maxDays<=0||rate<=.01){
+    return {rawNeed,credit:0,remainingNeed:rawNeed,daysCovered:0,eligibleSpend:0,behavior}
+  }
+  const today=todayISO(),window=Math.max(1,Math.min(14,Math.ceil(behavior.maxDays))),byDay={};
+  let eligibleSpend=0;
+  (b.transactions||[]).forEach(t=>{
+    if(t.type!=='expense'||String(t.categoryId)!==String(e.id))return;
+    const d=t.date||today;
+    if(d>today||d<addDaysISO(today,-window))return;
+    const weighted=Math.max(0,num(t.amount))*behavior.factor;
+    if(weighted<=0)return;
+    byDay[d]=r2((byDay[d]||0)+weighted);eligibleSpend=r2(eligibleSpend+weighted)
+  });
+  // Le stock représente ce que des dépenses récentes ont probablement déjà financé.
+  // Chaque jour écoulé consomme une journée normale de ce stock ; une dépense faite
+  // aujourd'hui est donc entièrement disponible pour couvrir les jours qui suivent.
+  let stock=0;
+  const stockCap=rate*behavior.maxDays;
+  for(let age=window;age>=1;age--){
+    const d=addDaysISO(today,-age);
+    stock=Math.min(stockCap,stock+num(byDay[d]));
+    stock=Math.max(0,stock-rate)
+  }
+  stock=Math.min(stockCap,stock+num(byDay[today]));
+  const credit=r2(Math.min(rawNeed,Math.max(0,stock)));
+  return {
+    rawNeed,credit,remainingNeed:r2(Math.max(0,rawNeed-credit)),daysCovered:rate>0?r2(credit/rate):0,
+    eligibleSpend:r2(eligibleSpend),behavior
+  }
+}
+
+/* ============================================================
+   B² v14 — deux niveaux d'intelligence
+   IMPORTANT : cette mise à jour ne change ni la clé de stockage,
+   ni le schéma des budgets existants. L'historique reste conservé.
+   Gratuit  : intelligence de situation, période actuelle, court terme.
+   B²+      : historique, habitudes, prédiction personnalisée, recommandations.
+   ============================================================ */
+function advancedIntelligenceEnabled(){return isPlus()||!!activeBudgetGroup()?.remoteShared}
+
+function basicEnvelopeTargets(b,capacity=null){
+  const envs=b?.envelopes||[];
+  const cap=r2(Math.max(0,capacity==null?normalVariableCapacity(b):num(capacity)));
+  const targets={},desired={},floors={};
+  if(!envs.length)return {capacity:cap,targets,desired,floors,constrained:false,mode:'current'};
+  let total=envs.reduce((s,e)=>s+Math.max(0,num(e.amount)),0);
+  if(total<=.01){
+    const weights=envs.map(e=>Math.max(.05,allocationWeight(e,b))),sum=weights.reduce((a,z)=>a+z,0)||1;
+    envs.forEach((e,i)=>{
+      const v=r2(cap*weights[i]/sum);
+      targets[e.id]=v;desired[e.id]=v;floors[e.id]=0
+    });
+  }else{
+    let used=0;
+    envs.forEach((e,i)=>{
+      const v=i===envs.length-1?r2(cap-used):r2(cap*Math.max(0,num(e.amount))/total);
+      targets[e.id]=Math.max(0,v);desired[e.id]=Math.max(0,v);floors[e.id]=0;used=r2(used+v)
+    })
+  }
+  return {capacity:cap,targets,desired,floors,constrained:false,mode:'current'}
+}
+
+function estimatedLivingNeedUntilIncomeBasic(b,ctx=null){
+  ctx=ctx||shortTermMoneyContext(b);
+  const days=Math.max(0,num(ctx.daysToIncome));
+  const elapsed=Math.max(1,daysBetweenISO(b.cycleStart||todayISO(),todayISO()));
+  const monthDays=daysInBudgetMonth(b.cycleStart||todayISO());
+  const breakdown=(b.envelopes||[]).map(e=>{
+    const essentiality=survivalEssentialityOfEnvelope(e,b);
+    if(essentiality<=0)return null;
+    const budgetDaily=Math.max(0,num(e.amount))/Math.max(1,monthDays);
+    const txCount=(b.transactions||[]).filter(t=>t.type==='expense'&&String(t.categoryId)===String(e.id)).length;
+    const currentDaily=elapsed>=3&&txCount>=2?Math.max(0,spentFor(b,e.id))/elapsed:null;
+    const daily=currentDaily==null?budgetDaily:r2(budgetDaily*.65+currentDaily*.35);
+    const essentialDaily=r2(daily*essentiality);
+    const coverage=recentFutureCoverage(b,e,essentialDaily,days);
+    return {
+      envId:e.id,name:e.name,kind:envelopeCategoryKind(e),daily:essentialDaily,
+      amount:coverage.remainingNeed,rawAmount:coverage.rawNeed,coverageCredit:coverage.credit,
+      coverageDays:coverage.daysCovered,coverageLabel:coverage.behavior.label,
+      essentiality,confidence:currentDaily==null?.35:.58,historyWeight:0
+    }
+  }).filter(Boolean).filter(x=>x.rawAmount>.01||x.amount>.01).sort((a,z)=>z.amount-a.amount);
+  const variableNeed=r2(breakdown.reduce((s,x)=>s+num(x.amount),0));
+  const recentlyCovered=r2(breakdown.reduce((s,x)=>s+num(x.coverageCredit),0));
+  const obligations=r2(ctx.knownFixed+ctx.oneOff);
+  const predictedBeforeIncome=r2(ctx.cashNow-obligations-variableNeed);
+  const debtAtIncome=r2(Math.max(0,-predictedBeforeIncome));
+  const nextIncomeAmount=r2(num(ctx.nextIncome?.amount));
+  const afterIncome=r2(predictedBeforeIncome+nextIncomeAmount);
+  const dailyEssential=days>0?r2(variableNeed/days):0;
+  return {
+    days,variableNeed,recentlyCovered,dailyEssential,displayDailyEssential:null,obligations,
+    predictedBeforeIncome,debtAtIncome,nextIncomeAmount,afterIncome,breakdown,
+    learningLevel:'current',learningEvidence:0,learningPeriods:0,learningMaturity:0,
+    canShowEssential:false,intelligenceMode:'free'
+  }
+}
+
+function nextCycleRecoveryPlanBasic(b,ctx=null,living=null){
+  ctx=ctx||shortTermMoneyContext(b);
+  living=living||estimatedLivingNeedUntilIncomeBasic(b,ctx);
+  const debt=Math.max(0,num(living.debtAtIncome));
+  const normalCapacity=normalVariableCapacity(b);
+  const availableCapacity=r2(Math.max(0,normalCapacity-debt));
+  const income=Math.max(0,num(ctx.nextIncome?.amount)||normalCycleIncome(b));
+  const protectedPart=normalCycleProtected(b);
+  return {
+    debt,normalCapacity,availableCapacity,income,protected:protectedPart,
+    feasible:!!ctx.nextIncome&&debt<=normalCapacity+.01,
+    targets:basicEnvelopeTargets(b,availableCapacity),
+    expectedStartAfterIncome:living.afterIncome,
+    recoveryShare:income>0?debt/income:1
+  }
+}
+
+function emptyPredictivePlan(){
+  return {
+    days:0,elapsed:0,enoughSignal:false,forecasts:[],risks:[],totalRisk:0,amounts:{},changes:[],
+    transfers:[],freeAllocations:[],savingsAdjustments:[],provisionAdjustments:[],
+    usesSavings:0,usesProvisions:0,envelopeTransferTotal:0,freeUsed:0,reserveUsed:0,
+    reserveAvailable:0,remainingGap:0,envelopeOnlySolved:true,actionable:false,mainRisk:null
+  }
+}
+
+function plusIntelligenceReport(b){
+  const history=(b?.history||[]).slice(-6);
+  const learning=adaptiveLearningSummary(b);
+  const suggestions=learningSuggestions(b).slice(0,4);
+  const ctx=shortTermMoneyContext(b);
+  const living=estimatedLivingNeedUntilIncome(b,ctx);
+  const spendable=predictedSpendableBeforeIncome(b,living);
+  const maturity=clamp(num(learning.maturityPct),0,100);
+  const uncertaintyFactor=maturity>=78?.08:maturity>=52?.12:maturity>=30?.17:.23;
+  const uncertainty=r2(Math.max(8,num(living.variableNeed)*uncertaintyFactor));
+  const forecastLow=r2(spendable-uncertainty),forecastHigh=r2(spendable+uncertainty);
+
+  const envPatterns=(b.envelopes||[]).map(e=>{
+    const rows=history.map(h=>{
+      const x=(h.envelopes||[]).find(v=>String(v.id)===String(e.id)||normalizeSpeechText(v.name)===normalizeSpeechText(e.name));
+      return x?{spent:num(x.spent),budget:num(x.amount)}:null
+    }).filter(Boolean);
+    if(rows.length<2)return null;
+    const avg=r2(rows.reduce((s,x)=>s+x.spent,0)/rows.length);
+    const med=r2(median(rows.map(x=>x.spent)));
+    const overCount=rows.filter(x=>x.budget>0&&x.spent>x.budget*1.05).length;
+    const underCount=rows.filter(x=>x.budget>0&&x.spent<x.budget*.65).length;
+    const min=Math.min(...rows.map(x=>x.spent)),max=Math.max(...rows.map(x=>x.spent));
+    const spread=r2(max-min);
+    return {env:e,count:rows.length,avg,median:med,overCount,underCount,spread}
+  }).filter(Boolean);
+
+  const recurringOver=envPatterns.filter(x=>x.overCount>=2).sort((a,z)=>z.overCount-a.overCount||z.avg-a.avg)[0]||null;
+  const recurringUnder=envPatterns.filter(x=>x.underCount>=2).sort((a,z)=>z.underCount-a.underCount||z.avg-a.avg)[0]||null;
+  const variable=envPatterns.filter(x=>x.spread>=Math.max(30,x.avg*.45)).sort((a,z)=>z.spread-a.spread)[0]||null;
+
+  const totalHist=history.map(h=>Math.max(0,num(h.expenses))).filter(x=>x>0);
+  let trend=null;
+  if(totalHist.length>=3){
+    const recent=totalHist.slice(-2),older=totalHist.slice(0,-2);
+    const recentAvg=recent.reduce((a,z)=>a+z,0)/recent.length;
+    const olderAvg=older.reduce((a,z)=>a+z,0)/older.length;
+    if(olderAvg>0){
+      const pct=r2((recentAvg-olderAvg)/olderAvg*100);
+      trend={pct,recentAvg:r2(recentAvg),olderAvg:r2(olderAvg)}
+    }
+  }
+
+  const insights=[];
+  if(recurringOver)insights.push({
+    type:'repeat',title:`${recurringOver.env.name} dépasse souvent`,
+    text:`Dépassement observé sur ${recurringOver.overCount} des ${recurringOver.count} dernières périodes comparables.`
+  });
+  if(recurringUnder)insights.push({
+    type:'margin',title:`${recurringUnder.env.name} garde régulièrement de la marge`,
+    text:`Cette enveloppe a été nettement sous-utilisée sur ${recurringUnder.underCount} périodes.`
+  });
+  if(trend&&Math.abs(trend.pct)>=8)insights.push({
+    type:'trend',title:trend.pct>0?'Tes dépenses récentes montent':'Tes dépenses récentes baissent',
+    text:`Environ ${Math.abs(Math.round(trend.pct))} % ${trend.pct>0?'de plus':'de moins'} que sur les périodes précédentes.`
+  });
+  if(variable)insights.push({
+    type:'variable',title:`${variable.env.name} varie beaucoup`,
+    text:`Écart d’environ ${euro(variable.spread)} entre les périodes les plus basses et les plus hautes observées.`
+  });
+  if(!insights.length&&history.length>=2)insights.push({
+    type:'stable',title:'Tes habitudes sont plutôt stables',
+    text:'B²+ ne détecte pas encore de variation répétitive suffisamment forte pour te conseiller un changement.'
+  });
+  if(!insights.length)insights.push({
+    type:'learning',title:'B²+ construit encore ton historique',
+    text:'Après plusieurs périodes complètes, les schémas récurrents et les recommandations deviendront plus précis.'
+  });
+
+  const confidence=maturity>=75?'Élevée':maturity>=45?'Bonne':maturity>=25?'En progression':'Encore limitée';
+  return {history,learning,suggestions,forecastLow,forecastHigh,spendable,uncertainty,confidence,insights:insights.slice(0,4),envPatterns,trend}
+}
+
+function estimatedLivingNeedUntilIncome(b,ctx=null){
+  ctx=ctx||shortTermMoneyContext(b);
+  const days=Math.max(0,ctx.daysToIncome),learning=adaptiveLearningSummary(b);
+  const breakdown=(b.envelopes||[]).map(e=>{
+    const pattern=learning.patterns.find(p=>String(p.envId)===String(e.id))||learnedEnvelopePattern(b,e);
+    const essentiality=survivalEssentialityOfEnvelope(e,b);
+    const daily=Math.max(0,pattern.daily*essentiality);
+    const coverage=recentFutureCoverage(b,e,daily,days);
+    return {
+      envId:e.id,name:e.name,kind:pattern.kind,daily:r2(daily),amount:coverage.remainingNeed,rawAmount:coverage.rawNeed,
+      coverageCredit:coverage.credit,coverageDays:coverage.daysCovered,coverageLabel:coverage.behavior.label,
+      essentiality,confidence:pattern.confidence,historyWeight:pattern.historyWeight
+    }
+  }).filter(x=>x.rawAmount>.01||x.amount>.01).sort((a,z)=>z.amount-a.amount);
+  const variableNeed=r2(breakdown.reduce((sum,x)=>sum+x.amount,0));
+  const recentlyCovered=r2(breakdown.reduce((sum,x)=>sum+num(x.coverageCredit),0));
+  const obligations=r2(ctx.knownFixed+ctx.oneOff);
+  const predictedBeforeIncome=r2(ctx.cashNow-obligations-variableNeed);
+  const debtAtIncome=r2(Math.max(0,-predictedBeforeIncome));
+  const nextIncomeAmount=r2(num(ctx.nextIncome?.amount));
+  const afterIncome=r2(predictedBeforeIncome+nextIncomeAmount);
+  const dailyEssential=days>0?r2(variableNeed/days):0;
+  return {
+    days,variableNeed,recentlyCovered,dailyEssential,displayDailyEssential:learning.canShowEssential?dailyEssential:null,obligations,predictedBeforeIncome,debtAtIncome,nextIncomeAmount,afterIncome,
+    breakdown,learningLevel:learning.level,learningEvidence:learning.evidence,learningPeriods:learning.historyPeriods,learningMaturity:learning.maturityPct,canShowEssential:learning.canShowEssential
+  }
+}
+function smartEnvelopeTargets(b,capacity=null){
+  const envs=b.envelopes||[],baseline=profileBaselineEnvelopePlan(b),cap=r2(Math.max(0,capacity==null?baseline.capacity:num(capacity)));
+  if(!envs.length)return {capacity:cap,targets:{},desired:{},floors:{}};
+  const desired={},floors={},scores={};
+  envs.forEach(e=>{
+    const hasHistory=(b.history||[]).length>0,base=Math.max(0,num(hasHistory?e.amount:baseline.amounts[e.id]));
+    const pattern=learnedEnvelopePattern(b,e,base);
+    const target=r2(Math.max(0,pattern.monthly));
+    const ess=essentialityOfEnvelope(e,b),priority=priorityOf(e);
+    const floorFactor=priority==='essential'?Math.max(.76,ess*.88):priority==='important'?Math.max(.46,ess*.72):Math.max(.08,ess*.52);
+    desired[e.id]=Math.max(0,target);
+    floors[e.id]=Math.max(0,target*floorFactor);
+    scores[e.id]=Math.max(.05,allocationWeight(e,b)*(0.55+ess*.75))
+  });
+  const targets={};let floorTotal=envs.reduce((sum,e)=>sum+floors[e.id],0);
+  if(floorTotal>cap+.01){
+    const totalScore=envs.reduce((sum,e)=>sum+scores[e.id],0)||1;
+    envs.forEach(e=>targets[e.id]=r2(cap*scores[e.id]/totalScore));
+    return {capacity:cap,targets,desired,floors,constrained:true}
+  }
+  envs.forEach(e=>targets[e.id]=r2(floors[e.id]));
+  let room=r2(cap-floorTotal),guard=0;
+  while(room>.01&&guard++<20){
+    const pending=envs.filter(e=>targets[e.id]+.01<desired[e.id]);
+    if(!pending.length)break;
+    const scoreTotal=pending.reduce((sum,e)=>sum+scores[e.id],0)||1;
+    let used=0;
+    pending.forEach((e,i)=>{
+      const gap=Math.max(0,desired[e.id]-targets[e.id]);
+      const share=i===pending.length-1?room-used:room*scores[e.id]/scoreTotal;
+      const add=Math.min(gap,share);
+      targets[e.id]=r2(targets[e.id]+add);used=r2(used+add)
+    });
+    if(used<.01)break;
+    room=r2(room-used)
+  }
+  if(room>.01){
+    const scoreTotal=envs.reduce((sum,e)=>sum+scores[e.id],0)||1;let used=0;
+    envs.forEach((e,i)=>{
+      const add=i===envs.length-1?room-used:room*scores[e.id]/scoreTotal;
+      targets[e.id]=r2(targets[e.id]+add);used=r2(used+add)
+    })
+  }
+  return {capacity:cap,targets,desired,floors,constrained:false}
+}
+function nextCycleRecoveryPlan(b,ctx=null,living=null){
+  ctx=ctx||shortTermMoneyContext(b);living=living||estimatedLivingNeedUntilIncome(b,ctx);
+  const debt=living.debtAtIncome,normalCapacity=normalVariableCapacity(b),availableCapacity=r2(Math.max(0,normalCapacity-debt));
+  const income=Math.max(0,num(ctx.nextIncome?.amount)||normalCycleIncome(b));
+  const protectedPart=normalCycleProtected(b);
+  const feasible=!!ctx.nextIncome&&debt<=normalCapacity+.01;
+  const targets=smartEnvelopeTargets(b,availableCapacity);
+  return {
+    debt,normalCapacity,availableCapacity,income,protected:protectedPart,feasible,targets,
+    expectedStartAfterIncome:living.afterIncome,
+    recoveryShare:income>0?debt/income:1
+  }
+}
+function predictiveEnvelopeForecast(b,e,horizonDays=null){
+  const ctx=shortTermMoneyContext(b),days=Math.max(0,horizonDays==null?ctx.daysToIncome:horizonDays);
+  const elapsed=Math.max(1,daysBetweenISO(b.cycleStart||todayISO(),todayISO()));
+  const spent=Math.max(0,spentFor(b,e.id)),remaining=Math.max(0,envRemain(b,e));
+  const txCount=(b.transactions||[]).filter(t=>t.type==='expense'&&String(t.categoryId)===String(e.id)).length;
+  const pattern=learnedEnvelopePattern(b,e);
+  const currentDaily=elapsed>=3&&txCount>=2?r2(spent/elapsed):null;
+  let daily=pattern.daily;
+  if(currentDaily!=null){
+    const confidence=clamp((elapsed-2)/12,.28,.72);
+    const capHigh=Math.max(pattern.daily*2.1,pattern.daily+3);
+    daily=r2(pattern.daily*(1-confidence)+clamp(currentDaily,0,capHigh)*confidence)
+  }
+  const coverage=recentFutureCoverage(b,e,daily,days);
+  const futureNeed=coverage.remainingNeed;
+  const projectedTotal=r2(spent+futureNeed);
+  const shortage=r2(Math.max(0,projectedTotal-num(e.amount)));
+  const ess=essentialityOfEnvelope(e,b),priority=priorityOf(e);
+  const safety=priority==='essential'?1.10:priority==='important'?1.04:.94;
+  const safeTarget=r2(spent+futureNeed*safety);
+  let spare=r2(Math.max(0,num(e.amount)-safeTarget));
+  if(e.locked)spare=0;
+  else if(priority==='essential')spare=r2(spare*.22);
+  else if(priority==='important')spare=r2(spare*.62);
+  return {
+    envId:e.id,name:e.name,icon:e.icon,kind:envelopeCategoryKind(e),priority,essentiality:ess,
+    spent,allocated:num(e.amount),remaining,days,elapsed,txCount,daily,currentDaily,
+    projectedTotal,projectedSpend:projectedTotal,futureNeed,rawFutureNeed:coverage.rawNeed,coverageCredit:coverage.credit,coverageDays:coverage.daysCovered,
+    shortage,spare,confidence:pattern.confidence
+  }
+}
+function savingReliefCapacity(g,b){
+  const current=savingContribution(g);if(current<=.01)return 0;
+  let factor=.38;
+  if(g.targetAmount&&g.dueDate){
+    const d=daysUntil(g.dueDate);
+    factor=d<=30?0:d<=60?.08:d<=120?.18:d<=240?.28:.36
+  }else if((b.advisorPrefs?.savingsReliefAccepted||0)>0)factor=.48;
+  return r2(Math.min(current,current*factor))
+}
+function provisionReliefCapacity(p,b){
+  const current=provisionContribution(p,b);if(current<=.01||p.status!=='active')return 0;
+  const d=daysUntil(p.dueDate);
+  let factor=d<=30?0:d<=60?.08:d<=120?.18:d<=240?.28:.38;
+  if((b.advisorPrefs?.provisionReliefAccepted||0)>0)factor=Math.min(.48,factor+.07);
+  return r2(Math.min(current,current*factor))
+}
+function predictiveCyclePlan(b,reserveUse=0){
+  const ctx=shortTermMoneyContext(b),days=Math.max(0,ctx.daysToIncome||daysUntil(b.cycleEnd));
+  const elapsed=Math.max(0,daysBetweenISO(b.cycleStart||todayISO(),todayISO()));
+  const forecasts=(b.envelopes||[]).map(e=>predictiveEnvelopeForecast(b,e,days));
+  const enoughSignal=elapsed>=4&&(b.transactions||[]).filter(t=>t.type==='expense').length>=2;
+  const risks=forecasts.filter(x=>{
+    const threshold=Math.max(8,x.allocated*.06);
+    return x.shortage>=threshold&&(enoughSignal||x.spent>x.allocated+.01)
+  }).sort((a,z)=>priorityRank(b.envelopes.find(e=>e.id===z.envId))-priorityRank(b.envelopes.find(e=>e.id===a.envId))||z.essentiality-a.essentiality||z.shortage-a.shortage);
+  const totalRisk=r2(risks.reduce((sum,x)=>sum+x.shortage,0));
+  const amounts=amountMap(b),needs=Object.fromEntries(risks.map(x=>[x.envId,x.shortage]));
+  const transfers=[],freeAllocations=[],savingsAdjustments=[],provisionAdjustments=[];
+  let free=Math.max(0,unallocated(b));
+
+  function feedReceiver(sourceType,sourceId,sourceName,available){
+    let left=Math.max(0,available);
+    for(const r of risks){
+      if(left<=.01)break;
+      const need=Math.max(0,num(needs[r.envId]));if(need<=.01)continue;
+      const give=r2(Math.min(left,need));
+      amounts[r.envId]=r2(num(amounts[r.envId])+give);
+      needs[r.envId]=r2(need-give);left=r2(left-give);
+      if(sourceType==='free')freeAllocations.push({toId:r.envId,toName:r.name,amount:give});
+      else if(sourceType==='envelope')transfers.push({fromId:sourceId,fromName:sourceName,toId:r.envId,toName:r.name,amount:give});
+    }
+    return left
+  }
+
+  if(free>.01)free=feedReceiver('free',null,'Marge libre',free);
+
+  const donors=forecasts.filter(x=>x.spare>.01&&!needs[x.envId])
+    .sort((a,z)=>priorityRank(b.envelopes.find(e=>e.id===a.envId))-priorityRank(b.envelopes.find(e=>e.id===z.envId))||a.essentiality-z.essentiality||z.spare-a.spare);
+  for(const d of donors){
+    let available=d.spare;
+    const before=available;
+    const left=feedReceiver('envelope',d.envId,d.name,available);
+    const used=r2(before-left);
+    if(used>.01)amounts[d.envId]=r2(Math.max(spentFor(b,d.envId),num(amounts[d.envId])-used));
+  }
+
+  let remaining=r2(Object.values(needs).reduce((sum,v)=>sum+Math.max(0,num(v)),0));
+
+  if(remaining>.01){
+    const candidates=(b.savings||[]).map(g=>({g,cap:savingReliefCapacity(g,b)})).filter(x=>x.cap>.01)
+      .sort((a,z)=>(a.g.dueDate?daysUntil(z.g.dueDate||todayISO())-daysUntil(a.g.dueDate||todayISO()):1)||z.cap-a.cap);
+    for(const {g,cap} of candidates){
+      if(remaining<=.01)break;
+      const take=r2(Math.min(cap,remaining));
+      if(take<=.01)continue;
+      const left=feedReceiver('saving',g.id,g.name,take),used=r2(take-left);
+      if(used>.01){
+        savingsAdjustments.push({id:g.id,name:g.name,reduction:used,from:savingContribution(g),to:r2(savingContribution(g)-used)});
+        remaining=r2(remaining-used)
+      }
+    }
+  }
+
+  if(remaining>.01){
+    const candidates=(b.provisions||[]).map(p=>({p,cap:provisionReliefCapacity(p,b)})).filter(x=>x.cap>.01)
+      .sort((a,z)=>daysUntil(z.p.dueDate)-daysUntil(a.p.dueDate)||z.cap-a.cap);
+    for(const {p,cap} of candidates){
+      if(remaining<=.01)break;
+      const take=r2(Math.min(cap,remaining));
+      if(take<=.01)continue;
+      const left=feedReceiver('provision',p.id,p.name,take),used=r2(take-left);
+      if(used>.01){
+        provisionAdjustments.push({id:p.id,name:p.name,reduction:used,from:provisionContribution(p,b),to:r2(provisionContribution(p,b)-used)});
+        remaining=r2(remaining-used)
+      }
+    }
+  }
+
+  const explicitReserve=Math.min(Math.max(0,num(reserveUse)),Math.max(0,num(b.reserve)));
+  let reserveUsed=0;
+  if(remaining>.01&&explicitReserve>.01){
+    const left=feedReceiver('reserve',null,'Réserve',Math.min(explicitReserve,remaining));
+    reserveUsed=r2(Math.min(explicitReserve,remaining)-left);
+    remaining=r2(Math.max(0,remaining-reserveUsed))
+  }
+
+  const changes=(b.envelopes||[]).map(e=>({
+    id:e.id,name:e.name,icon:e.icon,from:num(e.amount),to:r2(num(amounts[e.id])),delta:r2(num(amounts[e.id])-num(e.amount))
+  })).filter(x=>Math.abs(x.delta)>.009);
+
+  const usesSavings=savingsAdjustments.reduce((sum,x)=>sum+x.reduction,0);
+  const usesProvisions=provisionAdjustments.reduce((sum,x)=>sum+x.reduction,0);
+  const envelopeTransferTotal=transfers.reduce((sum,x)=>sum+x.amount,0);
+  const freeUsed=freeAllocations.reduce((sum,x)=>sum+x.amount,0);
+  const envelopeOnlySolved=remaining<=.01&&!usesSavings&&!usesProvisions&&!reserveUsed;
+  const actionable=totalRisk>=.01&&(changes.length>0||usesSavings>.01||usesProvisions>.01||remaining>.01);
+  const reserveAvailable=Math.max(0,num(b.reserve)-reserveUsed);
+  return {
+    days,elapsed,enoughSignal,forecasts,risks,totalRisk,amounts,changes,transfers,freeAllocations,
+    savingsAdjustments,provisionAdjustments,usesSavings:r2(usesSavings),usesProvisions:r2(usesProvisions),
+    envelopeTransferTotal:r2(envelopeTransferTotal),freeUsed:r2(freeUsed),reserveUsed,
+    reserveAvailable,remainingGap:r2(remaining),envelopeOnlySolved,actionable,
+    mainRisk:risks[0]||null
+  }
+}
+function predictivePlanSummary(p){
+  if(!p?.actionable)return '';
+  const parts=[];
+  if(p.freeUsed>.01)parts.push(`${euro(p.freeUsed)} de marge libre`);
+  if(p.envelopeTransferTotal>.01)parts.push(`${euro(p.envelopeTransferTotal)} déplacés entre enveloppes`);
+  if(p.usesSavings>.01)parts.push(`${euro(p.usesSavings)} d’épargne reportés ce mois-ci`);
+  if(p.usesProvisions>.01)parts.push(`${euro(p.usesProvisions)} de mise de côté reportés`);
+  return parts.join(' · ')
+}
+
+function smartPlanningCapacity(b){
+  const ctx=shortTermMoneyContext(b);
+  if(num(b.startBalance)<0&&ctx.nextIncome){
+    const advanced=advancedIntelligenceEnabled();
+    const living=advanced?estimatedLivingNeedUntilIncome(b,ctx):estimatedLivingNeedUntilIncomeBasic(b,ctx);
+    const recovery=advanced?nextCycleRecoveryPlan(b,ctx,living):nextCycleRecoveryPlanBasic(b,ctx,living);
+    return recovery.availableCapacity
+  }
+  return Math.max(0,wizardPlanningPoolLegacy(b))
+}
+
+function currentCashEstimate(b){return r2(num(b.startBalance)+cashIncome(b)+transferNet(b)-expenses(b))}
+function futureIncomeSources(b){
+  const today=todayISO();
+  return (b.incomeSources||[]).filter(x=>x.nextDate&&x.nextDate>=today&&num(x.amount)>0).sort((a,z)=>{
+    if(!!a.primary!==!!z.primary)return a.primary?-1:1;
+    return String(a.nextDate).localeCompare(String(z.nextDate))
+  })
+}
+function nextExpectedIncome(b){
+  const future=futureIncomeSources(b),primary=future.find(x=>x.primary);
+  return primary||future[0]||null
+}
 function incomeScheduledDateForMonth(source,refDate=null){
   const ref=refDate||source?.nextDate||todayISO();
   const p=dateParts(ref);
@@ -4222,6 +5371,15 @@ function runSquareScenarioChecks(){
       {expectedDate:'2026-10-29',actualDate:'2026-10-30',offsetDays:1}
     ]};
     return learnedNextIncomeDate(s,'2026-12-29')==='2026-12-29'
+  });
+
+  add('Démarrage','La migration peut manipuler un budget partagé sans dépendre d’un state global non initialisé',()=>{
+    const fake={
+      budgets:[{id:'a',budgetGroupId:'g',type:'shared',members:[],shareInvites:[]}],
+      budgetGroups:[{id:'g',type:'shared',active:true,activeAccountId:'a',members:[],shareInvites:[]}],
+      plan:{tier:'plus'}
+    };
+    try{ensureActive(fake);return true}catch(e){return false}
   });
 
   // B — Negative balances at different points in the period
@@ -9153,51 +10311,12 @@ function openSimple(title,lead,fields,handler){
   simpleSaveHandler=handler;
   openModal('simpleModal')
 }
-let pendingSalaryArrivalAction=null;
-
-function beginClosingWithReason(reason='manual'){
-  if(!active()){showToast('Aucun compte actif.');return}
-  closingReason=reason==='income'?'income':'manual';
-  closingStep=0;
-  closingReview={carry:0,held:0,reserveRecovery:0,oneOffs:[],incomes:[],editBudget:false,incomeReceivedNow:closingReason==='income'};
-  showPage('closing')
-}
-function openSalaryArrivalQuestion({title='Ton salaire est déjà arrivé ?',lead='',info='',yes=null,no=null}={}){
-  $('#salaryArrivalTitle').textContent=title;
-  $('#salaryArrivalLead').textContent=lead;
-  $('#salaryArrivalInfo').innerHTML=info;
-  pendingSalaryArrivalAction={yes,no};
-  openModal('salaryArrivalModal')
-}
-function startClosing(reason='manual'){
-  const b=active();if(!b){showToast('Aucun compte actif.');return}
-
-  if(reason==='income'){beginClosingWithReason('income');return}
-
-  const primary=primaryIncomeSource(b);
-  if(primary){
-    // Si B² a déjà une transaction de salaire confirmée, pas besoin de poser la question.
-    if(incomeConfirmedAround(b,primary)){beginClosingWithReason('income');return}
-
-    const d=Math.abs(daysBetweenISO(todayISO(),primary.nextDate||todayISO()));
-    if(primary.nextDate&&d<=3){
-      openSalaryArrivalQuestion({
-        lead:`Tu clôtures la période près de la date prévue de « ${primary.name} ».`,
-        info:`Prévu : <strong>${fmtDate(primary.nextDate)}</strong> · montant habituel : <strong>${euro(primary.amount)}</strong><br>Si tu l’as déjà reçu, B² l’ajoutera à l’argent de départ de la nouvelle période et mémorisera sa date réelle.`,
-        yes:()=>beginClosingWithReason('income'),
-        no:()=>beginClosingWithReason('manual')
-      });
-      return
-    }
-  }
-
-  beginClosingWithReason('manual')
-}
+function startClosing(reason='manual'){if(!active()){showToast('Aucun compte actif.');return}closingReason=reason==='income'?'income':'manual';closingStep=0;closingReview={carry:0,held:0,reserveRecovery:0,oneOffs:[],incomes:[],editBudget:false,incomeReceivedNow:closingReason==='income'};showPage('closing')}
 function renderClosing(){
   const b=active(),c=$('#closingContent');if(!b){c.innerHTML='<div class="empty">Aucun compte actif.</div>';return}
   if(closingStep===3){renderEndPeriodReview();return}
   if(closingStep===0){
-    c.innerHTML=`<div class="card"><div class="card-title"><h3>Fin de la période</h3></div><div class="small muted">${cycleLabel(b)}</div>${closingReason==='income'?`<div class="status good compact" style="margin-top:10px"><strong>Salaire reçu aujourd’hui</strong><br>B² le comptera dans l’argent de départ de la nouvelle période.</div>`:''}</div>${advancedIntelligenceEnabled()?`<button class="choice on" id="closingAnalysis" type="button"><span class="choice-icon">${ico('analysis')}</span><div><strong>Voir mon analyse B²+</strong><span>Graphiques, écarts, tendances et recommandations.</span></div></button>`:''}<button class="btn btn-primary btn-full" id="closeNext" type="button" style="margin-top:12px">Terminer cette période</button>`;
+    c.innerHTML=`<div class="card"><div class="card-title"><h3>Fin de la période</h3></div><div class="small muted">${cycleLabel(b)}</div></div>${advancedIntelligenceEnabled()?`<button class="choice on" id="closingAnalysis" type="button"><span class="choice-icon">${ico('analysis')}</span><div><strong>Voir mon analyse B²+</strong><span>Graphiques, écarts, tendances et recommandations.</span></div></button>`:''}<button class="btn btn-primary btn-full" id="closeNext" type="button" style="margin-top:12px">Terminer cette période</button>`;
     $('#closingAnalysis')?.addEventListener('click',()=>showPage('analysis'));$('#closeNext').addEventListener('click',()=>{closingStep=1;renderClosing()});return
   }
   if(closingStep===1){
@@ -9394,18 +10513,18 @@ function normalizeBudgetGroupV11(g){
   }
 }
 function budgetById(id){return state.budgetGroups?.find(g=>String(g.id)===String(id))||null}
-function accountsForBudget(id){return state.budgets.filter(a=>String(a.budgetGroupId)===String(id))}
-function activeBudgetGroup(){return state.budgetGroups?.find(g=>g.active)||null}
+function accountsForBudget(id,s=state){return (s?.budgets||[]).filter(a=>String(a.budgetGroupId)===String(id))}
+function activeBudgetGroup(){return state?.budgetGroups?.find(g=>g.active)||null}
 function ensureBudgetOwner(g){
   if(!g)return;
   if(!g.members.length)g.members.push({id:uid(),name:'Moi',contribution:0,current:true,status:'joined',role:'owner',recipient:''});
   let cur=g.members.find(m=>m.current)||g.members.find(m=>m.status==='joined')||g.members[0];
   cur.current=true;cur.status='joined';cur.role=cur.role||'owner'
 }
-function syncBudgetSharing(g){
+function syncBudgetSharing(g,s=state){
   if(!g)return;
   if(g.type==='shared')ensureBudgetOwner(g);
-  accountsForBudget(g.id).forEach(a=>{
+  accountsForBudget(g.id,s).forEach(a=>{
     a.type=g.type==='shared'?'shared':'personal';
     if(g.type==='shared'){
       a.members=JSON.parse(JSON.stringify(g.members));
@@ -9770,12 +10889,6 @@ $('#createShareLink')?.addEventListener('click',async()=>{
 });
 $('#sharedInviteAnother')?.addEventListener('click',()=>{const id=$('#sharedMembersModal').dataset.budgetId;closeModal('sharedMembersModal');shareBudget(id)});
 $('#sharedStopSharing')?.addEventListener('click',()=>{const id=$('#sharedMembersModal').dataset.budgetId;stopSharingBudget(id)});
-$('#salaryArrivalYes')?.addEventListener('click',()=>{
-  const fn=pendingSalaryArrivalAction?.yes;pendingSalaryArrivalAction=null;closeModal('salaryArrivalModal');if(typeof fn==='function')fn()
-});
-$('#salaryArrivalNo')?.addEventListener('click',()=>{
-  const fn=pendingSalaryArrivalAction?.no;pendingSalaryArrivalAction=null;closeModal('salaryArrivalModal');if(typeof fn==='function')fn()
-});
 $('#plusModal').addEventListener('click',e=>{if(e.target===$('#plusModal'))plusAfterAction=null});const splash=$('#splashB2');
 if(splash){
   setTimeout(()=>splash.classList.add('hide'),2050);
