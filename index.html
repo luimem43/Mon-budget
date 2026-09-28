@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#075a4d">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<title>B² v14.11 — premium discret + partage multi-personnes</title>
+<title>B² v14.12 — budgets mieux séparés + gouvernance du partage</title>
 <style>
 :root{
   --brand:#075a4d;--brand2:#0a7965;--brand3:#0f8f72;--lime:#b9ef68;
@@ -365,7 +365,26 @@ opacity:.10;animation:b2SquareFade 8.8s ease-in-out infinite
 .envelope-card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:14px;margin-bottom:10px}.envelope-card.over{border-color:#f0bcc2;background:#fffafb}.envelope-top{display:flex;align-items:center;gap:10px}.envelope-title{flex:1;min-width:0}.envelope-title strong{display:block;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.envelope-title span{display:block;font-size:10px;color:var(--muted);margin-top:3px}.envelope-amount{text-align:right}.envelope-amount strong{display:block;font-size:14px}.envelope-amount span{font-size:10px;color:var(--muted)}.env-tags{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:9px}.tag{display:inline-flex;align-items:center;gap:4px;border-radius:999px;background:#f0f4f4;padding:5px 7px;font-size:9px;font-weight:850;color:#58666b}.tag.heart{background:#fff0f3;color:#a9364a}.tag.lock{background:var(--mint);color:var(--brand)}.adjust-btn{margin-left:auto;border:0;background:#eef4f3;color:var(--brand);border-radius:10px;padding:8px 10px;font-size:10px;font-weight:900}
 .fund-row{padding:12px 0;border-bottom:1px solid var(--line)}.fund-row:last-child{border-bottom:0}.fund-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.fund-top strong{font-size:13px}.fund-top b{font-size:12px;white-space:nowrap}.fund-sub{font-size:10px;color:var(--muted);margin-top:3px;line-height:1.35}.fund-row .progress{margin-top:8px}
 .filter-row{display:flex;gap:7px;overflow:auto;padding-bottom:4px;scrollbar-width:none}.filter-row::-webkit-scrollbar{display:none}.filter-chip{border:1px solid var(--line);background:#fff;border-radius:999px;padding:9px 12px;white-space:nowrap;font-size:11px;font-weight:850}.filter-chip.on{background:var(--brand);color:white;border-color:var(--brand)}.tx-date{font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:16px 2px 7px}.tx-row{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--line)}.tx-body{flex:1;min-width:0}.tx-body strong{display:block;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.tx-body span{font-size:10px;color:var(--muted)}.tx-delete,.tx-edit{border:0;background:transparent;color:#8b989c;font-size:17px;padding:8px;border-radius:10px}.tx-edit:active,.tx-delete:active{background:#eef3f2}.why-box{margin:10px 0 0;border:1px solid var(--line);background:#f8fbfa;border-radius:13px;padding:9px 11px}.why-box summary{cursor:pointer;font-size:10px;font-weight:900;color:var(--brand)}.why-box p{font-size:10px;color:var(--muted);line-height:1.45;margin:7px 0 0}
-.budget-row{background:#fff;border:1px solid var(--line);border-radius:18px;padding:14px;margin-bottom:10px}.budget-row.active{border-color:#80c8b4;background:linear-gradient(110deg,#f7fffb,#eefaf5)}.budget-main{display:flex;align-items:center;gap:10px}.budget-icon{width:43px;height:43px;border-radius:13px;background:#eff3f4;display:flex;align-items:center;justify-content:center;font-size:18px}.budget-copy{flex:1;min-width:0}.budget-copy strong{display:block;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.budget-copy span{font-size:10px;color:var(--muted)}.badge{display:inline-flex;align-items:center;border-radius:999px;padding:5px 7px;font-size:9px;font-weight:900;background:var(--mint);color:var(--brand)}.badge.shared{background:#eef0ff;color:#4d58a0}.dots{border:0;background:transparent;font-size:22px;padding:8px}.action-menu{display:none;border-top:1px solid var(--line);margin-top:9px;padding-top:6px}.action-menu.show{display:grid}.action-menu button{border:0;background:transparent;text-align:left;padding:10px 7px;border-radius:9px;font-weight:750;color:var(--text)}.action-menu .danger{color:var(--danger)}
+.budget-row{background:#fff;border:1px solid var(--line);border-radius:18px;padding:14px;margin-bottom:10px}.budget-row.active{border-color:#80c8b4;background:linear-gradient(110deg,#f7fffb,#eefaf5)}
+.budget-create-zone{margin:0 0 18px;padding:13px;border:1px solid #d8e3e1;background:#edf3f2;border-radius:20px}
+.budget-create-head{display:flex;align-items:flex-end;justify-content:space-between;gap:10px;margin:0 2px 10px}
+.budget-create-head span{display:block;font-size:8.5px;font-weight:950;letter-spacing:.09em;color:#758487;text-transform:uppercase;margin-bottom:2px}
+.budget-create-head strong{display:block;font-size:15px;line-height:1.2}
+.budget-create-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.budget-create-option{min-width:0;border:1px solid #d4dedd;background:#fff;border-radius:15px;padding:11px;text-align:left;color:var(--text);display:flex;flex-direction:column;gap:8px;min-height:112px}
+.budget-create-option:active{transform:scale(.985)}
+.budget-create-option .budget-create-icon{width:38px;height:38px;border-radius:12px;background:#e8f2ef;display:flex;align-items:center;justify-content:center;color:#436b63}
+.budget-create-option .budget-create-icon .ui-ico{width:21px;height:21px}
+.budget-create-option strong{display:block;font-size:11.5px;line-height:1.2}
+.budget-create-option small{display:block;font-size:9px;line-height:1.35;color:var(--muted);margin-top:3px}
+.budget-create-option.locked-feature{background:#f4f6f6!important;border-color:#dde3e3!important}
+.budget-create-option .premium-lock-note{margin-left:0!important;margin-top:5px!important}
+.budget-existing-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 2px 9px}
+.budget-existing-head span:first-child{font-size:8.5px;font-weight:950;letter-spacing:.09em;color:#758487;text-transform:uppercase}
+.budget-existing-head b{font-size:10px;color:#667579;background:#e8eded;border-radius:8px;padding:4px 7px}
+.budget-existing-list{padding-top:1px}
+@media(max-width:365px){.budget-create-grid{grid-template-columns:1fr}.budget-create-option{min-height:88px}}
+.budget-main{display:flex;align-items:center;gap:10px}.budget-icon{width:43px;height:43px;border-radius:13px;background:#eff3f4;display:flex;align-items:center;justify-content:center;font-size:18px}.budget-copy{flex:1;min-width:0}.budget-copy strong{display:block;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.budget-copy span{font-size:10px;color:var(--muted)}.badge{display:inline-flex;align-items:center;border-radius:999px;padding:5px 7px;font-size:9px;font-weight:900;background:var(--mint);color:var(--brand)}.badge.shared{background:#eef0ff;color:#4d58a0}.dots{border:0;background:transparent;font-size:22px;padding:8px}.action-menu{display:none;border-top:1px solid var(--line);margin-top:9px;padding-top:6px}.action-menu.show{display:grid}.action-menu button{border:0;background:transparent;text-align:left;padding:10px 7px;border-radius:9px;font-weight:750;color:var(--text)}.action-menu .danger{color:var(--danger)}
 .more-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}.more-card{min-height:130px;border:1px solid var(--line);background:#fff;border-radius:18px;padding:14px;text-align:left;color:var(--text);transition:transform .14s ease,border-color .14s ease,background .14s ease}.more-card:active{transform:scale(.985);border-color:#9acdbf}.more-card .big-icon{display:flex;width:52px;height:52px;border-radius:16px;background:var(--mint);align-items:center;justify-content:center;font-size:0;margin-bottom:11px;color:#526b70}.more-card strong{display:block;font-size:13px}.more-card span:last-child{display:block;color:var(--muted);font-size:10px;line-height:1.4;margin-top:4px}
 .field{margin-bottom:15px}.field label{display:block;font-size:12px;font-weight:850;margin-bottom:6px}.field input,.field select,.field textarea{width:100%;border:1px solid #ccd7da;background:white;border-radius:13px;padding:13px;outline:none}.field input:focus,.field select:focus,.field textarea:focus{border-color:#79baa9;box-shadow:0 0 0 3px rgba(10,121,101,.08)}.help{font-size:10px;color:var(--muted);line-height:1.45;margin-top:5px}.steps{display:flex;gap:5px;margin:2px 0 18px}.step{height:5px;flex:1;background:#d9e1e2;border-radius:99px}.step.on{background:var(--brand3)}.wizard-title{font-size:23px;margin:0 0 5px}.wizard-lead{font-size:12px;color:var(--muted);line-height:1.5;margin:0 0 16px}.choice-stack{display:grid;gap:9px}.choice{width:100%;border:1.5px solid var(--line);background:#fff;border-radius:18px;padding:13px;text-align:left;display:flex;gap:12px;align-items:center;color:var(--text);transition:border-color .14s ease,background .14s ease,transform .14s ease}.choice:active{transform:scale(.99)}.choice.on{border-color:#62b89f;background:#effaf5;box-shadow:0 0 0 2px rgba(10,121,101,.05)}.choice-icon{position:relative;width:56px;height:56px;border-radius:18px;background:linear-gradient(180deg,#f6fbf9 0%,#e7f2ee 100%);border:1px solid #d7e5e0;box-shadow:inset 0 1px 0 rgba(255,255,255,.95),0 8px 18px rgba(8,66,54,.06);display:flex;align-items:center;justify-content:center;overflow:hidden;flex:0 0 56px;font-size:24px;line-height:1;text-align:center;color:#5a6d73}.choice-icon:before{content:'';position:absolute;inset:7px;border-radius:14px;border:1px solid rgba(10,121,101,.10)}.choice-icon:after{content:'';position:absolute;top:8px;right:8px;width:7px;height:7px;border-radius:999px;background:rgba(133,224,64,.9);box-shadow:0 0 0 3px rgba(133,224,64,.14)}.choice.on .choice-icon{background:linear-gradient(180deg,#fbfffd 0%,#edf9f4 100%);border-color:#b4d8cc;box-shadow:inset 0 1px 0 rgba(255,255,255,.98),0 10px 20px rgba(10,121,101,.08)}.choice.on .choice-icon:before{border-color:rgba(10,121,101,.18)}.choice strong{display:block;font-size:13px}.choice span{display:block;font-size:10px;color:var(--muted);line-height:1.4;margin-top:3px}.counter{display:grid;grid-template-columns:44px 1fr 44px;gap:8px;align-items:center}.counter button{height:44px;border:1px solid var(--line);background:#fff;border-radius:12px;font-size:20px}.counter .count{height:44px;border-radius:12px;background:#f5f8f8;display:flex;align-items:center;justify-content:center;font-weight:900}.chips{display:flex;flex-wrap:wrap;gap:7px}.chip{border:1px solid var(--line);background:#fff;border-radius:999px;padding:9px 11px;font-size:11px;font-weight:800;transition:background .14s ease,border-color .14s ease,transform .14s ease}
 .income-source{background:#fff;border:1px solid var(--line);border-radius:17px;padding:13px;margin-bottom:9px}
@@ -2178,6 +2197,7 @@ button{
 <h3>Gérer les membres</h3><p class="lead">Toutes les personnes invitées utilisent le même budget. Tu peux en ajouter plusieurs, une par une.</p>
 <div id="sharedMembersBody"></div>
 <button class="btn btn-primary btn-full" id="sharedInviteAnother" type="button" style="margin-top:12px">Inviter une autre personne</button>
+<button class="btn btn-soft btn-full" id="sharedStopSharing" type="button" style="margin-top:8px;display:none">Arrêter le partage</button>
 <button class="btn btn-soft btn-full" data-close="sharedMembersModal" type="button" style="margin-top:8px">Fermer</button>
 </div></div>
 <div class="modal" id="bankAssistModal"><div class="sheet"><div class="grab"></div>
@@ -7263,35 +7283,69 @@ function renderMovements(){
 function renderBudgets(){
   const c=$('#budgetsContent');
   if(!state.budgetGroups.length){
-    c.innerHTML=`<div class="card"><div class="empty"><div class="big">${ico('grid')}</div><strong>Aucun budget pour le moment.</strong><p class="small">Commence par créer ton budget principal.</p><button class="btn btn-primary" id="emptyNewBudget" type="button">Créer mon budget</button></div></div><button class="choice ${isPlus()?'':'locked-feature'}" id="emptySharedBudget" type="button"><span class="choice-icon">${ico('group')}</span><div><strong>Mon budget partagé ${plusFeatureBadge()}</strong><span>${isPlus()?'Un même budget pour plusieurs personnes.':'Invite plusieurs personnes dans le même budget.'}</span></div></button>${adCard('budgets')}`;
+    c.innerHTML=`<div class="card"><div class="empty"><div class="big">${ico('grid')}</div><strong>Aucun budget pour le moment.</strong><p class="small">Commence par créer ton budget principal.</p><button class="btn btn-primary" id="emptyNewBudget" type="button">Créer mon budget</button></div></div><div class="budget-create-zone"><div class="budget-create-head"><div><span>Alternative</span><strong>Créer directement un budget partagé</strong></div></div><button class="budget-create-option ${isPlus()?'':'locked-feature'}" id="emptySharedBudget" type="button" style="width:100%;min-height:88px"><span class="budget-create-icon">${ico('group')}</span><div><strong>Budget partagé ${plusFeatureBadge()}</strong><small>Un budget commun à plusieurs personnes.</small></div></button></div>${adCard('budgets')}`;
     $('#emptyNewBudget').addEventListener('click',()=>startNewBudget(false));
     $('#emptySharedBudget').addEventListener('click',startSharedBudget);
     wireAds(c);return
   }
+
   const budgetsHtml=state.budgetGroups.map(g=>{
     const a=accountsForBudget(g.id),locked=!canUseBudgetGroup(g),cur=byId(g.activeAccountId)||a[0],shared=g.type==='shared';
     const memberCount=shared?(g.members||[]).filter(m=>m.status==='joined').length:0;
     const subtitle=shared
       ?`Budget partagé · ${memberCount} membre${memberCount>1?'s':''} · ${a.length} compte${a.length>1?'s':''}${cur?` · ${esc(cur.name)} actif`:''}`
       :`Personnel · ${a.length} compte${a.length>1?'s':''}${cur?` · ${esc(cur.name)} actif`:''}`;
-    return `<div class="budget-row ${g.active?'active':''} ${shared?'shared-budget-row':''} ${locked?'locked-feature':''}"><div class="budget-main"><div class="budget-icon">${ico(shared?'group':'grid')}</div><div class="budget-copy"><strong>${esc(g.name)}${locked&&shared&&isOwnedSharedBudget(g)?' <span class="premium-lock-note">Débloqué avec B²+</span>':''}</strong><span>${subtitle}</span></div><div class="budget-status-stack">${shared?'<span class="badge shared shared-primary">PARTAGÉ</span>':''}<span class="badge ${shared?'shared-state':''}">${locked?'VERROUILLÉ':g.active?'ACTIF':shared?'COMMUN':'BUDGET'}</span></div><button class="dots" data-menu-budget="${g.id}" type="button">•••</button></div><div class="action-menu" id="menu-${g.id}">${!g.active&&!locked?`<button data-activate="${g.id}" type="button">✓ Utiliser ce budget</button>`:locked?`<button data-unlock-budget="${g.id}" type="button">Débloquer avec B²+</button>`:''}<button data-open-budget="${g.id}" type="button">Voir le budget</button><button data-rename-budget="${g.id}" type="button">Renommer</button>${g.type!=='shared'&&isPlus()?`<button data-share-budget="${g.id}" type="button">Partager ce budget</button>`:''}<button data-duplicate="${g.id}" class="${isPlus()?'':'premium-menu-lock'}" type="button">Dupliquer le budget${isPlus()?'':'<span class="premium-menu-note">Débloqué avec B²+</span>'}</button><button class="danger" data-delete-budget="${g.id}" type="button">${g.remoteShared&&g.remoteRole!=='owner'?'Quitter le budget':'Supprimer le budget'}</button></div></div>`
+    const owner=shared&&isOwnedSharedBudget(g);
+    return `<div class="budget-row ${g.active?'active':''} ${shared?'shared-budget-row':''} ${locked?'locked-feature':''}"><div class="budget-main"><div class="budget-icon">${ico(shared?'group':'grid')}</div><div class="budget-copy"><strong>${esc(g.name)}${locked&&shared&&owner?' <span class="premium-lock-note">Débloqué avec B²+</span>':''}</strong><span>${subtitle}</span></div><div class="budget-status-stack">${shared?'<span class="badge shared shared-primary">PARTAGÉ</span>':''}<span class="badge ${shared?'shared-state':''}">${locked?'VERROUILLÉ':g.active?'ACTIF':shared?'COMMUN':'BUDGET'}</span></div><button class="dots" data-menu-budget="${g.id}" type="button">•••</button></div><div class="action-menu" id="menu-${g.id}">${!g.active&&!locked?`<button data-activate="${g.id}" type="button">✓ Utiliser ce budget</button>`:locked?`<button data-unlock-budget="${g.id}" type="button">Débloquer avec B²+</button>`:''}<button data-open-budget="${g.id}" type="button">Voir le budget</button>${shared?`<button data-manage-members="${g.id}" type="button">${owner?'Gérer les membres':'Voir les membres'}</button>`:''}<button data-rename-budget="${g.id}" type="button">Renommer</button>${g.type!=='shared'&&isPlus()?`<button data-share-budget="${g.id}" type="button">Partager ce budget</button>`:''}${owner?`<button data-unshare-budget="${g.id}" type="button">Arrêter le partage</button>`:''}<button data-duplicate="${g.id}" class="${isPlus()?'':'premium-menu-lock'}" type="button">Dupliquer le budget${isPlus()?'':'<span class="premium-menu-note">Débloqué avec B²+</span>'}</button><button class="danger" data-delete-budget="${g.id}" type="button">${g.remoteShared&&g.remoteRole!=='owner'?'Quitter le budget':'Supprimer le budget'}</button></div></div>`
   }).join('');
-  c.innerHTML=`<button class="choice ${isPlus()?'':'locked-feature'}" id="extraBudgetShortcut" type="button" style="margin-bottom:10px"><span class="choice-icon">${ico('grid')}</span><div><strong>Créer un autre budget ${plusFeatureBadge()}</strong><span>${isPlus()?'Perso, pro, projet… garde chaque univers séparé.':'Plusieurs budgets séparés avec B²+.'}</span></div></button><button class="choice ${isPlus()?'':'locked-feature'}" id="sharedBudgetShortcut" type="button" style="margin-bottom:12px"><span class="choice-icon">${ico('group')}</span><div><strong>Mon budget partagé ${plusFeatureBadge()}</strong><span>${isPlus()?'Invite plusieurs personnes dans le même budget.':'Un budget commun à plusieurs, avec B²+.'}</span></div></button>${adCard('budgets')}${budgetsHtml}`;
+
+  const personalLocked=!isPlus();
+  const sharedLocked=!isPlus();
+  c.innerHTML=`
+    <div class="budget-create-zone">
+      <div class="budget-create-head">
+        <div><span>Nouveau</span><strong>Créer un budget</strong></div>
+      </div>
+      <div class="budget-create-grid">
+        <button class="budget-create-option ${personalLocked?'locked-feature':''}" id="extraBudgetShortcut" type="button">
+          <span class="budget-create-icon">${ico('grid')}</span>
+          <div><strong>Personnel ${plusFeatureBadge()}</strong><small>${isPlus()?'Perso, pro, projet… crée un nouvel univers séparé.':'Un autre budget séparé avec B²+.'}</small></div>
+        </button>
+        <button class="budget-create-option ${sharedLocked?'locked-feature':''}" id="sharedBudgetShortcut" type="button">
+          <span class="budget-create-icon">${ico('group')}</span>
+          <div><strong>Partagé ${plusFeatureBadge()}</strong><small>${isPlus()?'Invite plusieurs personnes dans le même budget.':'Un budget commun à plusieurs avec B²+.'}</small></div>
+        </button>
+      </div>
+    </div>
+    <div class="budget-existing-head"><span>Mes budgets existants</span><b>${state.budgetGroups.length}</b></div>
+    <div class="budget-existing-list">${budgetsHtml}</div>
+    ${adCard('budgets')}`;
   $('#extraBudgetShortcut').addEventListener('click',()=>startNewBudget(false));
   $('#sharedBudgetShortcut').addEventListener('click',startSharedBudget);
   wireBudgetActions(c);wireAds(c)
 }
+
 function wireBudgetActions(root){
   $$('[data-menu-budget]',root).forEach(x=>x.addEventListener('click',()=>{$$('.action-menu',root).forEach(m=>m.classList.toggle('show',m.id==='menu-'+x.dataset.menuBudget&&!m.classList.contains('show')))}));
-  $$('[data-activate]',root).forEach(x=>x.addEventListener('click',()=>activateBudget(x.dataset.activate)));$$('[data-unlock-budget]',root).forEach(x=>x.addEventListener('click',()=>openPlus('Plusieurs budgets')));$$('[data-open-budget]',root).forEach(x=>x.addEventListener('click',()=>{detailId=x.dataset.openBudget;showPage('budget-detail')}));$$('[data-rename-budget]',root).forEach(x=>x.addEventListener('click',()=>renameBudgetV11(x.dataset.renameBudget)));$$('[data-share-budget]',root).forEach(x=>x.addEventListener('click',()=>shareBudget(x.dataset.shareBudget)));$$('[data-duplicate]',root).forEach(x=>x.addEventListener('click',()=>duplicateBudget(x.dataset.duplicate)));$$('[data-delete-budget]',root).forEach(x=>x.addEventListener('click',()=>askDeleteBudget(x.dataset.deleteBudget)))
+  $$('[data-activate]',root).forEach(x=>x.addEventListener('click',()=>activateBudget(x.dataset.activate)));
+  $$('[data-unlock-budget]',root).forEach(x=>x.addEventListener('click',()=>openPlus('Plusieurs budgets')));
+  $$('[data-open-budget]',root).forEach(x=>x.addEventListener('click',()=>{detailId=x.dataset.openBudget;showPage('budget-detail')}));
+  $$('[data-manage-members]',root).forEach(x=>x.addEventListener('click',()=>openSharedMembers(x.dataset.manageMembers)));
+  $$('[data-rename-budget]',root).forEach(x=>x.addEventListener('click',()=>renameBudgetV11(x.dataset.renameBudget)));
+  $$('[data-share-budget]',root).forEach(x=>x.addEventListener('click',()=>shareBudget(x.dataset.shareBudget)));
+  $$('[data-unshare-budget]',root).forEach(x=>x.addEventListener('click',()=>stopSharingBudget(x.dataset.unshareBudget)));
+  $$('[data-duplicate]',root).forEach(x=>x.addEventListener('click',()=>duplicateBudget(x.dataset.duplicate)));
+  $$('[data-delete-budget]',root).forEach(x=>x.addEventListener('click',()=>askDeleteBudget(x.dataset.deleteBudget)))
 }
 function renderBudgetDetail(){
   const g=budgetById(detailId),c=$('#budgetDetailBody');if(!g){c.innerHTML='<div class="empty">Budget introuvable.</div>';return}
   $('#budgetDetailTitle').textContent=g.name;const accounts=accountsForBudget(g.id),locked=!canUseBudgetGroup(g);if(g.type==='shared')ensureBudgetOwner(g);
-  const sharedTop=g.type==='shared'?`<div class="shared-hero"><div class="small">BUDGET PARTAGÉ</div><strong>${esc(g.name)}</strong><div class="small" style="margin-top:5px">${g.members.filter(m=>m.status==='joined').length} membre${g.members.filter(m=>m.status==='joined').length>1?'s':''} actif${g.members.filter(m=>m.status==='joined').length>1?'s':''} · plusieurs personnes peuvent participer · tes autres budgets restent privés</div><div class="shared-actions">${g.remoteRole==='owner'||(!g.remoteShared&&isPlus())?'<button class="btn btn-white" id="detailInviteMember" type="button">Inviter une personne</button>':''}<button class="btn btn-white" id="detailManageMembers" type="button">Membres</button></div></div>`:'';
-  c.innerHTML=`${sharedTop}${locked?`<div class="status warn"><strong>Budget partagé en pause.</strong><br>${isOwnedSharedBudget(g)?'Réactive B²+ pour le rendre de nouveau utilisable par tous les membres.':'Le propriétaire doit réactiver B²+ pour reprendre les modifications.'} Les données sont conservées.</div>`:''}<div class="card"><div class="card-title"><h3>Comptes de ce budget</h3><span class="badge">${accounts.length}</span></div><div class="small muted">Choisis le compte à consulter ou à modifier.</div></div>${accounts.map(a=>{const future=a.startMode==='next'&&String(a.cycleStart)>todayISO(),on=g.active&&String(g.activeAccountId)===String(a.id);return `<div class="card account-detail-card"><div class="account-detail-head"><div class="budget-icon">${ico(accountIcon(a))}</div><div class="account-detail-copy"><strong>${esc(a.name)}</strong><span>${future?'Prévision':'Disponible'} ${euro(remaining(a))} · ${accountChargeCount(a)} charge${accountChargeCount(a)>1?'s':''}</span></div>${on?'<span class="badge">ACTIF</span>':''}</div><div class="account-detail-actions">${locked?'<button class="mini-btn" data-unlock-detail type="button">B²+</button>':`<button class="mini-btn account-action-main" data-view-account="${a.id}" type="button">Voir le résumé</button><button class="mini-btn" data-edit-account="${a.id}" type="button">Modifier</button>${accounts.length>1?`<button class="mini-btn danger" data-delete-account="${a.id}" type="button">Supprimer</button>`:''}`}</div></div>`}).join('')}<button class="btn ${locked?'btn-soft':'btn-primary'} btn-full" id="detailAddAccount" type="button">${locked?'Débloquer ce budget avec B²+':'＋ Ajouter un compte'}</button>${g.type!=='shared'&&isPlus()?`<button class="btn btn-white btn-full" id="detailShareBudget" type="button" style="margin-top:8px">${ico('group')} Partager ce budget</button>`:''}${g.type==='shared'&&g.remoteRole==='owner'&&shareArchiveForGroup(g.id)?`<button class="btn btn-white btn-full" id="detailPrivateArchive" type="button" style="margin-top:8px">${ico('shield')} Historique privé avant partage</button>`:''}`;
+  const sharedOwner=g.type==='shared'&&(isOwnedSharedBudget(g)||(!g.remoteShared&&isPlus()));
+  const sharedTop=g.type==='shared'?`<div class="shared-hero"><div class="small">BUDGET PARTAGÉ · ${sharedOwner?'PROPRIÉTAIRE':'MEMBRE'}</div><strong>${esc(g.name)}</strong><div class="small" style="margin-top:5px">${g.members.filter(m=>m.status==='joined').length} membre${g.members.filter(m=>m.status==='joined').length>1?'s':''} actif${g.members.filter(m=>m.status==='joined').length>1?'s':''} · plusieurs personnes peuvent participer · tes autres budgets restent privés</div><div class="shared-actions">${sharedOwner?'<button class="btn btn-white" id="detailInviteMember" type="button">Inviter une personne</button>':''}<button class="btn btn-white" id="detailManageMembers" type="button">${sharedOwner?'Gérer les membres':'Voir les membres'}</button></div></div>`:'';
+  c.innerHTML=`${sharedTop}${locked?`<div class="status warn"><strong>Budget partagé en pause.</strong><br>${isOwnedSharedBudget(g)?'Réactive B²+ pour le rendre de nouveau utilisable par tous les membres.':'Le propriétaire doit réactiver B²+ pour reprendre les modifications.'} Les données sont conservées.</div>`:''}<div class="card"><div class="card-title"><h3>Comptes de ce budget</h3><span class="badge">${accounts.length}</span></div><div class="small muted">Choisis le compte à consulter ou à modifier.</div></div>${accounts.map(a=>{const future=a.startMode==='next'&&String(a.cycleStart)>todayISO(),on=g.active&&String(g.activeAccountId)===String(a.id);return `<div class="card account-detail-card"><div class="account-detail-head"><div class="budget-icon">${ico(accountIcon(a))}</div><div class="account-detail-copy"><strong>${esc(a.name)}</strong><span>${future?'Prévision':'Disponible'} ${euro(remaining(a))} · ${accountChargeCount(a)} charge${accountChargeCount(a)>1?'s':''}</span></div>${on?'<span class="badge">ACTIF</span>':''}</div><div class="account-detail-actions">${locked?'<button class="mini-btn" data-unlock-detail type="button">B²+</button>':`<button class="mini-btn account-action-main" data-view-account="${a.id}" type="button">Voir le résumé</button><button class="mini-btn" data-edit-account="${a.id}" type="button">Modifier</button>${accounts.length>1?`<button class="mini-btn danger" data-delete-account="${a.id}" type="button">Supprimer</button>`:''}`}</div></div>`}).join('')}<button class="btn ${locked?'btn-soft':'btn-primary'} btn-full" id="detailAddAccount" type="button">${locked?'Débloquer ce budget avec B²+':'＋ Ajouter un compte'}</button>${g.type!=='shared'&&isPlus()?`<button class="btn btn-white btn-full" id="detailShareBudget" type="button" style="margin-top:8px">${ico('group')} Partager ce budget</button>`:''}${g.type==='shared'&&sharedOwner?`<button class="btn btn-white btn-full" id="detailStopSharing" type="button" style="margin-top:8px">Arrêter le partage</button>`:''}${g.type==='shared'&&sharedOwner&&shareArchiveForGroup(g.id)?`<button class="btn btn-white btn-full" id="detailPrivateArchive" type="button" style="margin-top:8px">${ico('shield')} Historique privé avant partage</button>`:''}`;
   if(g.type==='shared'){$('#detailInviteMember')?.addEventListener('click',()=>shareBudget(g.id));$('#detailManageMembers')?.addEventListener('click',()=>openSharedMembers(g.id))}
   $('#detailShareBudget')?.addEventListener('click',()=>shareBudget(g.id));
+  $('#detailStopSharing')?.addEventListener('click',()=>stopSharingBudget(g.id));
   $('#detailPrivateArchive')?.addEventListener('click',()=>renderShareArchive(g.id));
   $('#detailAddAccount')?.addEventListener('click',()=>locked?openPlus('Plusieurs budgets'):startAccountWizard(g.id));$$('[data-unlock-detail]',c).forEach(x=>x.addEventListener('click',()=>openPlus('Plusieurs budgets')));$$('[data-view-account]',c).forEach(x=>x.addEventListener('click',()=>openAccountSummary(x.dataset.viewAccount)));$$('[data-edit-account]',c).forEach(x=>x.addEventListener('click',()=>startWizard(x.dataset.editAccount)));$$('[data-delete-account]',c).forEach(x=>x.addEventListener('click',()=>askDeleteAccountV11(x.dataset.deleteAccount)))
 }
@@ -8691,9 +8745,10 @@ function renderSharedMembersModal(){
   const activeMembers=(g.members||[]).filter(m=>m.status==='joined').length;
   const pendingInvites=(g.shareInvites||[]).filter(i=>i.status==='pending').length;
   const inviteBtn=$('#sharedInviteAnother');if(inviteBtn)inviteBtn.style.display=owner?'':'none';
-  const members=(g.members||[]).map(m=>`<div class="member-card"><div class="member-avatar">${esc((m.name||'?').trim().slice(0,1).toUpperCase())}</div><div class="member-main"><strong>${esc(m.name)}${m.current?' · vous':''}</strong><span>${m.recipient?esc(m.recipient):(m.role==='owner'?'Propriétaire':'Membre')}</span><span class="member-status joined">${m.role==='owner'?'Propriétaire':'Membre actif'}</span><div class="shared-spend"><span>Dépenses payées cette période</span><b>${euro(paidBy.get(String(m.id))||0)}</b></div></div><div class="member-actions">${owner&&!m.current&&m.role!=='owner'?`<button class="mini-btn danger" data-remove-shared-member="${m.id}" type="button">Retirer</button>`:''}</div></div>`).join('');
+  const stopBtn=$('#sharedStopSharing');if(stopBtn)stopBtn.style.display=owner?'':'none';
+  const members=(g.members||[]).map(m=>`<div class="member-card"><div class="member-avatar">${esc((m.name||'?').trim().slice(0,1).toUpperCase())}</div><div class="member-main"><strong>${esc(m.name)}${m.current?' · vous':''}</strong><span>${m.recipient?esc(m.recipient):(m.role==='owner'?'Propriétaire':'Membre')}</span><span class="member-status joined">${m.role==='owner'?'Propriétaire':'Membre actif'}</span><div class="shared-spend"><span>Dépenses payées cette période</span><b>${euro(paidBy.get(String(m.id))||0)}</b></div></div><div class="member-actions">${owner&&!m.current&&m.role!=='owner'?`<button class="mini-btn danger" data-remove-shared-member="${m.id}" type="button">Retirer l’accès</button>`:''}</div></div>`).join('');
   const invites=owner&&(g.shareInvites||[]).length?`<div class="section-title"><h3>Invitations en attente</h3></div><div class="card flat">${g.shareInvites.filter(i=>i.status==='pending').map(i=>`<div class="summary-line"><span>${esc(i.displayName||i.recipient||'Lien d’invitation')}</span><strong>En attente</strong></div>`).join('')||'<div class="empty">Aucune invitation en attente.</div>'}</div>`:'';
-  body.innerHTML=`<div class="status info compact"><strong>${activeMembers} membre${activeMembers>1?'s':''} actif${activeMembers>1?'s':''}${pendingInvites?` · ${pendingInvites} invitation${pendingInvites>1?'s':''} en attente`:''}</strong><br>Plusieurs personnes peuvent utiliser ce même budget.</div><div class="card flat">${members||'<div class="empty">Aucun membre.</div>'}</div>${invites}${total>0?`<div class="status info"><strong>${euro(total)} de dépenses partagées suivies.</strong><br>B² mémorise qui a payé chaque dépense, sans exposer les budgets personnels des membres.</div>`:''}${!owner&&g.remoteShared?'<div class="status info">Tu participes uniquement à ce budget partagé. Ton budget personnel reste séparé et privé.</div>':''}`;
+  body.innerHTML=`<div class="status info compact"><strong>${activeMembers} membre${activeMembers>1?'s':''} actif${activeMembers>1?'s':''}${pendingInvites?` · ${pendingInvites} invitation${pendingInvites>1?'s':''} en attente`:''}</strong><br>Plusieurs personnes peuvent utiliser ce même budget.</div><div class="status info compact"><strong>${owner?'Tu es le propriétaire.':'Tu es membre de ce budget.'}</strong><br>${owner?'Le propriétaire est unique : tu gères les invitations, les retraits de membres, l’arrêt du partage et la suppression du budget. Les autres membres peuvent utiliser et modifier le budget commun.':'Tu peux utiliser et modifier le budget commun, mais seul le propriétaire gère les accès, les membres et l’arrêt du partage.'}</div><div class="card flat">${members||'<div class="empty">Aucun membre.</div>'}</div>${invites}${total>0?`<div class="status info"><strong>${euro(total)} de dépenses partagées suivies.</strong><br>B² mémorise qui a payé chaque dépense, sans exposer les budgets personnels des membres.</div>`:''}${!owner&&g.remoteShared?'<div class="status info">Ton budget personnel reste séparé et privé.</div>':''}`;
   $$('[data-remove-shared-member]',body).forEach(x=>x.addEventListener('click',()=>{const m=g.members.find(y=>String(y.id)===String(x.dataset.removeSharedMember));if(!m)return;openConfirm(`Retirer ${m.name} ?`,'Cette personne perdra l’accès à ce budget partagé. Ses budgets personnels ne changent pas.',async()=>{try{const {data,error}=await b2supabase.rpc('b2_shared_remove_member',{p_budget_id:g.remoteSharedId,p_user_id:m.userId||m.id});if(error)throw error;await triggerRemotePush(data?.notification_ids||[]);await syncRemoteSharedBudgets({render:false});renderSharedMembersModal();renderAll();showToast('Membre retiré.')}catch(e){console.warn(e);showToast('Impossible de retirer ce membre pour le moment.')}})}))
 }
 function renderBudgetSwitch(){
@@ -8710,6 +8765,66 @@ async function shareBudget(id){
   if(!await ensureRemoteSharedBudget(g,{shareHistory:true}))return;
   $('#shareBudgetModal').dataset.budgetId=g.id;$('#shareBudgetTitle').textContent=`Inviter dans « ${g.name} »`;$('#shareBudgetLead').textContent='Tu peux inviter plusieurs personnes, une par une. Elles rejoindront toutes ce même budget, sans voir tes autres budgets.';$('#shareRecipient').value='';$('#shareName').value='';openModal('shareBudgetModal')
 }
+async function stopSharingBudget(id){
+  const g=budgetById(id);if(!g||g.type!=='shared')return;
+  const owner=isOwnedSharedBudget(g)||(!g.remoteShared&&isPlus());
+  if(!owner){showToast('Seul le propriétaire peut arrêter le partage.');return}
+
+  const joined=(g.members||[]).filter(m=>m.status==='joined'&&!m.current).length;
+  openConfirm(
+    'Arrêter le partage ?',
+    `${joined?`${joined} autre${joined>1?'s':''} membre${joined>1?'s':''} perdra${joined>1?'ont':''} immédiatement l’accès. `:''}Le budget, ses comptes et tout son historique seront conservés pour toi et redeviendront personnels.`,
+    async()=>{
+      const remoteId=g.remoteSharedId||null;
+      try{
+        let notificationIds=[];
+        if(remoteId){
+          clearTimeout(b2SharedSaveTimers.get(String(remoteId)));
+          b2SharedSaveTimers.delete(String(remoteId));
+          const {data,error}=await b2supabase.rpc('b2_shared_delete',{p_budget_id:remoteId});
+          if(error)throw error;
+          notificationIds=data?.notification_ids||[]
+        }
+
+        // On conserve exactement le budget du propriétaire, mais il sort
+        // définitivement de l'espace partagé.
+        g.type='personal';
+        g.remoteShared=false;
+        g.remoteSharedId=null;
+        g.remoteRevision=0;
+        g.remoteRole=null;
+        g.remoteOwnerId=null;
+        g.ownerAccessUntil=null;
+        g.members=[];
+        g.shareInvites=[];
+        g.shareStartedAt=null;
+        g.sharedHistoryMode=null;
+
+        accountsForBudget(g.id).forEach(a=>{
+          a.type='personal';
+          a.remoteSharedId=null;
+          a.members=[];
+          a.shareInvites=[]
+        });
+
+        if(String(state.plan?.freeBudgetId||'')===''&&state.plan?.tier!=='plus')state.plan.freeBudgetId=g.id;
+        ensureActive();
+        rememberActiveBudgetSelection(g);
+        closeModal('sharedMembersModal');
+        save();
+        await triggerRemotePush(notificationIds);
+        await refreshB2Messages({render:false});
+        renderAll();
+        showPage('budgets');
+        showToast('Le budget est redevenu personnel. Le partage est arrêté.')
+      }catch(e){
+        console.warn('B² stop sharing',e);
+        showToast('Impossible d’arrêter le partage pour le moment.')
+      }
+    }
+  )
+}
+
 function activateBudget(id){
   const g=budgetById(id);if(!g)return;if(!canUseBudgetGroup(g)){openPlus('Plusieurs budgets');return}
   state.budgetGroups.forEach(x=>x.active=String(x.id)===String(g.id));
@@ -10290,7 +10405,9 @@ $('#createShareLink')?.addEventListener('click',async()=>{
   const id=$('#shareBudgetModal').dataset.budgetId,g=budgetById(id);if(!g||!await ensureRemoteSharedBudget(g))return;
   try{const {data,error}=await b2supabase.rpc('b2_shared_create_link',{p_budget_id:g.remoteSharedId});if(error)throw error;closeModal('shareBudgetModal');await shareInviteLink(data?.token);await syncRemoteSharedBudgets({render:false});detailId=g.id;showPage('budget-detail')}catch(e){console.warn(e);showToast('Impossible de créer le lien pour le moment.')}
 });
-$('#sharedInviteAnother')?.addEventListener('click',()=>{const id=$('#sharedMembersModal').dataset.budgetId;closeModal('sharedMembersModal');shareBudget(id)});$('#plusModal').addEventListener('click',e=>{if(e.target===$('#plusModal'))plusAfterAction=null});const splash=$('#splashB2');
+$('#sharedInviteAnother')?.addEventListener('click',()=>{const id=$('#sharedMembersModal').dataset.budgetId;closeModal('sharedMembersModal');shareBudget(id)});
+$('#sharedStopSharing')?.addEventListener('click',()=>{const id=$('#sharedMembersModal').dataset.budgetId;stopSharingBudget(id)});
+$('#plusModal').addEventListener('click',e=>{if(e.target===$('#plusModal'))plusAfterAction=null});const splash=$('#splashB2');
 if(splash){
   setTimeout(()=>splash.classList.add('hide'),2050);
   setTimeout(()=>{splash.remove();b2CloudBoot()},2340)
