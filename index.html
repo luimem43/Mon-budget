@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#075a4d">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<title>B² v14.20 — réparation automatique de la période reçue trop tôt</title>
+<title>B² v14.24 — Carré Intelligence Max : Gratuit cohérent / B²+ prédictif</title>
 <style>
 :root{
   --brand:#075a4d;--brand2:#0a7965;--brand3:#0f8f72;--lime:#b9ef68;
@@ -2048,6 +2048,21 @@ button{
 .plus-ended-mark .ui-ico{width:30px;height:30px}
 #plusEndedModal h3,#sharedPausedModal h3{text-align:center;margin-top:0}
 #plusEndedModal .lead,#sharedPausedModal .lead{text-align:center}
+
+
+.b2-scenarios{margin-top:12px;border:1px solid #cfe4dd;background:linear-gradient(145deg,#f5fbf8,#edf7f4);border-radius:18px;padding:12px}
+.b2-scenarios-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:10px}
+.b2-scenarios-head span{display:block;font-size:8px;font-weight:950;letter-spacing:.08em;text-transform:uppercase;color:#0a7462}
+.b2-scenarios-head strong{display:block;font-size:12.5px;margin-top:3px;color:#183b33}
+.b2-scenarios-head>b{font-size:8.5px;color:#4e6a63;background:#fff;border:1px solid #d9e9e4;border-radius:9px;padding:5px 7px;white-space:nowrap}
+.b2-scenario-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+.b2-scenario-row{min-width:0;background:#fff;border:1px solid #dce9e5;border-radius:13px;padding:9px 7px;text-align:center}
+.b2-scenario-row span{display:block;font-size:8.5px;font-weight:900;color:#667a74}
+.b2-scenario-row b{display:block;font-size:13px;color:#0a6f5c;margin-top:4px}
+.b2-scenario-row b.bad{color:#9d3c49}
+.b2-scenario-row small{display:block;font-size:7.5px;color:#899692;margin-top:2px;line-height:1.2}
+.b2-scenarios-note{font-size:9px;color:#62736f;line-height:1.42;margin-top:9px}
+@media(max-width:370px){.b2-scenario-grid{grid-template-columns:1fr}.b2-scenario-row{text-align:left;display:grid;grid-template-columns:1fr auto;gap:4px 8px}.b2-scenario-row small{grid-column:1/-1}}
 
 </style>
 </head>
@@ -4527,10 +4542,10 @@ function envelopeCategoryKind(e){
   if(/animaux|animal|chien|chat/.test(n))return 'pets';
   if(/maison|travaux|entretien|bricol/.test(n))return 'home';
   if(/vetement/.test(n))return 'clothes';
-  if(/loisir|sortie|restaurant|petit plaisir/.test(n))return 'leisure';
+  if(/petit plaisir|achat plaisir|shopping/.test(n))return 'shopping';
+  if(/loisir|sortie|restaurant/.test(n))return 'leisure';
   if(/cadeau|evenement/.test(n))return 'gifts';
   if(/vacance|voyage/.test(n))return 'travel';
-  if(/achat plaisir|shopping/.test(n))return 'shopping';
   return 'other'
 }
 function essentialityOfEnvelope(e,b){
@@ -4557,12 +4572,259 @@ function normalVariableCapacity(b){
   const income=normalCycleIncome(b),protectedPart=normalCycleProtected(b);
   return r2(Math.max(0,income-protectedPart.total))
 }
+const B2_OFFICIAL_REFERENCE={
+  version:'2026-09',
+  sources:{
+    unaf:'UNAF — Budgets-types 2026 (valeurs 2025)',
+    insee:'INSEE — Consommation des ménages 2025',
+    sdes:'SDES — Chiffres clés transport/énergie 2025-2026',
+    drees:'DREES — Reste à charge santé 2024'
+  },
+
+  // Famille C UNAF, septembre : 1 adulte + 2 enfants de 6 à 13 ans.
+  // Ces montants servent d'ancre puis sont adaptés au profil du foyer.
+  unafFamilyC:{
+    food:774.10,
+    transport:400.60,
+    education:87.60,
+    personalCare:48.29,
+    homeEquipment:75.29,
+    clothes:134.52,
+    leisureDivers:384.44,
+    health:192.58
+  },
+
+  // Repères officiels plus directement compatibles avec certaines enveloppes B².
+  fuelAverageHouseholdMonthly:152.25,   // 1 827 €/an, SDES
+  healthOutOfPocketPersonMonthly:24.33, // 292 €/an/personne, DREES
+
+  // Parts de dépense des ménages 2025, utiles comme contrôle de cohérence.
+  inseeShares:{
+    food:.125,clothes:.028,health:.039,transport:.126,
+    leisure:.070,restaurantsHotels:.091,homeEquipment:.037
+  }
+};
+
+function householdConsumptionUnits(b){
+  const h=b?.household||{adults:1,children:0},p=budgetProfileOf(b);
+  const adults=Math.max(1,Math.round(num(h.adults)||1));
+  const children=Math.max(0,Math.round(num(h.children)||0));
+  let childUC=.30;
+  if(profileChildStage(p,'teen')&&!profileChildStage(p,'school'))childUC=.50;
+  else if(profileChildStage(p,'teen')&&profileChildStage(p,'school'))childUC=.40;
+  return r2(1+Math.max(0,adults-1)*.50+children*childUC)
+}
+function householdPeopleCount(b){
+  const h=b?.household||{adults:1,children:0};
+  return Math.max(1,Math.round(num(h.adults)||1))+Math.max(0,Math.round(num(h.children)||0))
+}
+function householdReferenceScale(b){
+  // Famille C = 1,6 UC.
+  return Math.max(.55,householdConsumptionUnits(b)/1.60)
+}
+function householdFoodReferenceMonthly(b){
+  const h=b?.household||{adults:1,children:0},p=budgetProfileOf(b);
+  const adults=Math.max(1,Math.round(num(h.adults)||1));
+  const children=Math.max(0,Math.round(num(h.children)||0));
+
+  // Valeurs dérivées des familles-types UNAF A/C/H.
+  const adult=300;
+  let child=240;
+  if(profileChildStage(p,'baby')&&!profileChildStage(p,'school'))child=190;
+  else if(profileChildStage(p,'teen')&&!profileChildStage(p,'school'))child=320;
+  else if(profileChildStage(p,'teen')&&profileChildStage(p,'school'))child=280;
+
+  // UNAF suppose les repas à domicile. On réduit donc les courses quand
+  // l'utilisateur déclare manger souvent dehors ; cette différence se
+  // reporte dans le repère loisirs/restaurants.
+  const mealFactor=p.meals==='cook'?1:p.meals==='out'?.72:.88;
+  return r2((adults*adult+children*child)*mealFactor)
+}
+function householdClothingReferenceMonthly(b){
+  const h=b?.household||{adults:1,children:0},p=budgetProfileOf(b);
+  const adults=Math.max(1,Math.round(num(h.adults)||1));
+  const children=Math.max(0,Math.round(num(h.children)||0));
+  const adult=53.5;
+  let child=40.5;
+  if(profileChildStage(p,'baby')&&!profileChildStage(p,'school'))child=30;
+  if(profileChildStage(p,'teen')&&!profileChildStage(p,'school'))child=58.5;
+  else if(profileChildStage(p,'teen')&&profileChildStage(p,'school'))child=49;
+  const factor=p.clothing==='low'?.72:p.clothing==='high'?1.28:1;
+  return r2((adults*adult+children*child)*factor)
+}
+function householdTransportReferenceMonthly(b){
+  const h=b?.household||{adults:1,children:0},p=budgetProfileOf(b);
+  const adults=Math.max(1,Math.round(num(h.adults)||1));
+  const children=Math.max(0,Math.round(num(h.children)||0));
+  const mobility=p.mobility==='low'?.48:p.mobility==='high'?1.48:1;
+  const familyFactor=1+Math.max(0,adults-1)*.08+children*.025;
+  return r2(B2_OFFICIAL_REFERENCE.fuelAverageHouseholdMonthly*mobility*familyFactor)
+}
+function householdHealthReferenceMonthly(b){
+  const p=budgetProfileOf(b),h=b?.household||{adults:1,children:0};
+  const adults=Math.max(1,Math.round(num(h.adults)||1));
+  const children=Math.max(0,Math.round(num(h.children)||0));
+  // La DREES donne une moyenne par personne ; les enfants sont pondérés
+  // plus bas faute d'information médicale personnelle.
+  return r2(B2_OFFICIAL_REFERENCE.healthOutOfPocketPersonMonthly*(adults+children*.65))
+}
+function householdChildrenReferenceMonthly(b){
+  const h=b?.household||{children:0},p=budgetProfileOf(b);
+  const children=Math.max(0,Math.round(num(h.children)||0));
+  if(!children)return 0;
+  let perChild=43.8; // UNAF famille C : éducation / 2 enfants.
+  if(profileChildStage(p,'teen')&&!profileChildStage(p,'school'))perChild=70.7;
+  else if(profileChildStage(p,'baby')&&!profileChildStage(p,'school'))perChild=10;
+  else if(profileChildStage(p,'teen')&&profileChildStage(p,'school'))perChild=56;
+  if(profileChildNeed(p,'activities'))perChild+=24;
+  return r2(children*perChild)
+}
+function householdLeisurePoolMonthly(b){
+  const p=budgetProfileOf(b);
+  const base=B2_OFFICIAL_REFERENCE.unafFamilyC.leisureDivers*householdReferenceScale(b);
+  const leisureFactor=p.leisure==='home'?.68:p.leisure==='active'?1.28:1;
+  const mealsOutFactor=p.meals==='out'?1.18:p.meals==='cook'?.92:1;
+  return r2(base*leisureFactor*mealsOutFactor)
+}
+function householdHomeReferenceMonthly(b){
+  const p=budgetProfileOf(b);
+  let base=B2_OFFICIAL_REFERENCE.unafFamilyC.homeEquipment*(.88+.12*householdReferenceScale(b));
+  if(p.housing==='owner')base*=1.18;
+  if(p.housing==='hosted')base*=.62;
+  if(profileHas(p,'home'))base*=1.16;
+  return r2(base)
+}
+function householdBeautyReferenceMonthly(b){
+  const base=B2_OFFICIAL_REFERENCE.unafFamilyC.personalCare*householdReferenceScale(b);
+  const p=budgetProfileOf(b);
+  return r2(base*(p.clothing==='high'?1.15:p.clothing==='low'?.88:1))
+}
+function householdPetsReferenceMonthly(b){
+  const p=budgetProfileOf(b);
+  if(p.pets==='one')return 45;
+  if(p.pets==='several')return 85;
+  return 0
+}
+
+function officialEnvelopeBenchmark(e,b){
+  const kind=envelopeCategoryKind(e),p=budgetProfileOf(b);
+  const leisurePool=householdLeisurePoolMonthly(b);
+  let referenceMonthly=0,prudentShare=0,source='',confidence='official';
+
+  if(kind==='food'){
+    referenceMonthly=householdFoodReferenceMonthly(b);
+    prudentShare=.68;
+    source=B2_OFFICIAL_REFERENCE.sources.unaf
+  }else if(kind==='transport'){
+    referenceMonthly=householdTransportReferenceMonthly(b);
+    prudentShare=.70;
+    source=B2_OFFICIAL_REFERENCE.sources.sdes
+  }else if(kind==='health'){
+    referenceMonthly=householdHealthReferenceMonthly(b);
+    prudentShare=.80;
+    source=B2_OFFICIAL_REFERENCE.sources.drees
+  }else if(kind==='clothes'){
+    referenceMonthly=householdClothingReferenceMonthly(b);
+    prudentShare=.45;
+    source=B2_OFFICIAL_REFERENCE.sources.unaf
+  }else if(kind==='children'){
+    referenceMonthly=householdChildrenReferenceMonthly(b);
+    prudentShare=.60;
+    source=B2_OFFICIAL_REFERENCE.sources.unaf
+  }else if(kind==='home'){
+    referenceMonthly=householdHomeReferenceMonthly(b);
+    prudentShare=.42;
+    source=`${B2_OFFICIAL_REFERENCE.sources.unaf} + ${B2_OFFICIAL_REFERENCE.sources.insee}`
+  }else if(kind==='beauty'){
+    referenceMonthly=householdBeautyReferenceMonthly(b);
+    prudentShare=.45;
+    source=B2_OFFICIAL_REFERENCE.sources.unaf
+  }else if(kind==='leisure'){
+    referenceMonthly=r2(leisurePool*.55);
+    prudentShare=.25;
+    source=`${B2_OFFICIAL_REFERENCE.sources.unaf} + ${B2_OFFICIAL_REFERENCE.sources.insee}`
+  }else if(kind==='shopping'){
+    referenceMonthly=r2(leisurePool*.18);
+    prudentShare=.16;
+    if(profileHas(p,'shopping'))referenceMonthly=r2(referenceMonthly*1.20);
+    source=B2_OFFICIAL_REFERENCE.sources.insee
+  }else if(kind==='gifts'){
+    referenceMonthly=r2(leisurePool*.10);
+    prudentShare=.12;
+    source=B2_OFFICIAL_REFERENCE.sources.insee
+  }else if(kind==='travel'){
+    referenceMonthly=r2(leisurePool*.17*(profileHas(p,'travel')?1.25:.82));
+    prudentShare=.10;
+    source=`${B2_OFFICIAL_REFERENCE.sources.unaf} + ${B2_OFFICIAL_REFERENCE.sources.insee}`
+  }else if(kind==='pets'){
+    referenceMonthly=householdPetsReferenceMonthly(b);
+    prudentShare=.55;
+    source='Profil B² — pas de repère public homogène comparable';
+    confidence='profile'
+  }else{
+    referenceMonthly=0;
+    prudentShare=0;
+    source='';
+    confidence='none'
+  }
+
+  const prudentMonthly=r2(referenceMonthly*prudentShare);
+  const monthDays=Math.max(28,daysInBudgetMonth(b?.cycleStart||todayISO()));
+  return {
+    kind,referenceMonthly:r2(referenceMonthly),prudentMonthly,
+    daily:r2(prudentMonthly/monthDays),
+    source,confidence,
+    household:householdBenchmarkLabel(b),
+    version:B2_OFFICIAL_REFERENCE.version
+  }
+}
+function externalBenchmarkForEnvelope(e,b){return officialEnvelopeBenchmark(e,b)}
+function householdPrudentFoodFloorMonthly(b){
+  const fake={name:'Courses & quotidien'};
+  return r2(officialEnvelopeBenchmark(fake,b).prudentMonthly)
+}
+function externalBenchmarkWeight(historyDays){
+  const d=Math.max(0,num(historyDays));
+  if(d<14)return 1;
+  if(d<28)return .82;
+  if(d<55)return .58;
+  if(d<85)return .32;
+  if(d<115)return .12;
+  return 0
+}
+function householdBenchmarkLabel(b){
+  const h=b?.household||{adults:1,children:0};
+  const a=Math.max(1,Math.round(num(h.adults)||1)),c=Math.max(0,Math.round(num(h.children)||0));
+  return `${a} adulte${a>1?'s':''}${c?` · ${c} enfant${c>1?'s':''}`:''}`
+}
+function officialReferenceSummary(b){
+  const envs=b?.envelopes||[];
+  const rows=envs.map(e=>({e,ref:officialEnvelopeBenchmark(e,b)})).filter(x=>x.ref.referenceMonthly>.01);
+  const sources=[...new Set(rows.map(x=>x.ref.source).filter(Boolean))];
+  return {
+    rows,sources,
+    referenceTotal:r2(rows.reduce((s,x)=>s+x.ref.referenceMonthly,0)),
+    prudentTotal:r2(rows.reduce((s,x)=>s+x.ref.prudentMonthly,0)),
+    household:householdBenchmarkLabel(b)
+  }
+}
+
 function profileBaselineEnvelopePlan(b){
   const envs=b.envelopes||[],cap=r2(normalVariableCapacity(b)*profileAllocationShare(b));
-  if(!envs.length)return {capacity:cap,amounts:{}};
-  const weights=envs.map(e=>Math.max(.05,allocationWeight(e,b))),total=weights.reduce((a,z)=>a+z,0)||1,amounts={};
+  if(!envs.length)return {capacity:cap,amounts:{},references:{}};
+
+  const references={},weights=envs.map(e=>{
+    const ref=officialEnvelopeBenchmark(e,b);references[e.id]=ref;
+    const priorityBoost=priorityOf(e)==='essential'?1.28:priorityOf(e)==='important'?1.12:1;
+    // Si un repère existe, il devient l'ancre principale. Sinon on garde
+    // la logique B² historique fondée sur le profil et la priorité.
+    return ref.prudentMonthly>.01
+      ?Math.max(5,ref.prudentMonthly)*priorityBoost
+      :Math.max(.05,allocationWeight(e,b))*12
+  });
+  const total=weights.reduce((a,z)=>a+z,0)||1,amounts={};
   envs.forEach((e,i)=>amounts[e.id]=r2(cap*weights[i]/total));
-  return {capacity:cap,amounts}
+  return {capacity:cap,amounts,references}
 }
 function daysInBudgetMonth(iso=todayISO()){
   const m=String(iso||todayISO()).match(/^(\d{4})-(\d{2})/);if(!m)return 30.4;
@@ -4592,17 +4854,41 @@ function learnedEnvelopePattern(b,e,baselineAmount=null){
     historyDaily=med*.40+recentWeighted*.60
   }
   const historyWeight=historyDays===0?0:historyDays<14?.12:historyDays<28?.30:historyDays<55?.50:historyDays<85?.68:historyDays<115?.80:.88;
-  let learned=historyDaily==null?fallbackRate:fallbackRate*(1-historyWeight)+historyDaily*historyWeight;
+  const benchmark=officialEnvelopeBenchmark(e,b);
+  const benchmarkWeight=externalBenchmarkWeight(historyDays);
+  const benchmarkDaily=Math.max(0,num(benchmark.daily));
+
+  // 4 couches :
+  // 1. repère externe/profil,
+  // 2. budget réellement choisi,
+  // 3. historique,
+  // 4. comportement de la période en cours.
+  // Le repère officiel décroît avec l'historique mais ne remplace jamais
+  // brutalement ce que l'utilisateur a déclaré.
+  const noHistoryBase=benchmarkDaily>.01
+    ?r2(fallbackRate*.45+benchmarkDaily*.55)
+    :fallbackRate;
+  let learned=historyDaily==null
+    ?noHistoryBase
+    :noHistoryBase*(1-historyWeight)+historyDaily*historyWeight;
+
+  const benchmarkFloorFactor=benchmark.kind==='food'?0.90:
+    benchmark.kind==='transport'?0.75:
+    benchmark.kind==='health'?0.70:
+    benchmark.kind==='children'?0.65:
+    0.35;
+  const benchmarkFloorDaily=r2(benchmarkDaily*benchmarkWeight*benchmarkFloorFactor);
+  if(benchmarkFloorDaily>.01)learned=Math.max(learned,benchmarkFloorDaily);
 
   const elapsed=Math.max(0,daysBetweenISO(b.cycleStart,todayISO()));
   const txCount=(b.transactions||[]).filter(t=>(t.type==='expense'||(t.type==='income'&&t.kind==='refund'))&&String(t.categoryId)===String(e.id)).length;
   const currentRate=elapsed>=6&&txCount>=2?spentFor(b,e.id)/Math.max(1,elapsed):null;
   let currentWeight=0;
-  if(historyDays>=21&&currentRate!=null){
-    const cycleProgress=clamp(elapsed/Math.max(21,monthDays),0,1),evidenceFactor=clamp(txCount/6,0,1);
-    const maxCurrent=historyDays>=85?.24:historyDays>=55?.21:.17;
-    currentWeight=maxCurrent*cycleProgress*(.55+.45*evidenceFactor);
-    const low=Math.max(0,learned*.42),high=Math.max(learned*1.9,learned+2),capped=clamp(currentRate,low,high);
+  if(currentRate!=null){
+    const cycleProgress=clamp(elapsed/Math.max(14,monthDays),0,1),evidenceFactor=clamp(txCount/6,0,1);
+    const maxCurrent=historyDays>=85?.24:historyDays>=55?.21:historyDays>=21?.17:.10;
+    currentWeight=maxCurrent*cycleProgress*(.50+.50*evidenceFactor);
+    const low=Math.max(0,learned*.45),high=Math.max(learned*1.85,learned+2),capped=clamp(currentRate,low,high);
     learned=learned*(1-currentWeight)+capped*currentWeight
   }
   learned=Math.max(0,learned);
@@ -4610,7 +4896,10 @@ function learnedEnvelopePattern(b,e,baselineAmount=null){
   return {
     envId:e.id,name:e.name,kind:envelopeCategoryKind(e),daily:r2(learned),fallbackDaily:r2(fallbackRate),budgetDaily:r2(fallbackRate),
     historyDaily:historyDaily==null?null:r2(historyDaily),monthly:r2(learned*monthDays),historyCount,historyDays,currentRate:currentRate==null?null:r2(currentRate),
-    historyWeight:r2(historyWeight),currentWeight:r2(currentWeight),confidence,evidence:historyCount+(currentRate!=null?1:0)
+    historyWeight:r2(historyWeight),currentWeight:r2(currentWeight),confidence,evidence:historyCount+(currentRate!=null?1:0),
+    benchmarkDaily:r2(benchmark.daily),benchmarkFloorDaily,benchmarkWeight:r2(benchmarkWeight),benchmarkMonthly:r2(benchmark.prudentMonthly),
+    benchmarkReferenceMonthly:r2(benchmark.referenceMonthly),benchmarkSource:benchmark.source||'',benchmarkConfidence:benchmark.confidence||'',
+    benchmarkUsed:benchmarkDaily>.01&&benchmarkWeight>.01
   }
 }
 function adaptiveLearningSummary(b){
@@ -4627,16 +4916,211 @@ function adaptiveLearningSummary(b){
   const maturityPct=historyDays<21
     ?clamp(12+Math.min(16,trackedTxCount*1.6)+historyDays*.25,12,32)
     :clamp(38+Math.min(46,historyDays*.48)+Math.min(12,evidence*.55),38,96);
-  return {patterns,evidence,historyPeriods,historyDays,trackedTxCount,historySpend,canShowEssential,level,maturityPct:r2(maturityPct)}
+  const official=officialReferenceSummary(b);
+  return {
+    patterns,evidence,historyPeriods,historyDays,trackedTxCount,historySpend,canShowEssential,level,maturityPct:r2(maturityPct),
+    officialReferenceTotal:official.referenceTotal,officialPrudentTotal:official.prudentTotal,
+    officialSources:official.sources,household:official.household
+  }
+}
+
+function b2IntelligenceInputs(b){
+  const learning=adaptiveLearningSummary(b),refs=officialReferenceSummary(b);
+  return {
+    profile:profileSummary(b),
+    household:refs.household,
+    officialReferences:refs.rows.map(x=>({
+      envId:x.e.id,name:x.e.name,kind:x.ref.kind,
+      referenceMonthly:x.ref.referenceMonthly,prudentMonthly:x.ref.prudentMonthly,
+      source:x.ref.source,confidence:x.ref.confidence
+    })),
+    budgetAmounts:(b.envelopes||[]).map(e=>({id:e.id,name:e.name,amount:r2(num(e.amount)),priority:priorityOf(e)})),
+    historyDays:learning.historyDays,
+    historyPeriods:learning.historyPeriods,
+    currentTransactions:learning.trackedTxCount,
+    maturityPct:learning.maturityPct
+  }
+}
+
+function b2PlusSeasonalityMultiplier(kind,iso=todayISO()){
+  let month=1;
+  try{month=dateParts(iso).m}catch(e){}
+  if(kind==='gifts')return month===12?1.55:month===11?1.20:1;
+  if(kind==='travel')return [7,8].includes(month)?1.30:[2,4].includes(month)?1.08:1;
+  if(kind==='children')return month===9?1.28:month===1?1.07:1;
+  if(kind==='clothes')return [9,10].includes(month)?1.14:[3,4].includes(month)?1.06:1;
+  if(kind==='leisure')return [7,8,12].includes(month)?1.10:1;
+  if(kind==='shopping')return month===12?1.16:month===11?1.08:1;
+  if(kind==='home')return [11,12,1,2].includes(month)?1.08:1;
+  return 1
+}
+function b2WeekendDaysBetween(startISO,endISO){
+  if(!startISO||!endISO||endISO<startISO)return 0;
+  let d=new Date(startISO+'T12:00:00'),end=new Date(endISO+'T12:00:00'),n=0,guard=0;
+  while(d<=end&&guard<370){
+    const w=d.getDay();if(w===0||w===6)n++;
+    d.setDate(d.getDate()+1);guard++
+  }
+  return n
+}
+function b2PlusCalendarContext(b,ctx=null){
+  ctx=ctx||shortTermMoneyContext(b);
+  const days=Math.max(0,num(ctx.daysToIncome));
+  const end=ctx.nextIncome?.nextDate||b.cycleEnd||addDaysISO(todayISO(),days);
+  const weekends=b2WeekendDaysBetween(todayISO(),end);
+  const normalWeekendDays=days*2/7;
+  const weekendPressure=normalWeekendDays>0?clamp(weekends/normalWeekendDays,.82,1.22):1;
+  return {days,end,weekends,normalWeekendDays:r2(normalWeekendDays),weekendPressure:r2(weekendPressure)}
+}
+function b2PlusCalendarMultiplier(kind,b,ctx=null){
+  const p=budgetProfileOf(b),c=b2PlusCalendarContext(b,ctx);
+  if(kind==='leisure'){
+    const lifestyle=p.leisure==='active'?1.12:p.leisure==='home'?.88:1;
+    const learned=b2HistoricalWeekendPattern(b,'leisure');
+    const learnedFactor=learned?clamp(.82+learned.ratio*.50,.82,1.22):1;
+    return r2(clamp(c.weekendPressure*lifestyle*learnedFactor,.72,1.36))
+  }
+  if(kind==='shopping')return r2(clamp(.94+c.weekendPressure*.06,.90,1.10));
+  if(kind==='gifts')return r2(clamp(.96+c.weekendPressure*.04,.92,1.08));
+  return 1
+}
+function b2PlusConfidenceModel(b,living=null){
+  const a=adaptiveLearningSummary(b);
+  const profile=budgetProfileOf(b);
+  const profileSignals=[
+    !!b?.household,
+    !!profile.meals,!!profile.mobility,!!profile.housing,
+    !!profile.leisure,!!profile.clothing,
+    Array.isArray(profile.childStages),Array.isArray(profile.priorities)
+  ].filter(Boolean).length;
+
+  const officialCoverage=(b.envelopes||[]).length
+    ?(b.envelopes||[]).filter(e=>officialEnvelopeBenchmark(e,b).referenceMonthly>.01).length/(b.envelopes||[]).length
+    :0;
+
+  const profileScore=clamp(10+profileSignals*1.6,10,23);
+  const officialScore=clamp(8+officialCoverage*12,8,20);
+  const historyScore=clamp(a.historyDays/90*35,0,35);
+  const liveScore=clamp(a.trackedTxCount*1.5,0,15);
+  const score=Math.round(clamp(profileScore+officialScore+historyScore+liveScore,18,96));
+
+  const label=score>=82?'forte':score>=64?'bonne':score>=45?'en apprentissage':'repère de départ';
+  const basis=a.historyDays>=75
+    ?'historique personnel dominant'
+    :a.historyDays>=21
+      ?'profil + repères + historique'
+      :'profil + repères publics + budget';
+
+  return {score,label,basis,historyDays:a.historyDays,historyPeriods:a.historyPeriods,transactions:a.trackedTxCount,officialCoverage:r2(officialCoverage)}
+}
+function b2PlusScenarioNeedFactor(kind,b){
+  const p=budgetProfileOf(b);
+  if(kind==='food')return 1;
+  if(kind==='transport')return p.mobility==='high'?1:p.mobility==='low'?.78:.90;
+  if(kind==='health')return .82;
+  if(kind==='children')return .78;
+  if(kind==='pets')return .72;
+  if(kind==='home')return .52;
+  if(kind==='clothes')return p.clothing==='high'?.58:p.clothing==='low'?.28:.42;
+  if(kind==='beauty')return .30;
+  if(kind==='leisure')return p.leisure==='active'?.88:p.leisure==='home'?.42:.66;
+  if(kind==='shopping')return profileHas(p,'shopping')?.48:.30;
+  if(kind==='gifts')return .24;
+  if(kind==='travel')return profileHas(p,'travel')?.34:.16;
+  return .35
+}
+function b2PlusForecastScenarios(b,ctx=null,living=null){
+  ctx=ctx||shortTermMoneyContext(b);
+  living=living||estimatedLivingNeedUntilIncome(b,ctx);
+  const days=Math.max(0,num(ctx.daysToIncome));
+  const current=r2(remaining(b));
+  const confidence=b2PlusConfidenceModel(b,living);
+  const calendar=b2PlusCalendarContext(b,ctx);
+
+  const rows=(b.envelopes||[]).map(e=>{
+    const pattern=learnedEnvelopePattern(b,e);
+    const kind=envelopeCategoryKind(e);
+    const season=b2PlusSeasonalityMultiplier(kind,todayISO());
+    const calendarFactor=b2PlusCalendarMultiplier(kind,b,ctx);
+    const normalFactor=b2PlusScenarioNeedFactor(kind,b);
+
+    const probableDaily=r2(Math.max(0,num(pattern.daily))*season*calendarFactor*normalFactor);
+    const coverage=recentFutureCoverage(b,e,probableDaily,days);
+    const probable=r2(coverage.remainingNeed);
+
+    // Le scénario serré conserve surtout l'essentiel et réduit fortement
+    // ce qui peut raisonnablement être compressé.
+    const tightFactor=['food','transport','health'].includes(kind)?.92:
+      ['children','pets'].includes(kind)?.72:
+      ['home'].includes(kind)?.45:
+      ['clothes'].includes(kind)?.28:
+      ['leisure','shopping','gifts','travel','beauty'].includes(kind)?.16:.30;
+    const tightDaily=r2(Math.max(0,num(pattern.daily))*season*tightFactor);
+    const tightCoverage=recentFutureCoverage(b,e,tightDaily,days);
+    const tight=r2(tightCoverage.remainingNeed);
+
+    const uncertainty=confidence.score>=82?1.07:confidence.score>=64?1.10:confidence.score>=45?1.14:1.19;
+    const prudent=r2(probable*uncertainty);
+
+    return {
+      envId:e.id,name:e.name,kind,
+      tight,probable,prudent,
+      patternDaily:r2(pattern.daily),
+      benchmarkWeight:r2(pattern.benchmarkWeight),
+      season:r2(season),calendarFactor:r2(calendarFactor),
+      source:pattern.historyWeight>=.50?'historique':pattern.benchmarkWeight>.30?'profil + repères':'budget + réel'
+    }
+  });
+
+  // Toujours garder un besoin alimentaire même si l'enveloppe a été supprimée.
+  if(days>0&&!rows.some(x=>x.kind==='food')){
+    const monthly=householdPrudentFoodFloorMonthly(b),daily=r2(monthly/Math.max(28,daysInBudgetMonth(todayISO())));
+    const need=r2(daily*days);
+    rows.push({
+      envId:null,name:'Courses & quotidien',kind:'food',
+      tight:r2(need*.92),probable:need,prudent:r2(need*(confidence.score>=64?1.10:1.16)),
+      patternDaily:daily,benchmarkWeight:1,season:1,calendarFactor:1,source:'profil + repères'
+    })
+  }
+
+  const totals=mode=>r2(rows.reduce((s,x)=>s+num(x[mode]),0));
+  const tightNeed=totals('tight'),probableNeed=totals('probable'),prudentNeed=totals('prudent');
+  const scenario=(name,need)=>({
+    name,need,
+    remaining:r2(current-need),
+    shortfall:r2(Math.max(0,need-current))
+  });
+
+  const scenarios={
+    tight:scenario('Serré',tightNeed),
+    probable:scenario('Probable',probableNeed),
+    prudent:scenario('Prudent',prudentNeed)
+  };
+
+  const drivers=[...rows].sort((a,z)=>z.probable-a.probable).slice(0,4);
+  return {days,current,rows,drivers,calendar,confidence,...scenarios}
+}
+function b2PlusScenarioHTML(b,ctx=null,living=null){
+  if(!advancedIntelligenceEnabled())return '';
+  const s=b2PlusForecastScenarios(b,ctx,living),c=s.confidence;
+  const fmtScenario=x=>`<div class="b2-scenario-row"><span>${x.name}</span><b class="${x.remaining<0?'bad':''}">${x.remaining<0?'− ':''}${euro(Math.abs(x.remaining))}</b><small>${x.remaining<0?`manque ${euro(x.shortfall)}`:`reste estimé`}</small></div>`;
+  const drivers=s.drivers.filter(x=>x.probable>.01).slice(0,3).map(x=>`${esc(x.name)} ≈ ${euro(x.probable)}`).join(' · ');
+  return `<div class="b2-scenarios">
+    <div class="b2-scenarios-head"><div><span>B²+ · scénarios</span><strong>Ce qui peut réellement se passer</strong></div><b>${c.label} · ${c.score}/100</b></div>
+    <div class="b2-scenario-grid">${fmtScenario(s.tight)}${fmtScenario(s.probable)}${fmtScenario(s.prudent)}</div>
+    <div class="b2-scenarios-note">${drivers?`Principaux besoins estimés : ${drivers}. `:''}${s.calendar.weekends?`${s.calendar.weekends} jour${s.calendar.weekends>1?'s':''} de week-end avant le prochain revenu sont intégrés au calendrier. `:''}Le scénario probable mélange ton profil, ton budget, les repères publics et ton historique ; le scénario prudent ajoute une marge liée à l’incertitude.</div>
+  </div>`
 }
 
 function predictedSpendableBeforeIncome(b,living=null){
   const l=living||estimatedLivingNeedUntilIncome(b,shortTermMoneyContext(b));
-  return r2(num(l.predictedBeforeIncome)-Math.max(0,num(b?.reserve)))
+  if(Number.isFinite(num(l.spendableBeforeIncome)))return r2(num(l.spendableBeforeIncome));
+  return r2(remaining(b)-Math.max(0,num(l.variableNeed)))
 }
 
 function b2EstimateExplanationHTML(b,h){
-  const ctx=shortTermMoneyContext(b),living=estimatedLivingNeedUntilIncome(b,ctx),a=adaptiveLearningSummary(b);
+  const advanced=advancedIntelligenceEnabled();
+  const ctx=shortTermMoneyContext(b),living=advanced?estimatedLivingNeedUntilIncome(b,ctx):estimatedLivingNeedUntilIncomeBasic(b,ctx),a=advanced?adaptiveLearningSummary(b):null;
   const need=r2(living.variableNeed+living.obligations),projected=living.predictedBeforeIncome,spendable=predictedSpendableBeforeIncome(b,living),ready=living.canShowEssential;
   const openingCarry=r2(num(b.openingCarry)),openingIncome=r2(num(b.openingIncomeAmount));
   const openingBreakdown=(Math.abs(openingCarry)>.01||openingIncome>.01)
@@ -4645,19 +5129,25 @@ function b2EstimateExplanationHTML(b,h){
       ${Math.abs(openingCarry)>.01?`<div class="b2-estimate-row"><span>↳ Report de la période précédente</span><strong>${openingCarry<0?'−':'＋'} ${euro(Math.abs(openingCarry))}</strong></div>`:''}`
     :'';
   const rows=(living.breakdown||[]).filter(x=>num(x.amount)>.01).slice(0,5);
-  const source=ready
-    ?(a.historyPeriods>=3?'B² s’appuie surtout sur plusieurs périodes de dépenses réelles, tout en gardant ton budget comme garde-fou.':'B² combine maintenant ton budget avec les dépenses réellement observées. Le réel prendra encore plus de poids au fil des périodes.')
-    :'Première période : B² ne connaît pas encore ton rythme réel. Il utilise ton budget actuel comme base provisoire et apprend à mesure que tu enregistres tes dépenses.';
+  const source=advanced
+    ?(!ready
+      ?`B²+ croise déjà ton foyer, tes réponses, les repères publics français, ton budget et les premiers mouvements. L’historique personnel prendra progressivement le dessus.`
+      :(a.historyPeriods>=3
+        ?'B²+ s’appuie maintenant surtout sur tes dépenses réelles ; le profil, le budget et les repères publics ne sont plus que des garde-fous.'
+        :'B²+ mélange encore ton profil, ton budget et les premières périodes observées.'))
+    :`Version gratuite : B² vérifie la cohérence avec ton foyer, tes réponses de départ, des repères publics et la période actuelle. L’apprentissage historique personnalisé est réservé à B²+.`;
   const obligations=living.obligations>0?`<div class="b2-estimate-row"><span>Charges obligatoires avant le revenu</span><strong>${euro(living.obligations)}</strong></div>`:'';
-  const rowsHtml=rows.map(x=>`<div class="b2-estimate-row"><span>${esc(x.name)}${num(x.coverageCredit)>.5?`<small style="display:block;margin-top:2px;color:var(--muted);font-size:9px">${euro(x.coverageCredit)} déjà couverts par des dépenses récentes</small>`:''}</span><strong>${ready?euro(x.amount):`≈ ${euro(Math.round(x.amount))}`}</strong></div>`).join('');
+  const rowsHtml=rows.map(x=>`<div class="b2-estimate-row"><span>${esc(x.name)}${x.benchmarkUsed?`<small style="display:block;margin-top:2px;color:var(--muted);font-size:9px">repère profil/public : ${euro(x.benchmarkReferenceMonthly||x.benchmarkMonthly)}/mois${advanced?` · poids actuel ${Math.round(num(x.benchmarkWeight)*100)} %`:''}</small>`:''}${num(x.coverageCredit)>.5?`<small style="display:block;margin-top:2px;color:var(--muted);font-size:9px">${euro(x.coverageCredit)} déjà couverts par des dépenses récentes</small>`:''}</span><strong>${euro(x.amount)}</strong></div>`).join('');
   const totalLabel=ready
     ?`Besoin essentiel estimé pour les ${living.days} prochain${living.days>1?'s':''} jour${living.days>1?'s':''} : <strong>${euro(need)}</strong>`
     :`Marge provisoire intégrée à la projection : <strong>≈ ${euro(Math.round(need))}</strong>`;
-  const learningNote=ready
-    ?'Cette estimation continuera d’évoluer : les périodes récentes comptent davantage que les anciennes.'
-    :'B² n’affiche pas encore de besoin quotidien personnalisé : un chiffre précis donnerait une fausse impression de certitude.';
+  const learningNote=advanced
+    ?(ready
+      ?'B²+ donne maintenant la priorité à tes dépenses réelles ; les périodes récentes comptent davantage que les anciennes.'
+      :'B²+ apprend encore : les repères publics et ton profil empêchent les estimations absurdes en attendant un historique solide.')
+    :'B² gratuit reste cohérent grâce au profil, aux repères publics, au budget et aux mouvements de la période, mais ne construit pas de mémoire prédictive longue.';
   const coverageNote=living.recentlyCovered>.5?` B² tient aussi compte d’environ ${euro(living.recentlyCovered)} de besoins déjà couverts par des dépenses récentes (par exemple courses ou carburant), au lieu de les compter une deuxième fois.`:'';
-  return `<details class="b2-estimate-details"><summary>Comment B² arrive à cette estimation ?</summary><div class="b2-estimate-explain"><div class="estimate-intro">${source}</div>${openingBreakdown}<div class="b2-estimate-row"><span>Argent disponible aujourd’hui</span><strong>${ctx.cashNow<0?'−':'＋'} ${euro(Math.abs(ctx.cashNow))}</strong></div>${obligations}${rowsHtml}<div class="b2-estimate-total">${totalLabel}<br>Projection avant le prochain revenu : <strong>${projected<0?'−':''}${euro(Math.abs(projected))}</strong>${num(b.reserve)>0?`<br>Réserve protégée : <strong>${euro(b.reserve)}</strong><br>Disponible après réserve : <strong>${spendable<0?'−':''}${euro(Math.abs(spendable))}</strong>`:''}</div><div class="b2-estimate-learning">${learningNote}${coverageNote} Le calendrier compte aussi : une journée sans dépense laisse un jour de moins à financer, tandis que les charges encore dues restent protégées.</div></div></details>`;
+  return `<details class="b2-estimate-details"><summary>Comment B² arrive à cette estimation ?</summary><div class="b2-estimate-explain"><div class="estimate-intro">${source}</div>${openingBreakdown}<div class="b2-estimate-row"><span>Argent disponible aujourd’hui</span><strong>${ctx.cashNow<0?'−':'＋'} ${euro(Math.abs(ctx.cashNow))}</strong></div>${obligations}${rowsHtml}<div class="b2-estimate-total">${totalLabel}<br>Solde du compte estimé avant le prochain revenu : <strong>${projected<0?'−':''}${euro(Math.abs(projected))}</strong><br>Disponible estimé à utiliser à ce moment-là : <strong>${spendable<0?'−':''}${euro(Math.abs(spendable))}</strong>${num(b.reserve)>0?`<br>Réserve protégée : <strong>${euro(b.reserve)}</strong>`:''}</div><div class="b2-estimate-learning">${learningNote}${coverageNote} Le calendrier compte aussi : une journée sans dépense laisse un jour de moins à financer, tandis que les charges encore dues restent protégées.</div></div></details>`;
 }
 function b2LearningMaturity(b){
   const a=adaptiveLearningSummary(b),periods=a.historyPeriods,evidence=a.evidence,days=a.historyDays;
@@ -4798,38 +5288,64 @@ function estimatedLivingNeedUntilIncomeBasic(b,ctx=null){
   const days=Math.max(0,num(ctx.daysToIncome));
   const elapsed=Math.max(1,daysBetweenISO(b.cycleStart||todayISO(),todayISO()));
   const monthDays=daysInBudgetMonth(b.cycleStart||todayISO());
-  const breakdown=(b.envelopes||[]).map(e=>{
+
+  let breakdown=(b.envelopes||[]).map(e=>{
     const essentiality=survivalEssentialityOfEnvelope(e,b);
     if(essentiality<=0)return null;
+
     const budgetDaily=Math.max(0,num(e.amount))/Math.max(1,monthDays);
+    const benchmark=externalBenchmarkForEnvelope(e,b);
+    const externalDaily=Math.max(0,num(benchmark.daily));
     const txCount=(b.transactions||[]).filter(t=>t.type==='expense'&&String(t.categoryId)===String(e.id)).length;
     const currentDaily=elapsed>=3&&txCount>=2?Math.max(0,spentFor(b,e.id))/elapsed:null;
-    const daily=currentDaily==null?budgetDaily:r2(budgetDaily*.65+currentDaily*.35);
+
+    const provisionalBase=Math.max(budgetDaily,externalDaily);
+    const observed=currentDaily==null?provisionalBase:r2(provisionalBase*.72+currentDaily*.28);
+    const daily=Math.max(externalDaily*.82,observed);
     const essentialDaily=r2(daily*essentiality);
     const coverage=recentFutureCoverage(b,e,essentialDaily,days);
+
     return {
       envId:e.id,name:e.name,kind:envelopeCategoryKind(e),daily:essentialDaily,
       amount:coverage.remainingNeed,rawAmount:coverage.rawNeed,coverageCredit:coverage.credit,
       coverageDays:coverage.daysCovered,coverageLabel:coverage.behavior.label,
-      essentiality,confidence:currentDaily==null?.35:.58,historyWeight:0
+      essentiality,confidence:currentDaily==null?.48:.62,historyWeight:0,
+      benchmarkDaily:r2(externalDaily),benchmarkMonthly:r2(benchmark.prudentMonthly),
+      benchmarkUsed:externalDaily>.01&&provisionalBase>=externalDaily-.01,benchmarkSource:benchmark.source||''
     }
-  }).filter(Boolean).filter(x=>x.rawAmount>.01||x.amount>.01).sort((a,z)=>z.amount-a.amount);
+  }).filter(Boolean);
+
+  if(days>0&&!breakdown.some(x=>x.kind==='food')){
+    const monthly=householdPrudentFoodFloorMonthly(b),daily=r2(monthly/Math.max(28,monthDays));
+    breakdown.push({
+      envId:null,name:'Courses & quotidien',kind:'food',daily,amount:r2(daily*days),rawAmount:r2(daily*days),
+      coverageCredit:0,coverageDays:0,coverageLabel:'alimentation',essentiality:1,confidence:.48,historyWeight:0,
+      benchmarkDaily:daily,benchmarkMonthly:monthly,benchmarkUsed:true,benchmarkSource:B2_EXTERNAL_LIVING_REFERENCE.source
+    })
+  }
+
+  breakdown=breakdown.filter(x=>x.rawAmount>.01||x.amount>.01).sort((a,z)=>z.amount-a.amount);
+
   const variableNeed=r2(breakdown.reduce((s,x)=>s+num(x.amount),0));
   const recentlyCovered=r2(breakdown.reduce((s,x)=>s+num(x.coverageCredit),0));
-  const obligations=r2(ctx.knownFixed+ctx.oneOff);
+  const obligations=r2(ctx.obligations);
   const predictedBeforeIncome=r2(ctx.cashNow-obligations-variableNeed);
-  const debtAtIncome=r2(Math.max(0,-predictedBeforeIncome));
+  const spendableBeforeIncome=r2(remaining(b)-variableNeed);
+  const debtAtIncome=r2(Math.max(0,-spendableBeforeIncome));
   const nextIncomeAmount=r2(num(ctx.nextIncome?.amount));
-  const afterIncome=r2(predictedBeforeIncome+nextIncomeAmount);
+  const afterIncome=r2(spendableBeforeIncome+nextIncomeAmount);
   const dailyEssential=days>0?r2(variableNeed/days):0;
+  const benchmarkDriven=breakdown.some(x=>x.benchmarkUsed&&num(x.benchmarkDaily)>.01);
+
   return {
-    days,variableNeed,recentlyCovered,dailyEssential,displayDailyEssential:null,obligations,
-    predictedBeforeIncome,debtAtIncome,nextIncomeAmount,afterIncome,breakdown,
-    learningLevel:'current',learningEvidence:0,learningPeriods:0,learningMaturity:0,
-    canShowEssential:false,intelligenceMode:'free'
+    days,variableNeed,recentlyCovered,dailyEssential,displayDailyEssential:dailyEssential,obligations,
+    predictedBeforeIncome,spendableBeforeIncome,debtAtIncome,nextIncomeAmount,afterIncome,breakdown,
+    benchmarkDriven,benchmarkSource:benchmarkDriven?B2_EXTERNAL_LIVING_REFERENCE.source:'',
+    benchmarkHousehold:benchmarkDriven?householdBenchmarkLabel(b):'',
+    learningLevel:'repère de départ',learningEvidence:0,learningPeriods:0,learningMaturity:0,
+    canShowEssential:true,intelligenceMode:'free'
   }
 }
-
 function nextCycleRecoveryPlanBasic(b,ctx=null,living=null){
   ctx=ctx||shortTermMoneyContext(b);
   living=living||estimatedLivingNeedUntilIncomeBasic(b,ctx);
@@ -4932,28 +5448,54 @@ function plusIntelligenceReport(b){
 function estimatedLivingNeedUntilIncome(b,ctx=null){
   ctx=ctx||shortTermMoneyContext(b);
   const days=Math.max(0,ctx.daysToIncome),learning=adaptiveLearningSummary(b);
-  const breakdown=(b.envelopes||[]).map(e=>{
+
+  let breakdown=(b.envelopes||[]).map(e=>{
     const pattern=learning.patterns.find(p=>String(p.envId)===String(e.id))||learnedEnvelopePattern(b,e);
     const essentiality=survivalEssentialityOfEnvelope(e,b);
-    const daily=Math.max(0,pattern.daily*essentiality);
+    const season=b2PlusSeasonalityMultiplier(pattern.kind,todayISO());
+    const daily=Math.max(0,pattern.daily*essentiality*season);
     const coverage=recentFutureCoverage(b,e,daily,days);
     return {
       envId:e.id,name:e.name,kind:pattern.kind,daily:r2(daily),amount:coverage.remainingNeed,rawAmount:coverage.rawNeed,
       coverageCredit:coverage.credit,coverageDays:coverage.daysCovered,coverageLabel:coverage.behavior.label,
-      essentiality,confidence:pattern.confidence,historyWeight:pattern.historyWeight
+      essentiality,confidence:pattern.confidence,historyWeight:pattern.historyWeight,
+      benchmarkDaily:r2(pattern.benchmarkDaily),benchmarkMonthly:r2(pattern.benchmarkMonthly),
+      benchmarkWeight:r2(pattern.benchmarkWeight),benchmarkUsed:!!pattern.benchmarkUsed,
+      benchmarkSource:pattern.benchmarkSource||''
     }
-  }).filter(x=>x.rawAmount>.01||x.amount>.01).sort((a,z)=>z.amount-a.amount);
+  });
+
+  if(days>0&&!breakdown.some(x=>x.kind==='food')){
+    const monthly=householdPrudentFoodFloorMonthly(b),daily=r2(monthly/Math.max(28,daysInBudgetMonth(b.cycleStart||todayISO())));
+    breakdown.push({
+      envId:null,name:'Courses & quotidien',kind:'food',daily,amount:r2(daily*days),rawAmount:r2(daily*days),
+      coverageCredit:0,coverageDays:0,coverageLabel:'alimentation',essentiality:1,confidence:'repère',historyWeight:0,
+      benchmarkDaily:daily,benchmarkMonthly:monthly,benchmarkWeight:1,benchmarkUsed:true,
+      benchmarkSource:B2_EXTERNAL_LIVING_REFERENCE.source
+    })
+  }
+
+  breakdown=breakdown.filter(x=>x.rawAmount>.01||x.amount>.01).sort((a,z)=>z.amount-a.amount);
+
   const variableNeed=r2(breakdown.reduce((sum,x)=>sum+x.amount,0));
   const recentlyCovered=r2(breakdown.reduce((sum,x)=>sum+num(x.coverageCredit),0));
-  const obligations=r2(ctx.knownFixed+ctx.oneOff);
+  const obligations=r2(ctx.obligations);
   const predictedBeforeIncome=r2(ctx.cashNow-obligations-variableNeed);
-  const debtAtIncome=r2(Math.max(0,-predictedBeforeIncome));
+  const spendableBeforeIncome=r2(remaining(b)-variableNeed);
+  const debtAtIncome=r2(Math.max(0,-spendableBeforeIncome));
   const nextIncomeAmount=r2(num(ctx.nextIncome?.amount));
-  const afterIncome=r2(predictedBeforeIncome+nextIncomeAmount);
+  const afterIncome=r2(spendableBeforeIncome+nextIncomeAmount);
   const dailyEssential=days>0?r2(variableNeed/days):0;
+  const benchmarkDriven=breakdown.some(x=>x.benchmarkUsed&&num(x.benchmarkDaily)>.01);
+
   return {
-    days,variableNeed,recentlyCovered,dailyEssential,displayDailyEssential:learning.canShowEssential?dailyEssential:null,obligations,predictedBeforeIncome,debtAtIncome,nextIncomeAmount,afterIncome,
-    breakdown,learningLevel:learning.level,learningEvidence:learning.evidence,learningPeriods:learning.historyPeriods,learningMaturity:learning.maturityPct,canShowEssential:learning.canShowEssential
+    days,variableNeed,recentlyCovered,dailyEssential,
+    displayDailyEssential:(learning.canShowEssential||benchmarkDriven)?dailyEssential:null,
+    obligations,predictedBeforeIncome,spendableBeforeIncome,debtAtIncome,nextIncomeAmount,afterIncome,
+    breakdown,benchmarkDriven,benchmarkSource:benchmarkDriven?B2_EXTERNAL_LIVING_REFERENCE.source:'',
+    benchmarkHousehold:benchmarkDriven?householdBenchmarkLabel(b):'',
+    learningLevel:learning.level,learningEvidence:learning.evidence,learningPeriods:learning.historyPeriods,
+    learningMaturity:learning.maturityPct,canShowEssential:learning.canShowEssential
   }
 }
 function smartEnvelopeTargets(b,capacity=null){
@@ -5314,15 +5856,17 @@ function pendingBankContext(b){
 }
 function shortTermMoneyContext(b){
   const cashNow=currentCashEstimate(b),nextIncome=nextExpectedIncome(b),end=nextIncome?.nextDate||b.cycleEnd||addDaysISO(todayISO(),30),today=todayISO();
-  const knownFixed=(b.fixed||[]).filter(x=>x.dueThisCycle!==false&&fixedActiveInWindow(x,b.cycleStart||today,b.cycleEnd||end)).reduce((s,x)=>{
-    if(x.dueDay==null)return s+num(x.amount);
-    const due=fixedDueDate(b,x);
-    return s+(due&&due>=today&&due<=end?num(x.amount):0)
-  },0);
+
+  // IMPORTANT : le Carré doit partir exactement des mêmes sommes protégées
+  // que le "Disponible à utiliser". Avant v14.21 il recalculait les charges
+  // avec une autre règle de dates, ce qui pouvait oublier une partie de l'argent
+  // déjà protégé et afficher une projection supérieure au disponible actuel.
+  const knownFixed=r2(fixedThisCycle(b));
   const oneOff=r2(sum(b.oneOffs));
   const plannedAside=r2(provisionsThisCycle(b)+savingsThisCycle(b));
   const bank=pendingBankContext(b);
   const obligations=r2(knownFixed+oneOff+plannedAside);
+
   const floorBeforeIncome=r2(cashNow-obligations);
   const daysToIncome=nextIncome?Math.max(0,daysBetweenISO(today,nextIncome.nextDate)):daysUntil(b.cycleEnd);
   const safeVariable=r2(Math.max(0,floorBeforeIncome-num(b.reserve)));
@@ -5330,20 +5874,26 @@ function shortTermMoneyContext(b){
   return {cashNow,nextIncome,end,knownFixed,oneOff,plannedAside,obligations,bank,floorBeforeIncome,safeVariable,daysToIncome,safeDaily}
 }
 function trajectoryRiskAssessment(b,ctx=null,living=null,recovery=null){
-  ctx=ctx||shortTermMoneyContext(b);living=living||estimatedLivingNeedUntilIncome(b,ctx);recovery=recovery||nextCycleRecoveryPlan(b,ctx,living);
+  ctx=ctx||shortTermMoneyContext(b);
+  living=living||estimatedLivingNeedUntilIncome(b,ctx);
+  recovery=recovery||nextCycleRecoveryPlan(b,ctx,living);
+
   const days=Math.max(0,num(ctx.daysToIncome));
-  const cash=num(ctx.cashNow),obligations=Math.max(0,num(living.obligations)),essential=Math.max(0,num(living.variableNeed));
-  const need=r2(obligations+essential),before=r2(living.predictedBeforeIncome),gap=Math.max(0,-before);
+  const spendableNow=Math.max(0,num(remaining(b)));
+  const essential=Math.max(0,num(living.variableNeed));
+  const need=r2(essential);
+  const before=r2(predictedSpendableBeforeIncome(b,living));
+  const gap=Math.max(0,-before);
+
   const income=Math.max(0,num(living.nextIncomeAmount)||normalCycleIncome(b));
   const normalVariable=Math.max(0,num(recovery.normalCapacity));
-  const coverage=need>0?clamp(Math.max(0,cash)/need,0,2):(cash>=0?2:0);
+  const coverage=need>0?clamp(spendableNow/need,0,2):(spendableNow>=0?2:0);
   const gapVsIncome=income>0?gap/income:(gap>0?1:0);
   const gapVsVariable=normalVariable>0?gap/normalVariable:(gap>0?1:0);
   const dailyNeed=days>0?essential/days:0;
-  const cashRunway=dailyNeed>0?Math.max(0,cash-obligations)/dailyNeed:(cash>=obligations?99:0);
+  const cashRunway=dailyNeed>0?spendableNow/dailyNeed:99;
   const runwayRatio=days>0?clamp(cashRunway/days,0,2):2;
 
-  // Le score mesure une trajectoire, pas le signe du solde : temps restant, besoins à couvrir et capacité réelle de récupération.
   let score=0;
   if(before<0){
     score+=24;
@@ -5353,10 +5903,10 @@ function trajectoryRiskAssessment(b,ctx=null,living=null,recovery=null){
     if(coverage<.35)score+=16; else if(coverage<.65)score+=10; else if(coverage<1)score+=5;
     if(runwayRatio<.35)score+=12; else if(runwayRatio<.7)score+=7;
   }else{
-    // Un compte encore positif peut être en danger si l'argent restant ne couvre pas ce qui doit arriver avant le revenu.
     if(coverage<1){score+=10+(1-coverage)*22;if(days>=14)score+=8}
     if(runwayRatio<.75&&days>=7)score+=8;
   }
+
   if(!recovery.feasible&&gap>0)score=Math.max(score,88);
   score=clamp(score,0,100);
 
@@ -5364,15 +5914,19 @@ function trajectoryRiskAssessment(b,ctx=null,living=null,recovery=null){
   if(gap<=.01){
     if(score>=38)level=2; else if(score>=20)level=1;
   }else{
-    // Rouge possible même avec un petit découvert : ce qui compte est le nombre de jours et la part des besoins non finançables.
     const structuralDanger=(days>=14&&(coverage<.45||runwayRatio<.45)) || (days>=10&&gapVsVariable>.72) || gapVsIncome>.38 || !recovery.feasible;
     if(structuralDanger||score>=76)level=4;
     else if(score>=55||gapVsVariable>.45)level=3;
     else if(score>=36||gapVsVariable>.25||days>=10)level=2;
     else level=1;
   }
+
   const status=level===4?'danger':level===3?'recovery':level===2?'tight':level===1?'watch':'healthy';
-  return {score:r2(score),level,status,days,cash,obligations,essential,need,before,gap,income,normalVariable,coverage,runwayRatio,cashRunway,gapVsIncome,gapVsVariable};
+  return {
+    score:r2(score),level,status,days,
+    cash:spendableNow,spendableNow,obligations:0,essential,need,before,gap,income,normalVariable,
+    coverage,runwayRatio,cashRunway,gapVsIncome,gapVsVariable
+  }
 }
 function nextFinancialEvent(b,ctx,overdueIncome,overdueFixed){
   if(overdueIncome)return {type:'income-late',name:overdueIncome.name,amount:num(overdueIncome.amount),date:overdueIncome.nextDate,days:-overdueIncome.daysLate,text:`Attendu depuis ${overdueIncome.daysLate} jour${overdueIncome.daysLate>1?'s':''}`};
@@ -5587,6 +6141,166 @@ function runSquareScenarioChecks(){
     const s={budgets:[b]};
     const ok=autoRepairEarlySalaryStateV1420(s);
     return ok&&b.startMode==='now'&&b.cycleStart===todayISO()&&Math.abs(b.startBalance-1850.80)<.01
+  });
+
+  add('Projection','Sans nouveau revenu le disponible projeté ne dépasse jamais le disponible actuel',()=>{
+    const b=mk({
+      startMode:'now',
+      startBalance:1850.80,
+      cycleStart:todayISO(),
+      cycleEnd:addDaysISO(todayISO(),31),
+      reserve:50,
+      fixed:[{id:'fixed',name:'Charges',amount:1599.02,dueThisCycle:true,dueDay:null}],
+      incomeSources:[{id:'salary',name:'Salaire',amount:1691.99,nextDate:addDaysISO(todayISO(),31),primary:true}],
+      envelopes:[env('food','Courses & quotidien',95.68,'essential')]
+    });
+    const l=L(b),current=remaining(b),before=predictedSpendableBeforeIncome(b,l);
+    return Math.abs(current-201.78)<.01&&before<=current+.01
+  });
+  add('Projection','Les obligations du Carré utilisent les mêmes protections que le disponible',()=>{
+    const b=mk({
+      startMode:'now',startBalance:1000,reserve:50,
+      cycleEnd:addDaysISO(todayISO(),30),
+      fixed:[{id:'f',name:'Charge',amount:400,dueThisCycle:true,dueDay:null}],
+      oneOffs:[{id:'o',name:'Ponctuel',amount:100}],
+      incomeSources:[{id:'salary',name:'Salaire',amount:1700,nextDate:addDaysISO(todayISO(),30),primary:true}]
+    });
+    return Math.abs(shortTermMoneyContext(b).obligations-protectedThisCycle(b))<.01
+  });
+
+  add('Repères externes','1 adulte + 2 enfants : le plancher prudent alimentation dépasse 500 €/mois',()=>{
+    const b=mk({household:{adults:1,children:2},budgetProfile:{meals:'mixed',childStages:['school']}});
+    return householdPrudentFoodFloorMonthly(b)>=500
+  });
+  add('Repères externes','201,78 € pour 31 jours et 1 adulte + 2 enfants n’est pas déclaré confortable',()=>{
+    const b=mk({
+      startMode:'now',
+      startBalance:1850.80,
+      cycleStart:todayISO(),
+      cycleEnd:addDaysISO(todayISO(),31),
+      reserve:50,
+      household:{adults:1,children:2},
+      budgetProfile:{meals:'mixed',mobility:'regular',childStages:['school']},
+      fixed:[{id:'f',name:'Charges',amount:1599.02,dueThisCycle:true,dueDay:null}],
+      envelopes:[
+        env('food','Courses & quotidien',95.68,'essential'),
+        env('fun','Loisirs & sorties',40,'flexible')
+      ],
+      incomeSources:[{id:'salary',name:'Salaire',amount:1691.99,nextDate:addDaysISO(todayISO(),31),primary:true}]
+    });
+    const h=H(b),l=L(b);
+    return remaining(b)<=201.79&&l.variableNeed>450&&predictedSpendableBeforeIncome(b,l)<0&&h.level>=3
+  });
+  add('Repères externes','Après un historique solide, les dépenses réelles reprennent la priorité',()=>{
+    const e=env('food','Courses & quotidien',150,'essential');
+    const histories=[];
+    for(let i=0;i<4;i++)histories.push({
+      cycleStart:addDaysISO(todayISO(),-(120-i*30)),
+      cycleEnd:addDaysISO(todayISO(),-(90-i*30)),
+      expenses:300,
+      envelopes:[{id:'food',name:'Courses & quotidien',amount:150,spent:300}]
+    });
+    const b=mk({household:{adults:1,children:2},budgetProfile:{meals:'mixed',childStages:['school']},envelopes:[e],history:histories});
+    const p=learnedEnvelopePattern(b,e);
+    return p.historyDays>=85&&p.benchmarkWeight===0
+  });
+
+  add('Intelligence Carré','La mobilité déclarée change fortement le repère carburant',()=>{
+    const low=mk({household:{adults:1,children:0},budgetProfile:{mobility:'low'}});
+    const high=mk({household:{adults:1,children:0},budgetProfile:{mobility:'high'}});
+    const e=env('fuel','Carburant & déplacements',100,'important');
+    return officialEnvelopeBenchmark(e,high).referenceMonthly>officialEnvelopeBenchmark(e,low).referenceMonthly*2.5
+  });
+  add('Intelligence Carré','Deux enfants augmentent alimentation, vêtements et école',()=>{
+    const solo=mk({household:{adults:1,children:0},budgetProfile:{childStages:[]}});
+    const fam=mk({household:{adults:1,children:2},budgetProfile:{childStages:['school']}});
+    const food=env('food','Courses & quotidien',100,'essential');
+    const clothes=env('clothes','Vêtements',50,'important');
+    const kids=env('kids','École & activités enfants',40,'important');
+    return officialEnvelopeBenchmark(food,fam).referenceMonthly>officialEnvelopeBenchmark(food,solo).referenceMonthly
+      &&officialEnvelopeBenchmark(clothes,fam).referenceMonthly>officialEnvelopeBenchmark(clothes,solo).referenceMonthly
+      &&officialEnvelopeBenchmark(kids,fam).referenceMonthly>0
+  });
+  add('Intelligence Carré','Le style de vie déclaré modifie loisirs et courses',()=>{
+    const home=mk({household:{adults:1,children:0},budgetProfile:{meals:'cook',leisure:'home'}});
+    const active=mk({household:{adults:1,children:0},budgetProfile:{meals:'out',leisure:'active'}});
+    const food=env('food','Courses & quotidien',100,'essential');
+    const fun=env('fun','Loisirs & sorties',50,'flexible');
+    return officialEnvelopeBenchmark(food,home).referenceMonthly>officialEnvelopeBenchmark(food,active).referenceMonthly
+      &&officialEnvelopeBenchmark(fun,active).referenceMonthly>officialEnvelopeBenchmark(fun,home).referenceMonthly
+  });
+  add('Intelligence Carré','L’historique solide fait disparaître le poids des repères publics',()=>{
+    const e=env('food','Courses & quotidien',150,'essential');
+    const histories=[];
+    for(let i=0;i<4;i++)histories.push({
+      cycleStart:addDaysISO(todayISO(),-(120-i*30)),
+      cycleEnd:addDaysISO(todayISO(),-(90-i*30)),
+      expenses:300,
+      envelopes:[{id:'food',name:'Courses & quotidien',amount:150,spent:300}]
+    });
+    const b=mk({household:{adults:1,children:2},budgetProfile:{meals:'mixed',childStages:['school']},envelopes:[e],history:histories});
+    const p=learnedEnvelopePattern(b,e);
+    return p.historyDays>=85&&p.benchmarkWeight<=.12
+  });
+
+  add('B²+ Intelligence','Le gratuit ne dépend pas de l’historique long terme',()=>{
+    const base={
+      startBalance:900,cycleEnd:addDaysISO(todayISO(),20),
+      household:{adults:1,children:2},
+      budgetProfile:{meals:'mixed',mobility:'regular',childStages:['school']},
+      envelopes:[env('food','Courses & quotidien',180,'essential')],
+      incomeSources:[{id:'salary',name:'Salaire',amount:1700,nextDate:addDaysISO(todayISO(),20),primary:true}]
+    };
+    const a=mk({...base,history:[]});
+    const b=mk({...base,history:[
+      {cycleStart:addDaysISO(todayISO(),-60),cycleEnd:addDaysISO(todayISO(),-30),expenses:800,envelopes:[{id:'food',name:'Courses & quotidien',amount:180,spent:800}]}
+    ]});
+    const ca=shortTermMoneyContext(a),cb=shortTermMoneyContext(b);
+    return Math.abs(estimatedLivingNeedUntilIncomeBasic(a,ca).variableNeed-estimatedLivingNeedUntilIncomeBasic(b,cb).variableNeed)<.01
+  });
+  add('B²+ Intelligence','Le scénario probable inclut aussi le mode de vie, pas seulement la survie',()=>{
+    const b=mk({
+      startBalance:1000,cycleEnd:addDaysISO(todayISO(),20),
+      household:{adults:1,children:2},
+      budgetProfile:{meals:'mixed',mobility:'regular',leisure:'active',childStages:['school']},
+      envelopes:[
+        env('food','Courses & quotidien',300,'essential'),
+        env('fuel','Carburant & déplacements',140,'important'),
+        env('fun','Loisirs & sorties',150,'flexible')
+      ],
+      incomeSources:[{id:'salary',name:'Salaire',amount:1700,nextDate:addDaysISO(todayISO(),20),primary:true}]
+    });
+    const ctx=shortTermMoneyContext(b),living=estimatedLivingNeedUntilIncome(b,ctx),s=b2PlusForecastScenarios(b,ctx,living);
+    return s.probable.need>s.tight.need&&s.prudent.need>s.probable.need
+  });
+  add('B²+ Intelligence','La confiance augmente avec un historique solide',()=>{
+    const e=env('food','Courses & quotidien',300,'essential');
+    const fresh=mk({envelopes:[e],history:[]});
+    const history=[];
+    for(let i=0;i<4;i++)history.push({
+      cycleStart:addDaysISO(todayISO(),-(120-i*30)),cycleEnd:addDaysISO(todayISO(),-(90-i*30)),
+      expenses:350,envelopes:[{id:'food',name:'Courses & quotidien',amount:300,spent:350}]
+    });
+    const mature=mk({envelopes:[e],history});
+    return b2PlusConfidenceModel(mature).score>b2PlusConfidenceModel(fresh).score
+  });
+  add('B²+ Intelligence','La saisonnalité augmente cadeaux en décembre',()=>{
+    return b2PlusSeasonalityMultiplier('gifts','2026-12-10')>b2PlusSeasonalityMultiplier('gifts','2026-05-10')
+  });
+  add('B²+ Intelligence','201 € sur un mois pour 1 adulte + 2 enfants reste un signal fort',()=>{
+    const b=mk({
+      startMode:'now',startBalance:1850.80,cycleStart:todayISO(),cycleEnd:addDaysISO(todayISO(),31),reserve:50,
+      household:{adults:1,children:2},budgetProfile:{meals:'mixed',mobility:'regular',leisure:'balanced',childStages:['school']},
+      fixed:[{id:'f',name:'Charges',amount:1599.02,dueThisCycle:true,dueDay:null}],
+      envelopes:[
+        env('food','Courses & quotidien',95.68,'essential'),
+        env('fuel','Carburant & déplacements',60,'important'),
+        env('fun','Loisirs & sorties',40,'flexible')
+      ],
+      incomeSources:[{id:'salary',name:'Salaire',amount:1691.99,nextDate:addDaysISO(todayISO(),31),primary:true}]
+    });
+    const h=budgetHealth(b);
+    return remaining(b)<=201.79&&h.level>=3
   });
 
   // B — Negative balances at different points in the period
@@ -6015,32 +6729,60 @@ function budgetHealth(b){
   const ctx=shortTermMoneyContext(b),living=advanced?estimatedLivingNeedUntilIncome(b,ctx):estimatedLivingNeedUntilIncomeBasic(b,ctx),recovery=advanced?nextCycleRecoveryPlan(b,ctx,living):nextCycleRecoveryPlanBasic(b,ctx,living),trajectory=trajectoryRiskAssessment(b,ctx,living,recovery),projectionDate=ctx.nextIncome?.nextDate||b.cycleEnd||incomeForecastHorizon(b),projectedEnd=r2(ctx.nextIncome?living.predictedBeforeIncome:forecastEndBalance(b)),overdueIncome=overdueIncomeSource(b),overdueFixed=overdueFixedCharge(b);
   const nextEvent=nextFinancialEvent(b,ctx,overdueIncome,overdueFixed);
   const bank=ctx.bank,predictive=advanced?predictiveCyclePlan(b):emptyPredictivePlan(),learningReady=advanced&&living.canShowEssential===true;
+  const plusScenarios=advanced&&ctx.nextIncome?b2PlusForecastScenarios(b,ctx,living):null;
+  const plusConfidence=advanced?b2PlusConfidenceModel(b,living):null;
 
-  if(ctx.nextIncome&&living.predictedBeforeIncome<-.01){
-    const debt=living.debtAtIncome,sev=trajectory.level;
-    const top=learningReady?living.breakdown.slice(0,2).map(x=>`${x.name} ≈ ${euro(x.amount)}`).join(' · '):'';
-    const livingText=learningReady
-      ?`B² estime encore environ ${euro(living.variableNeed)} de dépenses essentielles${top?` (${top})`:''}. Si le rythme se confirme, ton solde serait autour de ${euro(living.predictedBeforeIncome)} juste avant ${ctx.nextIncome.name}.`
-      :advanced
-        ?`B²+ utilise encore surtout ton budget comme base. Avec cette base, le solde serait autour de ${euro(living.predictedBeforeIncome)} juste avant ${ctx.nextIncome.name}.`
-        :`B² se base sur ton budget actuel et tes dépenses de cette période. Le solde serait autour de ${euro(living.predictedBeforeIncome)} juste avant ${ctx.nextIncome.name}.`;
+  const survivalSpendableBeforeIncome=predictedSpendableBeforeIncome(b,living);
+  if(ctx.nextIncome&&survivalSpendableBeforeIncome<-.01){
+    const debt=Math.abs(survivalSpendableBeforeIncome),sev=trajectory.level;
+    const top=living.breakdown.slice(0,2).map(x=>`${x.name} ≈ ${euro(x.amount)}`).join(' · ');
+    const benchmarkNote=living.benchmarkDriven
+      ?` Comme ton historique est encore court, B² utilise aussi un repère prudent adapté à ton foyer (${living.benchmarkHousehold}), calibré sur des budgets-types français.`
+      :'';
+    const livingText=`B² estime encore environ ${euro(living.variableNeed)} nécessaires pour les dépenses essentielles${top?` (${top})`:''}.${benchmarkNote} Avec ${euro(Math.max(0,rem))} disponibles à utiliser aujourd’hui, cela ne suffit pas jusqu’à ${ctx.nextIncome.name}.`;
     signals.push(healthSignal(
       'survival',sev,`${living.days} jour${living.days>1?'s':''} à tenir avant le prochain revenu`,livingText,sev>=3?'balance':'pilot',null,
       sev>=4
-        ? `Avec ${euro(Math.max(0,ctx.cashNow))} disponibles aujourd’hui, B² estime qu’il manquerait environ ${euro(debt)} avant ${ctx.nextIncome.name}.`
+        ? `Tu as ${euro(Math.max(0,rem))} réellement disponibles à utiliser. B² estime environ ${euro(living.variableNeed)} de besoins essentiels avant ${ctx.nextIncome.name}, soit un manque d’environ ${euro(debt)}.`
         : sev===3
-          ? `Priorité aux dépenses indispensables. B² préparera aussi environ ${euro(recovery.debt)} de rattrapage dans le budget suivant.`
-          : learningReady
-            ? `Repère appris : environ ${euro(living.dailyEssential)}/jour pour les besoins indispensables. Le budget suivant intégrera environ ${euro(recovery.debt)} de rattrapage.`
-            : advanced
-              ? `B²+ reste prudent tant que l’historique est encore court.`
-              : `B² te signale le risque à partir de la période actuelle, sans analyser tes anciennes habitudes.`
+          ? `Priorité aux dépenses indispensables : il manque environ ${euro(debt)} pour couvrir le repère prudent jusqu’au prochain revenu.`
+          : `Repère actuel : environ ${euro(living.dailyEssential)}/jour pour les besoins indispensables.`
     ))
   }else if(!ctx.nextIncome&&projectedEnd<-.01){
     const lack=Math.abs(projectedEnd);
     signals.push(healthSignal('projection',4,'Aucun revenu à venir ne couvre la situation',`Avec ce qui est renseigné aujourd’hui, il manquerait environ ${euro(lack)}.`,'balance',over[0]?.env?.id||null,`Réduis ou décale environ ${euro(lack)}, ou renseigne ton prochain revenu.`))
   }else if(!ctx.nextIncome&&rem<-.01){
     signals.push(healthSignal('global',4,'Le disponible ne suffit pas',`Il manque ${euro(Math.abs(rem))} et aucun revenu à venir n’est renseigné pour compenser.`,'balance',over[0]?.env?.id||null,`Réduis ou décale environ ${euro(Math.abs(rem))}, ou renseigne le prochain revenu attendu.`))
+  }
+
+  if(advanced&&ctx.nextIncome&&plusScenarios&&!signals.some(x=>x.id==='survival')){
+    const s=plusScenarios;
+    if(s.tight.remaining<-.01){
+      signals.push(healthSignal(
+        'plus-lifestyle',4,
+        'Même un mois très serré ne tient pas',
+        `B²+ estime qu’en réduisant fortement les dépenses compressibles, il manquerait encore environ ${euro(s.tight.shortfall)} avant le prochain revenu.`,
+        'balance',null,
+        `Priorité absolue aux dépenses indispensables. B²+ peut chercher un rééquilibrage d’environ ${euro(s.tight.shortfall)}.`
+      ))
+    }else if(s.probable.remaining<-.01){
+      const sev=s.probable.shortfall>Math.max(80,s.current*.35)?3:2;
+      signals.push(healthSignal(
+        'plus-lifestyle',sev,
+        'Ton rythme probable ne rentre pas dans la marge',
+        `Le strict nécessaire peut tenir, mais avec ton profil et tes habitudes actuelles B²+ estime un manque d’environ ${euro(s.probable.shortfall)}.`,
+        sev>=3?'balance':'pilot',null,
+        `Pour rester dans le vert, vise plutôt le scénario serré et réduis temporairement les dépenses non essentielles.`
+      ))
+    }else if(s.prudent.remaining<-.01){
+      signals.push(healthSignal(
+        'plus-lifestyle',1,
+        'La marge de sécurité est faible',
+        `Le scénario probable tient, mais le scénario prudent ferait apparaître un manque d’environ ${euro(s.prudent.shortfall)}.`,
+        'pilot',null,
+        `Garde une marge sur les loisirs et achats tant que la période n’est pas plus avancée.`
+      ))
+    }
   }
 
   if(rem<-.01&&!signals.some(x=>x.id==='survival')){
@@ -6120,15 +6862,18 @@ function budgetHealth(b){
   let title='Tout est carré',text='Ton budget reste cohérent.',detail='',action='none',focusEnvId=null,actionText='Aucune action nécessaire aujourd’hui.';
   if(primary){
     if(primary.id==='survival'||primary.id==='spendable-negative') title=level===4?'Pas assez prévu jusqu’au prochain revenu':level===3?'Retour dans le vert à préparer':level===2?'Marge à reconstruire':'Situation à surveiller';
+    else if(primary.id==='plus-lifestyle') title=level===4?'Même en serrant, ça ne tient pas':level===3?'Ton mois est trop serré':level===2?'Tes habitudes dépassent la marge':'Marge de sécurité faible';
     else title=level===4?'Budget à rééquilibrer':level===3?'Un ajustement suffit':level===2?'Ralentir un peu':'À surveiller';
     text=primary.title;detail=primary.detail;action=primary.action;focusEnvId=primary.focusEnvId;actionText=primary.recommendation||primary.detail
   }else{
     if(ctx.nextIncome){
       detail=learningReady
         ?`B²+ estime environ ${euro(living.variableNeed)} nécessaires pour les dépenses essentielles d’ici ${ctx.nextIncome.name} du ${fmtDate(ctx.nextIncome.nextDate)}, à partir de tes habitudes observées.`
-        :advanced
-          ?`B²+ s’appuie encore surtout sur ton budget et la période en cours.`
-          :`B² s’appuie sur ton budget, tes charges et les dépenses de la période actuelle.`;
+        :living.benchmarkDriven
+          ?`B² croise ton budget avec un repère prudent adapté à ton foyer (${living.benchmarkHousehold}), puis remplacera progressivement ce repère par tes dépenses réelles.`
+          :advanced
+            ?`B²+ s’appuie encore surtout sur ton budget et la période en cours.`
+            :`B² s’appuie sur ton budget, tes charges et les dépenses de la période actuelle.`;
       const visibleDaily=ctx.daysToIncome>0&&remaining(b)>0?r2(remaining(b)/ctx.daysToIncome):null;
       actionText=visibleDaily!=null?`Tu peux continuer normalement. Repère disponible : environ ${euro(visibleDaily)}/jour jusqu’au prochain revenu.`:'Tu peux continuer normalement.'
     }else detail=`La projection reste positive au ${fmtDate(projectionDate)}.`
@@ -6149,9 +6894,9 @@ function budgetHealth(b){
   let homeHint='';
   if(ctx.nextIncome){
     const before=predictedSpendableBeforeIncome(b,living);
-    homeHint=advanced
-      ?`À ce rythme : env. ${before<0?'−':''}${euro(Math.abs(before))} avant le prochain revenu${num(b.reserve)>0?` · réserve ${euro(b.reserve)}`:''}${!learningReady?' · historique encore court':''}.`
-      :`Période actuelle : env. ${before<0?'−':''}${euro(Math.abs(before))} avant le prochain revenu${num(b.reserve)>0?` · réserve ${euro(b.reserve)}`:''}.`;
+    homeHint=advanced&&plusScenarios
+      ?`B²+ probable : ${plusScenarios.probable.remaining<0?'−':''}${euro(Math.abs(plusScenarios.probable.remaining))} avant revenu · confiance ${plusConfidence.label}.`
+      :`Disponible estimé juste avant le prochain revenu : ${before<0?'−':''}${euro(Math.abs(before))}${num(b.reserve)>0?` · réserve ${euro(b.reserve)} protégée`:''}.`;
   }else if(nextEvent?.type==='fixed')homeHint=`${nextEvent.name} · ${euro(nextEvent.amount)} ${nextEvent.days===0?'aujourd’hui':nextEvent.days===1?'demain':`le ${fmtDate(nextEvent.date)}`}.`;
   else homeHint=`Projection au ${fmtDate(projectionDate)} : ${projectedEnd>=0?'+':''}${euro(projectedEnd)}.`;
 
@@ -6170,6 +6915,7 @@ function budgetHealth(b){
     livingNeed:living.variableNeed,dailyEssential:living.dailyEssential,predictedBeforeIncome:living.predictedBeforeIncome,predictedSpendableBeforeIncome:spendableBeforeIncome,
     recoveryDebt:recovery.debt,recoveryFeasible:recovery.feasible,nextVariableCapacity:recovery.availableCapacity,
     learningLevel:living.learningLevel,learningReady:living.canShowEssential,learningMaturity:living.learningMaturity,livingBreakdown:living.breakdown,predictive,trajectory,trajectoryScore:trajectory.score,
+    plusScenarios,plusConfidence,
     pressure,homeHint,intelligenceMode:advanced?'plus':'free'
   }
 }
@@ -6217,6 +6963,8 @@ function openHomeHealth(h){
   const projected=predictedSpendableBeforeIncome(b,__living);
   const need=Math.max(0,num(__living.variableNeed+__living.obligations));
   const daily=Math.max(0,num(__living.dailyEssential)),learningReady=__living.canShowEssential===true;
+  const __scenarios=__advanced?b2PlusForecastScenarios(b,__ctx,__living):null;
+  const __confidence=__advanced?b2PlusConfidenceModel(b,__living):null;
 
   let simpleTitle=h.title;
   if(h.level>=4) simpleTitle='Budget à ajuster';
@@ -6240,11 +6988,12 @@ function openHomeHealth(h){
       const reservePart=Math.max(0,num(b.reserve));
       nowSub=`B² part de ${euro(Math.max(0,__ctx.cashNow))} disponibles aujourd’hui. Il estime encore ${euro(__living.obligations)} de charges à payer et environ ${euro(__living.variableNeed)} pour les dépenses essentielles${reservePart>.01?`, avec ${euro(reservePart)} de réserve protégée`:''}. Cela donnerait −${euro(Math.abs(projected))} juste avant le prochain revenu.`;
     }else if(need>0){
-      nowSub=learningReady
+      const base=learningReady
         ?`B²+ estime encore environ ${euro(need)} nécessaires pour l’essentiel à partir de tes habitudes.`
         :__advanced
           ?`B² s’appuie encore surtout sur ton budget actuel : l’historique n’est pas encore assez long.`
-          :`B² estime ce besoin à partir de ton budget et de la période actuelle.`
+          :`B² estime ce besoin à partir de ton budget et de la période actuelle.`;
+      nowSub=`${base} Disponible estimé juste avant le prochain revenu : ${projected<0?'−':''}${euro(Math.abs(projected))}.`
     }
   }else{
     nowMain=projected>=0?'La période tient pour l’instant':'Le budget ne tient pas encore';
@@ -6258,12 +7007,12 @@ function openHomeHealth(h){
     actionMain='Reste sur l’essentiel jusqu’au prochain revenu.';
     actionSub=learningReady&&daily>0
       ?`Repère appris par B²+ : environ ${euro(daily)}/jour pour les dépenses indispensables.`
-      :__advanced?'B²+ reste prudent tant que l’historique est court.':'B² se limite volontairement aux données de la période actuelle.';
+      :__advanced?`B²+ combine déjà ton profil, les repères publics et ton budget ; confiance ${__confidence.label}.`:'B² utilise ton profil, les repères publics, ton budget et la période actuelle.';
   }else if(projected<0 || h.level>=2){
     actionMain='Garde les dépenses non essentielles au minimum.';
     actionSub=learningReady&&daily>0
       ?`Repère appris par B²+ : environ ${euro(daily)}/jour pour l’essentiel.`
-      :__advanced?'B²+ surveille la marge avec une estimation encore prudente.':'B² surveille la marge à partir de ton budget actuel.';
+      :__advanced?`B²+ surveille la marge avec ton profil, les repères et les premiers comportements observés ; confiance ${__confidence.label}.`:'B² surveille la marge avec ton profil et les repères de départ.';
   }else if(h.level===1){
     actionMain='Pas d’ajustement important pour l’instant.';
   }
@@ -6288,17 +7037,16 @@ function openHomeHealth(h){
 
   const detailLines=[];
   if(__living.breakdown?.length){
-    detailLines.push(learningReady
-      ?`Habitudes B²+ : ${__living.breakdown.slice(0,4).map(x=>`${esc(x.name)} ${euro(x.amount)}`).join(' · ')}`
-      :__advanced
-        ?`B²+ construit encore suffisamment d’historique pour personnaliser ce calcul.`
-        :`Calcul gratuit : budget actuel + dépenses déjà enregistrées sur cette période.`);
+    detailLines.push(__advanced
+      ?`B²+ : ${__living.breakdown.slice(0,4).map(x=>`${esc(x.name)} ${euro(x.amount)}`).join(' · ')} · confiance ${__confidence.label} (${__confidence.score}/100).`
+      :`Calcul gratuit : foyer + repères publics + budget actuel + mouvements de cette période.`);
   }
   if(h.predictive?.actionable && h.predictive.mainRisk){
     detailLines.push(`À surveiller : ${esc(h.predictive.mainRisk.name)}.`);
   }
 
   forecast.innerHTML=`<div class="health-block health-action-card ${h.level>=4?'bad':h.level>=2?'warn':''}"><div class="kicker">À faire</div><strong>${esc(actionMain)}</strong>${actionSub?`<p>${esc(actionSub)}</p>`:''}</div>
+  ${__advanced?b2PlusScenarioHTML(b,__ctx,__living):''}
   <div class="health-block forecast"><div class="kicker">Ensuite</div><strong>${afterMain}</strong>${afterSub?`<p>${esc(afterSub)}</p>`:''}</div>
   <details class="health-details"><summary>${__advanced?'Comment B²+ apprend de mes habitudes ?':'Comment B² calcule ?'} <span aria-hidden="true">›</span></summary>
     ${b2LearningHTML(b,true)}
@@ -10641,10 +11389,32 @@ function renderEndPeriodReview(){
   $('#finishPeriodReview').addEventListener('click',()=>finishCycle(r.carry,r.held,r.reserveRecovery,r.oneOffs,r.incomes,r.editBudget,r.envelopeUpdates||{}))
 }
 
+function b2PeriodBehaviorSnapshot(b){
+  const tx=(b?.transactions||[]).filter(t=>t.type==='expense');
+  const weekday=[0,0,0,0,0,0,0],categories={};
+  tx.forEach(t=>{
+    let w=1;
+    try{w=new Date((t.date||todayISO())+'T12:00:00').getDay()}catch(e){}
+    weekday[w]=r2(weekday[w]+num(t.amount));
+    const k=envelopeCategoryKind((b.envelopes||[]).find(e=>String(e.id)===String(t.categoryId))||{name:t.category||''});
+    categories[k]=categories[k]||{total:0,weekend:0,count:0};
+    categories[k].total=r2(categories[k].total+num(t.amount));
+    categories[k].count++;
+    if(w===0||w===6)categories[k].weekend=r2(categories[k].weekend+num(t.amount))
+  });
+  return {weekday,categories,txCount:tx.length,total:r2(tx.reduce((s,t)=>s+num(t.amount),0))}
+}
+function b2HistoricalWeekendPattern(b,kind){
+  const rows=(b?.history||[]).slice(-6).map(h=>h.behavior?.categories?.[kind]).filter(x=>x&&num(x.total)>0);
+  if(rows.length<2)return null;
+  const ratios=rows.map(x=>clamp(num(x.weekend)/Math.max(1,num(x.total)),0,1));
+  return {count:rows.length,ratio:r2(median(ratios))}
+}
+
 function finishCycle(carry,held,reserveRecovery=0,nextOneOffs=[],nextIncomes=[],editAfter=false,envelopeUpdates={}){
   const b=active();
   if(!b)return;
-  const archive={cycleStart:b.cycleStart,cycleEnd:b.cycleEnd,closedAt:Date.now(),income:r2(plannedIncome(b)+plannedExceptionalIncome(b)+extraIncome(b)),expenses:r2(expenses(b)),provisionsTotal:r2(provisionsThisCycle(b)),savingsTotal:r2(savingsThisCycle(b)),reserve:r2(b.reserve),reserveUsed:r2(num(b.reserveUsedThisCycle)),envelopes:b.envelopes.map(e=>({id:e.id,name:e.name,icon:e.icon,amount:r2(e.amount),spent:r2(spentFor(b,e.id))}))};
+  const archive={cycleStart:b.cycleStart,cycleEnd:b.cycleEnd,closedAt:Date.now(),income:r2(plannedIncome(b)+plannedExceptionalIncome(b)+extraIncome(b)),expenses:r2(expenses(b)),provisionsTotal:r2(provisionsThisCycle(b)),savingsTotal:r2(savingsThisCycle(b)),reserve:r2(b.reserve),reserveUsed:r2(num(b.reserveUsedThisCycle)),envelopes:b.envelopes.map(e=>({id:e.id,name:e.name,icon:e.icon,amount:r2(e.amount),spent:r2(spentFor(b,e.id))})),behavior:b2PeriodBehaviorSnapshot(b)};
   b.history.push(archive);
   Object.entries(envelopeUpdates||{}).forEach(([id,value])=>{const e=b.envelopes.find(x=>String(x.id)===String(id));if(e)e.amount=r2(Math.max(0,num(value)))});
   b.provisions.forEach(p=>{
