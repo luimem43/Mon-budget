@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#075a4d">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<title>B² v14.13 — rééquilibrage avant/après plus clair</title>
+<title>B² v14.15 — salaire reçu intégré au départ de période</title>
 <style>
 :root{
   --brand:#075a4d;--brand2:#0a7965;--brand3:#0f8f72;--lime:#b9ef68;
@@ -3724,7 +3724,7 @@ function restoreLastActiveBudgetSelection(){
   return true
 }
 
-let state=migrate(),plusAfterAction=null,currentPage='home',pilotTab=state.ui.pilotTab||'envelopes',movementFilter=state.ui.movementFilter||'all',txDraft={type:'expense'},overspendCtx=null,editEnvId=null,envMode='auto',envEditDraft=null,balanceMode='auto',balanceDraft=null,balanceReserveUse=0,balancePredictivePlan=null,detailId=null,wizard=null,wizardStep=0,wizardEditId=null,wizardBalanceMode='auto',billDraft={mode:'monthly',dueThisCycle:true},savingDraft={mode:'regular'},simpleSaveHandler=null,confirmHandler=null,closingStep=0,closingFree=0,closingReview=null,wizardAccountBalance=0,wizardCashExtra=0,toastTimer=null,toastAction=null;
+let state=migrate(),plusAfterAction=null,currentPage='home',pilotTab=state.ui.pilotTab||'envelopes',movementFilter=state.ui.movementFilter||'all',txDraft={type:'expense'},overspendCtx=null,editEnvId=null,envMode='auto',envEditDraft=null,balanceMode='auto',balanceDraft=null,balanceReserveUse=0,balancePredictivePlan=null,detailId=null,wizard=null,wizardStep=0,wizardEditId=null,wizardBalanceMode='auto',billDraft={mode:'monthly',dueThisCycle:true},savingDraft={mode:'regular'},simpleSaveHandler=null,confirmHandler=null,closingStep=0,closingFree=0,closingReview=null,closingReason='manual',wizardAccountBalance=0,wizardCashExtra=0,toastTimer=null,toastAction=null;
 function save(){
   ensureActive();
   rememberActiveBudgetSelection();
@@ -5164,6 +5164,19 @@ function runSquareScenarioChecks(){
   add('Base','Besoin total jamais négatif',()=>L(mk({incomeSources:salary(10)})).variableNeed>=0);
   add('Base','Jours avant revenu jamais négatifs',()=>L(mk({incomeSources:salary(0)})).days>=0);
 
+  add('Clôture','Salaire reçu au départ compte comme argent réellement disponible',()=>{
+    const b=mk({
+      startMode:'now',
+      startBalance:1850,
+      cycleStart:todayISO(),
+      cycleEnd:addDaysISO(todayISO(),30),
+      incomeSources:salary(30,1690),
+      fixed:[{id:'f',name:'Charges',amount:1200,dueThisCycle:true,dueDay:null}],
+      envelopes:[env('food','Courses & quotidien',350,'essential'),env('transport','Carburant & déplacements',150,'important')]
+    });
+    return shortTermMoneyContext(b).cashNow===1850
+  });
+
   // B — Negative balances at different points in the period
   add('Découvert','-50 € avec 20 jours peut devenir critique',()=>{
     const b=mk({startBalance:-50,cycleStart:addDaysISO(todayISO(),-10),cycleEnd:addDaysISO(todayISO(),20),incomeSources:salary(20,1400),
@@ -5602,7 +5615,7 @@ function budgetHealth(b){
     signals.push(healthSignal(
       'survival',sev,`${living.days} jour${living.days>1?'s':''} à tenir avant le prochain revenu`,livingText,sev>=3?'balance':'pilot',null,
       sev>=4
-        ? `L'argent disponible ne couvre pas suffisamment la trajectoire estimée. B² doit rééquilibrer avant le prochain revenu.`
+        ? `Avec ${euro(Math.max(0,ctx.cashNow))} disponibles aujourd’hui, B² estime qu’il manquerait environ ${euro(debt)} avant ${ctx.nextIncome.name}.`
         : sev===3
           ? `Priorité aux dépenses indispensables. B² préparera aussi environ ${euro(recovery.debt)} de rattrapage dans le budget suivant.`
           : learningReady
@@ -5694,7 +5707,7 @@ function budgetHealth(b){
   const primary=signals.find(s=>s.severity>0)||null,level=primary?.severity||0;
   let title='Tout est carré',text='Ton budget reste cohérent.',detail='',action='none',focusEnvId=null,actionText='Aucune action nécessaire aujourd’hui.';
   if(primary){
-    if(primary.id==='survival'||primary.id==='spendable-negative') title=level===4?'Budget à rééquilibrer':level===3?'Retour dans le vert à préparer':level===2?'Marge à reconstruire':'Situation à surveiller';
+    if(primary.id==='survival'||primary.id==='spendable-negative') title=level===4?'Pas assez prévu jusqu’au prochain revenu':level===3?'Retour dans le vert à préparer':level===2?'Marge à reconstruire':'Situation à surveiller';
     else title=level===4?'Budget à rééquilibrer':level===3?'Un ajustement suffit':level===2?'Ralentir un peu':'À surveiller';
     text=primary.title;detail=primary.detail;action=primary.action;focusEnvId=primary.focusEnvId;actionText=primary.recommendation||primary.detail
   }else{
@@ -6505,7 +6518,7 @@ function confirmPlannedBankMatch(id){
     learnBankAlias(item,n.merchant);
     const tx={id:uid(),type:'income',amount:r2(n.amount),label:n.merchant||item.name,categoryId:null,category:'',date:bankISO(n.createdAt),createdAt:n.createdAt,memberId,source:'bank',bankVerified:true,bankNotificationId:n.id,plannedKind:'income',plannedId:item.id,plannedSnapshot:null};
     b.transactions.push(tx);linkBankNotification(b,n,tx);rememberBankSourceFromNotification(n,{confirmed:true});save();renderMovements();
-    showToast(`${item.name} reconnu.`,item.primary?'Faire le point':null,item.primary?()=>startClosing():null);return
+    showToast(`${item.name} reconnu.`,item.primary?'Faire le point':null,item.primary?()=>startClosing('income'):null);return
   }
 }
 let bankReviewId=null;
@@ -7039,7 +7052,7 @@ function renderHome(){
   $('#incomeCloseYes')?.addEventListener('click',()=>{
     localStorage.removeItem(incomeClosingReminderKey(b));
     cancelB2LocalNotificationIds([22003]);
-    startClosing()
+    startClosing('income')
   });
   $('#incomeCloseLater')?.addEventListener('click',()=>{
     localStorage.setItem(incomeClosingReminderKey(b),todayISO());
@@ -7058,20 +7071,36 @@ function renderHome(){
 }
 function envMini(b,e){const spent=spentFor(b,e.id),rem=envRemain(b,e),pct=e.amount?clamp(spent/e.amount*100,0,100):0;return `<div class="env-mini"><div class="env-icon">${ico(e.icon)}</div><div class="env-copy"><strong>${esc(e.name)}</strong><span>${Math.round(pct)} % utilisé</span><div class="progress ${rem<0?'over':''}"><i style="width:${pct}%"></i></div></div><div class="env-rem ${rem<0?'bad':''}"><small>${rem<0?'dépassé':'reste'}</small>${euro(Math.abs(rem))}</div></div>`}
 function txMini(t){const b=active(),pos=transactionPositive(t);return `<div class="tx-mini"><div class="tx-icon ${pos?'income':''}">${ico(transactionIcon(t))}</div><div class="tx-copy"><strong>${esc(t.label||t.category||'Mouvement')}</strong><span>${t.type==='transfer'?transactionSubtitle(b,t):fmtDate(t.date)+(t.kind==='refund'?' · remboursement':'')+(t.bankVerified?' · vérifié':'')}</span></div><div class="tx-amount ${pos?'income':''}">${transactionSign(t)} ${euro(t.amount)}</div></div>`}
-function nextPeriodForecast(b){
+function nextPeriodForecast(b,review=null){
   if(!b)return null;
+  const r=review||{};
+  const incomeReceivedNow=r.incomeReceivedNow===true;
   const primary=primaryIncomeSource(b);
-  const start=primary?.nextDate||b.cycleEnd||addMonthsISO(todayISO(),1);
+  const start=incomeReceivedNow?todayISO():(primary?.nextDate||b.cycleEnd||addMonthsISO(todayISO(),1));
   const sim=normalizeBudget(JSON.parse(JSON.stringify(b)));
+
   sim.startMode='next';
   sim.cycleStart=start;
-  sim.cycleEnd=addMonthsISO(start,1);
-  sim.startBalance=0;
+  sim.startBalance=r2(num(r.carry));
   sim.startCash=0;
   sim.transactions=[];
   sim.bankNotifications=[];
-  sim.oneOffs=[];
-  sim.exceptionalIncomes=[];
+  sim.oneOffs=(r.oneOffs||[]).map(x=>({id:x.id||uid(),name:x.name,amount:r2(x.amount)}));
+  sim.exceptionalIncomes=(r.incomes||[]).map(x=>({id:x.id||uid(),name:x.name,amount:r2(x.amount)}));
+
+  // Si le revenu principal vient réellement d'arriver aujourd'hui,
+  // sa prochaine occurrence est le mois suivant, même s'il était
+  // initialement prévu demain.
+  if(incomeReceivedNow&&Array.isArray(sim.incomeSources)){
+    const p=primaryIncomeSource(sim);
+    if(p){
+      const row=sim.incomeSources.find(x=>String(x.id)===String(p.id));
+      if(row)row.nextDate=addMonthsISO(row.nextDate||start,1)
+    }
+  }
+
+  const nextPrimary=primaryIncomeSource(sim);
+  sim.cycleEnd=nextPrimary?.nextDate||addMonthsISO(start,1);
 
   // Ce qui sera réellement encore actif après la clôture actuelle.
   sim.fixed.forEach(x=>{
@@ -7096,19 +7125,39 @@ function nextPeriodForecast(b){
     p.cycleReduction=0
   });
   sim.savings.forEach(g=>{g.dueThisCycle=true;g.cycleReduction=0});
-  sim.reserve=r2(num(sim.reserveTarget||sim.reserve));
+
+  sim.reserveTarget=r2(num(sim.reserveTarget||sim.reserve));
+  sim.reserve=r2(sim.reserveTarget+Math.max(0,num(r.reserveRecovery)));
   sim.reserveUsedThisCycle=0;
 
+  Object.entries(r.envelopeUpdates||{}).forEach(([id,value])=>{
+    const e=sim.envelopes.find(x=>String(x.id)===String(id));
+    if(e)e.amount=r2(Math.max(0,num(value)))
+  });
+
   const income=normalCycleIncome(sim);
-  const protectedPart=normalCycleProtected(sim);
-  const variable=normalVariableCapacity(sim);
+  const exceptionalIncome=r2(plannedExceptionalIncome(sim));
+  const carry=r2(num(r.carry));
+  const resources=r2(income+exceptionalIncome+carry);
+
+  const protectedBase=normalCycleProtected(sim);
+  const oneOffs=r2(sum(sim.oneOffs));
+  const protectedPart={...protectedBase,oneOffs,total:r2(protectedBase.total+oneOffs)};
+
+  // Le report de la période précédente fait partie du disponible de départ.
+  // Il ne doit pas disparaître de la projection.
+  const variable=r2(Math.max(0,resources-protectedPart.total));
   const share=profileAllocationShare(sim);
   const envelopes=r2(variable*share);
   const margin=r2(Math.max(0,variable-envelopes));
   const plan=advancedIntelligenceEnabled()?smartEnvelopeTargets(sim,envelopes):basicEnvelopeTargets(sim,envelopes);
 
   const ended=(b.fixed||[]).filter(x=>!(sim.fixed||[]).some(y=>String(y.id)===String(x.id)));
-  return {start,end:sim.cycleEnd,income,protected:protectedPart,variable,envelopes,margin,plan,sim,ended}
+  return {
+    start,end:sim.cycleEnd,
+    income,exceptionalIncome,carry,resources,
+    protected:protectedPart,variable,envelopes,margin,plan,sim,ended
+  }
 }
 function nextPeriodCard(b){
   const f=nextPeriodForecast(b);if(!f)return '';
@@ -7240,7 +7289,7 @@ function renderPilot(){
   $('#pilotNowInbox')?.addEventListener('click',()=>openNotificationCenter());
   $('#pilotNowMovements')?.addEventListener('click',()=>showPage('movements'));
   $('#pilotNextPeriod')?.addEventListener('click',()=>openNextPeriodPreview(b));
-  $('#pilotManualClose')?.addEventListener('click',()=>startClosing());
+  $('#pilotManualClose')?.addEventListener('click',()=>startClosing('manual'));
   $('#pilotUseAll')?.addEventListener('click',()=>{autoBalance(b,1);renderPilot()});
   $('#pilotUseMargin')?.addEventListener('click',()=>{autoBalance(b,1);renderPilot()});
   $('#pilotRestoreMargin')?.addEventListener('click',()=>{autoBalance(b,profileAllocationShare(b));renderPilot()});
@@ -10043,7 +10092,7 @@ function openSimple(title,lead,fields,handler){
   simpleSaveHandler=handler;
   openModal('simpleModal')
 }
-function startClosing(){if(!active()){showToast('Aucun compte actif.');return}closingStep=0;closingReview={carry:0,held:0,reserveRecovery:0,oneOffs:[],incomes:[],editBudget:false};showPage('closing')}
+function startClosing(reason='manual'){if(!active()){showToast('Aucun compte actif.');return}closingReason=reason==='income'?'income':'manual';closingStep=0;closingReview={carry:0,held:0,reserveRecovery:0,oneOffs:[],incomes:[],editBudget:false,incomeReceivedNow:closingReason==='income'};showPage('closing')}
 function renderClosing(){
   const b=active(),c=$('#closingContent');if(!b){c.innerHTML='<div class="empty">Aucun compte actif.</div>';return}
   if(closingStep===3){renderEndPeriodReview();return}
@@ -10053,8 +10102,11 @@ function renderClosing(){
   }
   if(closingStep===1){
     const estimatedClosing=r2(remaining(b)),estimatedNegative=estimatedClosing<0;
-    c.innerHTML=`<div class="card"><div class="card-title"><h3>Combien te reste-t-il vraiment ?</h3></div><div class="small muted" style="line-height:1.5">B² estime actuellement <strong>${estimatedClosing<0?'− ':''}${euro(Math.abs(estimatedClosing))}</strong>. Corrige le montant si ton compte réel est différent.</div><div class="field" style="margin-top:14px">
-  <label for="closingFree">Disponible restant</label>
+    const closingQuestion=closingReason==='income'
+      ?`Indique ce qu’il restait de la période qui se termine, <strong>sans compter le salaire que tu viens de recevoir</strong>. B² estime ce reste à <strong>${estimatedClosing<0?'− ':''}${euro(Math.abs(estimatedClosing))}</strong>.`
+      :`B² estime actuellement <strong>${estimatedClosing<0?'− ':''}${euro(Math.abs(estimatedClosing))}</strong>. Corrige le montant si ton compte réel est différent.`;
+    c.innerHTML=`<div class="card"><div class="card-title"><h3>Combien te reste-t-il vraiment ?</h3></div><div class="small muted" style="line-height:1.5">${closingQuestion}</div><div class="field" style="margin-top:14px">
+  <label for="closingFree">${closingReason==='income'?'Reste de l’ancienne période':'Disponible restant'}</label>
   <div class="balance-sign">
     <button class="${!estimatedNegative?'on':''}" data-closesign="positive" type="button">Solde positif</button>
     <button class="negative ${estimatedNegative?'on':''}" data-closesign="negative" type="button">À découvert</button>
@@ -10082,14 +10134,14 @@ function prepareNextCycle(carry,held){
   $('#recoverReservePart').addEventListener('click',()=>{$('#recoverReserveBox').innerHTML=`<div class="field"><label for="recoverReserveValue">Combien veux-tu remettre en réserve ?</label><input id="recoverReserveValue" type="number" min="0" max="${used}" step="0.01" inputmode="decimal" value="${r2(used/2)}"></div><button class="btn btn-primary btn-full" id="recoverReserveConfirm" type="button">Continuer</button>`;$('#recoverReserveConfirm').addEventListener('click',()=>openEndPeriodReview(carry,held,clamp(num($('#recoverReserveValue').value),0,used)))})
 }
 function openEndPeriodReview(carry,held,reserveRecovery=0){
-  closingReview={carry:r2(carry),held:r2(held),reserveRecovery:r2(reserveRecovery),oneOffs:[],incomes:[],editBudget:false,envelopeUpdates:{}};
+  closingReview={carry:r2(carry),held:r2(held),reserveRecovery:r2(reserveRecovery),oneOffs:[],incomes:[],editBudget:false,envelopeUpdates:{},incomeReceivedNow:closingReason==='income'};
   closingStep=3;renderEndPeriodReview()
 }
 function renderEndPeriodReview(){
   const c=$('#closingContent'),r=closingReview;if(!r)return;
   const expenseRows=r.oneOffs.map(x=>`<div class="summary-line"><span>${esc(x.name)}</span><strong>− ${euro(x.amount)}</strong></div>`).join('');
   const incomeRows=r.incomes.map(x=>`<div class="summary-line"><span>${esc(x.name)}</span><strong>＋ ${euro(x.amount)}</strong></div>`).join('');
-  const b=active(),learn=b&&advancedIntelligenceEnabled()?learningSuggestions(b):[],future=b?nextPeriodForecast(b):null;
+  const b=active(),learn=b&&advancedIntelligenceEnabled()?learningSuggestions(b):[],future=b?nextPeriodForecast(b,r):null;
 
   const learnHTML=advancedIntelligenceEnabled()
     ?(learn.length
@@ -10100,10 +10152,17 @@ function renderEndPeriodReview(){
   const futureHTML=future?`<div class="card b2-next-card">
     <div class="card-title"><h3>Ta nouvelle période</h3><span>${fmtDate(future.start)}</span></div>
     <div class="b2-next-main">
-      <div><span>Revenus prévus</span><strong>＋ ${euro(future.income)}</strong></div>
+      <div><span>Revenus de la période</span><strong>＋ ${euro(future.income)}</strong></div>
+      <div><span>Report de la période précédente</span><strong>${future.carry<0?'−':'＋'} ${euro(Math.abs(future.carry))}</strong></div>
+      ${future.exceptionalIncome>.01?`<div><span>Revenus exceptionnels ajoutés</span><strong>＋ ${euro(future.exceptionalIncome)}</strong></div>`:''}
+      <div><span>Total avant charges</span><strong>${future.resources<0?'−':'＋'} ${euro(Math.abs(future.resources))}</strong></div>
+      <div><span>Disponible après charges</span><strong>≈ ${euro(future.variable)}</strong></div>
       <div><span>Enveloppes estimées</span><strong>≈ ${euro(future.envelopes)}</strong></div>
     </div>
-    <div class="small muted" style="line-height:1.45;margin-top:8px">Après environ ${euro(future.protected.total)} de charges, épargne et sommes protégées.${future.margin>.01?` B² garderait ${euro(future.margin)} de marge.`:' Tout le disponible restant peut être réparti.'}</div>
+    <div class="small muted" style="line-height:1.45;margin-top:8px">
+      B² reprend bien <strong>${future.carry<0?'− ':''}${euro(Math.abs(future.carry))}</strong> de la période précédente.
+      Après environ ${euro(future.protected.total)} de charges, épargne, dépenses prévues et sommes protégées.${future.margin>.01?` B² garderait ${euro(future.margin)} de marge.`:' Tout le disponible restant peut être réparti.'}
+    </div>
   </div>`:'';
 
   c.innerHTML=`${futureHTML}
@@ -10141,12 +10200,33 @@ function finishCycle(carry,held,reserveRecovery=0,nextOneOffs=[],nextIncomes=[],
   b.reserveTarget=r2(num(b.reserveTarget||b.reserve));
   b.reserve=r2(b.reserveTarget+Math.max(0,num(reserveRecovery)));
   b.reserveUsedThisCycle=0;
-  b.startBalance=r2(carry);b.startCash=0;
+
+  const incomeReceivedNow=closingReason==='income';
+  const primaryBefore=primaryIncomeSource(b);
+  const confirmedOpeningIncome=incomeReceivedNow&&primaryBefore
+    ?((b.transactions||[])
+        .filter(t=>t.type==='income'&&t.kind!=='refund')
+        .filter(t=>String(t.plannedId||'')===String(primaryBefore.id)||Math.abs(num(t.amount)-num(primaryBefore.amount))<=Math.max(1,num(primaryBefore.amount)*.03))
+        .sort((a,z)=>(z.createdAt||0)-(a.createdAt||0))[0]?.amount||num(primaryBefore.amount))
+    :0;
+
+  // Si le revenu principal vient d'arriver, il fait déjà partie de l'argent
+  // réellement disponible au démarrage de la nouvelle période.
+  b.startBalance=r2(num(carry)+num(confirmedOpeningIncome));
+  b.startCash=0;
   b.heldAside=r2(num(b.heldAside)+Math.max(0,num(held)));
-  b.cycleStart=b.cycleEnd;
+  b.cycleStart=incomeReceivedNow?todayISO():b.cycleEnd;
+
   if(Array.isArray(b.incomeSources)){
     b.incomeSources.forEach(x=>{
       if(!x.nextDate)return;
+
+      // Le salaire vient d'arriver : sa date suivante doit passer au mois prochain,
+      // même si B² l'attendait initialement demain.
+      if(incomeReceivedNow&&primaryBefore&&String(x.id)===String(primaryBefore.id)){
+        x.nextDate=addMonthsISO(x.nextDate,1)
+      }
+
       let guard=0;
       while(x.nextDate<=b.cycleStart&&guard<18){x.nextDate=addMonthsISO(x.nextDate,1);guard++}
     })
@@ -10170,7 +10250,9 @@ function finishCycle(carry,held,reserveRecovery=0,nextOneOffs=[],nextIncomes=[],
     return true
   });
 
-  b.startMode='next';b.nextIncomeDate=b.cycleEnd;
+  // Salaire reçu aujourd'hui : il est déjà dans startBalance.
+  // On ne le recompte donc pas une seconde fois comme revenu planifié.
+  b.startMode=incomeReceivedNow?'now':'next';b.nextIncomeDate=b.cycleEnd;
   save();
   showToast('Nouvelle période prête. La précédente est archivée.');
   if(editAfter){startWizard(b.id,6);return}
