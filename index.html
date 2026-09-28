@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#075a4d">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<title>B² v13.02 — disponible intégral, marge claire et prochaine période</title>
+<title>B² v13.08 — bouton + parfaitement centré</title>
 <style>
 :root{
   --brand:#075a4d;--brand2:#0a7965;--brand3:#0f8f72;--lime:#b9ef68;
@@ -23,33 +23,42 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}button:disabled{
 .app{max-width:580px;margin:0 auto;min-height:100vh;padding-bottom:90px}.page{display:none}.page.show{display:block}.hidden{display:none!important}
 .hero{position:relative;overflow:hidden;background:linear-gradient(145deg,#06483f,#07604f 55%,#08745e);color:white;padding:20px 18px 27px;border-radius:0 0 30px 30px}
 .hero:before{
-content:"";position:absolute;right:-24px;top:4px;width:148px;height:132px;pointer-events:none;opacity:.24;
+content:"";position:absolute;right:-10px;top:0;width:148px;height:140px;pointer-events:none;opacity:.52;
 background:
- linear-gradient(90deg,rgba(255,255,255,.19) 1px,transparent 1px),
- linear-gradient(rgba(255,255,255,.19) 1px,transparent 1px);
-background-size:26px 26px;
+ linear-gradient(90deg,rgba(255,255,255,.28) 1px,transparent 1px),
+ linear-gradient(rgba(255,255,255,.28) 1px,transparent 1px),
+ linear-gradient(90deg,rgba(185,239,104,.13) 1px,transparent 1px),
+ linear-gradient(rgba(185,239,104,.13) 1px,transparent 1px);
+background-size:24px 24px,24px 24px,48px 48px,48px 48px;
 transform:rotate(4deg);
--webkit-mask-image:linear-gradient(135deg,rgba(0,0,0,.92),rgba(0,0,0,.38) 70%,transparent);
-mask-image:linear-gradient(135deg,rgba(0,0,0,.92),rgba(0,0,0,.38) 70%,transparent)
+-webkit-mask-image:linear-gradient(135deg,rgba(0,0,0,1) 0%,rgba(0,0,0,.86) 65%,rgba(0,0,0,.34) 100%);
+mask-image:linear-gradient(135deg,rgba(0,0,0,1) 0%,rgba(0,0,0,.86) 65%,rgba(0,0,0,.34) 100%)
 }
-.hero:after{
-content:"";position:absolute;right:8px;top:18px;width:116px;height:98px;pointer-events:none;
-background:
- linear-gradient(rgba(185,239,104,.78),rgba(185,239,104,.78)) 6px 11px/7px 7px no-repeat,
- linear-gradient(rgba(255,255,255,.55),rgba(255,255,255,.55)) 38px 5px/5px 5px no-repeat,
- linear-gradient(rgba(185,239,104,.48),rgba(185,239,104,.48)) 68px 27px/8px 8px no-repeat,
- linear-gradient(rgba(255,255,255,.34),rgba(255,255,255,.34)) 23px 56px/6px 6px no-repeat,
- linear-gradient(rgba(185,239,104,.60),rgba(185,239,104,.60)) 87px 68px/6px 6px no-repeat,
- linear-gradient(rgba(255,255,255,.28),rgba(255,255,255,.28)) 52px 79px/4px 4px no-repeat;
-opacity:.58;
-animation:b2HeroSquares 7.6s ease-in-out infinite
+.hero:after{content:none}
+.hero-deco-squares{
+position:absolute;right:12px;top:13px;width:126px;height:112px;pointer-events:none;z-index:0
 }
-@keyframes b2HeroSquares{
-0%,100%{opacity:.48;transform:translate3d(0,0,0)}
-42%{opacity:.68;transform:translate3d(-1px,1px,0)}
-72%{opacity:.54;transform:translate3d(1px,-1px,0)}
+.hero-deco-squares i{
+position:absolute;display:block;width:7px;height:7px;background:rgba(185,239,104,.88);
+box-shadow:0 0 9px rgba(185,239,104,.10);
+opacity:.10;animation:b2SquareFade 8.8s ease-in-out infinite
 }
-@media(prefers-reduced-motion:reduce){.hero:after{animation:none;opacity:.56}}
+.hero-deco-squares i:nth-child(1){left:7px;top:16px;width:8px;height:8px;animation-delay:-.6s;animation-duration:9.4s}
+.hero-deco-squares i:nth-child(2){left:43px;top:7px;width:5px;height:5px;background:rgba(255,255,255,.64);animation-delay:-4.1s;animation-duration:10.8s}
+.hero-deco-squares i:nth-child(3){left:78px;top:35px;width:9px;height:9px;animation-delay:-2.4s;animation-duration:8.1s}
+.hero-deco-squares i:nth-child(4){left:108px;top:21px;width:6px;height:6px;background:rgba(255,255,255,.48);animation-delay:-6.7s;animation-duration:11.2s}
+.hero-deco-squares i:nth-child(5){left:25px;top:67px;width:6px;height:6px;background:rgba(255,255,255,.52);animation-delay:-3.3s;animation-duration:9.9s}
+.hero-deco-squares i:nth-child(6){left:59px;top:82px;width:5px;height:5px;animation-delay:-7.8s;animation-duration:10.4s}
+.hero-deco-squares i:nth-child(7){left:94px;top:73px;width:8px;height:8px;animation-delay:-1.5s;animation-duration:8.7s}
+.hero-deco-squares i:nth-child(8){left:113px;top:101px;width:5px;height:5px;background:rgba(255,255,255,.42);animation-delay:-5.2s;animation-duration:11.6s}
+@keyframes b2SquareFade{
+0%,12%{opacity:.08}
+25%,58%{opacity:.90}
+72%,100%{opacity:.08}
+}
+@media(prefers-reduced-motion:reduce){
+.hero-deco-squares i{animation:none;opacity:.62}
+}
 .brandbar{position:relative;z-index:1;display:flex;align-items:center;gap:12px}.brandbar>div:nth-child(2){min-width:0;flex:1}.logo{position:relative;width:56px;height:56px;border-radius:17px;display:flex;align-items:center;justify-content:center;font-size:39px;font-weight:950;letter-spacing:-2px;background:linear-gradient(145deg,#0ca07b,#043c37);box-shadow:0 8px 20px rgba(0,31,28,.28);flex:0 0 56px;overflow:visible}.logo sup{font-size:17px;color:var(--lime);margin-left:2px;margin-top:-23px;letter-spacing:0}.logo .plus-mark{display:none;position:absolute;right:-5px;top:-8px;width:21px;height:21px;border-radius:7px;background:var(--lime);color:#06483f;border:2px solid #075a4d;align-items:center;justify-content:center;font-size:13px;line-height:1;font-weight:950;letter-spacing:0;box-shadow:0 6px 14px rgba(0,31,28,.24)}.logo.plus .plus-mark{display:flex}.slogan{font-size:15px;font-weight:800;line-height:1.2;white-space:nowrap}.brand-sub{font-size:11px;opacity:.76;margin-top:4px}.budget-switch{margin-left:auto;position:relative;z-index:2;border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.12);color:#fff;border-radius:999px;padding:8px 10px;font-size:11px;font-weight:850;max-width:42%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .home-controls{display:flex;align-items:center;gap:10px;margin-top:18px;position:relative;z-index:3}
 .home-controls .budget-switch{margin-left:0;flex:0 1 auto;width:fit-content;max-width:calc(100% - 62px)}
@@ -1218,113 +1227,139 @@ animation:b2HeroSquares 7.6s ease-in-out infinite
 .home-square-card::before{
   content:"";
   position:absolute;
-  width:180px;
-  height:180px;
-  left:-72px;
-  top:-78px;
-  border-radius:46px;
+  width:168px;
+  height:168px;
+  left:-58px;
+  top:-64px;
+  border-radius:34px;
   background:
-    linear-gradient(90deg,rgba(11,117,101,.055) 1px,transparent 1px),
-    linear-gradient(rgba(11,117,101,.055) 1px,transparent 1px);
-  background-size:28px 28px;
-  transform:rotate(12deg);
+    linear-gradient(90deg,rgba(11,117,101,.065) 1px,transparent 1px),
+    linear-gradient(rgba(11,117,101,.065) 1px,transparent 1px);
+  background-size:22px 22px;
+  transform:rotate(10deg);
   pointer-events:none;
 }
 .home-square-card::after{
   content:"";
   position:absolute;
-  right:-34px;
-  top:-28px;
-  width:125px;
-  height:125px;
-  border-radius:38px;
-  background:linear-gradient(145deg,rgba(255,255,255,.58),rgba(52,178,139,.08));
+  right:18px;
+  top:24px;
+  width:126px;
+  height:94px;
+  border-radius:22px;
+  background:
+    linear-gradient(90deg,rgba(11,117,101,.07) 1px,transparent 1px),
+    linear-gradient(rgba(11,117,101,.07) 1px,transparent 1px),
+    linear-gradient(145deg,rgba(255,255,255,.26),rgba(255,255,255,0));
+  background-size:18px 18px,18px 18px,100% 100%;
   box-shadow:
-    -36px 78px 0 -26px rgba(11,117,101,.055),
-    -72px 26px 0 -40px rgba(11,117,101,.08);
-  transform:rotate(17deg);
+    0 0 0 1px rgba(11,117,101,.06),
+    -24px 26px 0 -8px rgba(11,117,101,.035),
+    -52px 44px 0 -18px rgba(11,117,101,.028);
+  transform:rotate(-10deg);
+  opacity:.72;
   pointer-events:none;
 }
 .home-square-status{
   position:relative;
   z-index:2;
-  grid-template-columns:96px 1fr;
-  gap:18px;
+  grid-template-columns:88px minmax(0,1fr);
+  gap:15px;
+  align-items:center;
 }
 .home-square-stage{
   position:relative;
-  width:96px;
-  height:96px;
+  width:88px;
+  height:88px;
 }
 .home-square-stage::before{
   content:"";
   position:absolute;
-  inset:6px;
-  border-radius:30px;
-  background:radial-gradient(circle,rgba(38,192,143,.22),rgba(38,192,143,.06) 48%,transparent 72%);
+  inset:5px;
+  border-radius:28px;
+  background:radial-gradient(circle,rgba(38,192,143,.20),rgba(38,192,143,.05) 52%,transparent 74%);
   filter:blur(5px);
-  animation:b2HomeAura 4.8s ease-in-out infinite;
+  animation:b2HomeAura 5.3s ease-in-out infinite;
 }
 .home-square-stage::after{
   content:"";
   position:absolute;
-  inset:14px;
-  border-radius:24px;
+  inset:12px;
+  border-radius:22px;
   border:1px solid rgba(24,139,111,.10);
-  transform:rotate(9deg);
+  transform:rotate(8deg);
   pointer-events:none;
 }
 @keyframes b2HomeAura{
-  0%,100%{transform:scale(.94);opacity:.72}
-  50%{transform:scale(1.08);opacity:1}
+  0%,100%{transform:scale(.95);opacity:.72}
+  50%{transform:scale(1.06);opacity:1}
 }
 .home-square-scale{
   position:relative;
   z-index:2;
-  transform:scale(1.42);
+  transform:scale(1.32);
 }
 .home-square-card .square-copy{
   position:relative;
   z-index:2;
+  min-width:0;
+  display:grid;
+  align-content:start;
+  gap:4px;
 }
 .home-square-card .square-copy::before{
   content:"LE CARRÉ B²";
   display:block;
-  margin-bottom:5px;
+  margin-bottom:2px;
   color:#0b7565;
-  font-size:8.5px;
+  font-size:9.5px;
   line-height:1;
   font-weight:950;
-  letter-spacing:.12em;
+  letter-spacing:.11em;
 }
 .home-square-card .square-copy strong{
   font-size:17px;
   letter-spacing:-.2px;
   color:#183b33;
+  line-height:1.15;
 }
 .home-square-main{
+  display:block;
   color:#4f6660!important;
+  line-height:1.4;
 }
 .home-square-detail-row{
-  margin-top:10px;
-  padding-top:9px;
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:10px;
+  flex-wrap:wrap;
+  margin-top:8px;
+  padding-top:8px;
   border-top:1px solid rgba(11,117,101,.10);
 }
 .home-square-card .square-hint{
+  flex:1 1 210px;
+  min-width:0;
   color:#4d6760!important;
+  font-size:11px;
+  line-height:1.42;
 }
 .home-square-more{
-  padding:4px 7px;
+  white-space:nowrap;
+  padding:5px 8px;
   border-radius:999px;
   background:rgba(11,117,101,.075);
 }
 @media (prefers-reduced-motion:reduce){
   .home-square-stage::before{animation:none}
 }
-@media(max-width:370px){
-  .home-square-status{grid-template-columns:82px 1fr;gap:13px}
-  .home-square-stage{width:82px;height:82px}
-  .home-square-scale{transform:scale(1.27)}
+@media(max-width:390px){
+  .home-square-status{grid-template-columns:78px minmax(0,1fr);gap:12px}
+  .home-square-stage{width:78px;height:78px}
+  .home-square-scale{transform:scale(1.23)}
+  .home-square-detail-row{gap:8px}
+  .home-square-card .square-hint{flex-basis:100%}
 }
 
 /* v12.95 — password visibility */
@@ -1428,6 +1463,282 @@ animation:b2HeroSquares 7.6s ease-in-out infinite
 .b2-next-main strong{font-size:16px}
 .b2-next-ended{margin-top:9px;padding:9px 10px;border-radius:12px;background:rgba(185,239,104,.15);font-size:12px;font-weight:700;color:var(--green)}
 
+
+/* v13.03 — réserve prioritaire + projection compacte */
+.b2-reserve-focus{
+  border:1.5px solid rgba(5,112,91,.24)!important;
+  background:linear-gradient(145deg,rgba(230,249,243,.96),#fff)!important;
+  margin-bottom:18px!important
+}
+.b2-reserve-focus-head{display:flex;gap:12px;align-items:center}
+.b2-reserve-focus-head>div:last-child{min-width:0}
+.b2-reserve-focus-head strong{display:block;font-size:16px}
+.b2-reserve-focus-head span{display:block;color:var(--muted);font-size:12px;line-height:1.4;margin-top:3px}
+.b2-reserve-focus-field{margin-top:14px!important}
+.b2-money-input{display:flex;align-items:center;border:1px solid var(--line);border-radius:15px;background:#fff;padding:0 14px}
+.b2-money-input input{border:0!important;background:transparent!important;font-size:22px!important;font-weight:850!important;padding:13px 0!important;min-width:0}
+.b2-money-input>span{font-size:17px;font-weight:800;color:var(--green)}
+.b2-reserve-pilot{border-color:rgba(5,112,91,.18)!important}
+.b2-next-period-button{
+  width:100%;border:1px solid var(--line);background:#fff;border-radius:17px;padding:11px 13px;
+  display:grid;grid-template-columns:38px 1fr 22px;gap:10px;align-items:center;text-align:left;
+  margin:10px 0 12px;box-shadow:var(--shadow)
+}
+.b2-next-period-icon{
+  width:38px;height:38px;border-radius:12px;background:var(--soft);display:grid;place-items:center;color:var(--green)
+}
+.b2-next-period-copy{min-width:0}
+.b2-next-period-copy strong{display:block;font-size:14px;color:var(--text)}
+.b2-next-period-copy small{display:block;font-size:11px;color:var(--muted);margin-top:2px}
+.b2-next-period-arrow{font-size:26px;line-height:1;color:var(--green);text-align:right}
+.b2-next-env-list{padding-top:5px!important}
+.b2-next-env{padding:9px 0;border-bottom:1px solid var(--line)}
+.b2-next-env:last-child{border-bottom:0}
+.b2-next-env-top{display:flex;justify-content:space-between;gap:12px;align-items:center;font-size:12px}
+.b2-next-env-top>span{display:flex;align-items:center;gap:7px;min-width:0}
+.b2-next-env-top b{white-space:nowrap}
+.b2-next-env-bar{height:6px;border-radius:999px;background:var(--soft);overflow:hidden;margin-top:7px}
+.b2-next-env-bar i{display:block;height:100%;border-radius:inherit;background:var(--green)}
+
+
+/* v13.05 — projection : un seul bouton de validation */
+#simpleModal.ack-only .modal-actions{
+  grid-template-columns:1fr;
+  justify-items:center
+}
+#simpleModal.ack-only .modal-actions [data-close="simpleModal"]{
+  display:none
+}
+#simpleModal.ack-only #simpleSave{
+  width:min(210px,70%);
+  justify-self:center
+}
+
+
+/* v13.06 — actions de compte plus faciles à toucher */
+.account-detail-actions{
+  display:flex;
+  flex-wrap:wrap;
+  gap:9px;
+  margin-top:14px
+}
+.account-detail-actions .mini-btn{
+  min-height:44px;
+  border-radius:13px;
+  padding:11px 16px;
+  font-size:11px;
+  font-weight:900
+}
+.account-detail-actions .account-action-main{
+  background:var(--mint2);
+  border-color:#cfe8df
+}
+
+/* Résumé de compte */
+.account-summary-modal .sheet{max-height:90vh}
+.account-summary-hero{
+  background:linear-gradient(145deg,#075a4d,#08715d);
+  color:#fff;border-radius:19px;padding:15px;margin-bottom:11px;
+  display:grid;grid-template-columns:1.2fr .8fr;gap:12px;align-items:end
+}
+.account-summary-hero span{display:block;font-size:10px;opacity:.78;margin-bottom:5px}
+.account-summary-hero strong{display:block;font-size:29px;line-height:1;font-weight:950;letter-spacing:-1px}
+.account-summary-hero strong.bad{color:#ffd7dc}
+.account-summary-hero b{display:block;font-size:16px;text-align:right}
+.account-summary-grid{
+  display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:11px
+}
+.account-summary-grid>div{
+  background:var(--soft);border-radius:14px;padding:11px 12px
+}
+.account-summary-grid span{display:block;font-size:9px;color:var(--muted)}
+.account-summary-grid strong{display:block;font-size:16px;margin-top:4px}
+.account-summary-grid small{display:block;font-size:8.5px;color:var(--muted);margin-top:2px}
+.account-summary-next{
+  display:flex;justify-content:space-between;gap:15px;align-items:center;
+  padding:12px 13px;border:1px solid var(--line);border-radius:15px;margin-bottom:10px
+}
+.account-summary-next span,.account-summary-next small{display:block;font-size:9px;color:var(--muted)}
+.account-summary-next strong{display:block;font-size:12px;margin-top:3px}
+.account-summary-next b{display:block;font-size:14px;text-align:right}
+.account-summary-next small{margin-top:2px;text-align:right}
+.account-summary-section{margin-top:15px}
+.account-summary-env-list{padding:3px 12px!important}
+.account-summary-env{padding:10px 0;border-bottom:1px solid var(--line)}
+.account-summary-env:last-child{border-bottom:0}
+.account-summary-env-top,.account-summary-env-sub{
+  display:flex;justify-content:space-between;align-items:center;gap:10px
+}
+.account-summary-env-top>span{display:flex;align-items:center;gap:7px;min-width:0;font-size:11px}
+.account-summary-env-top b{font-size:12px;white-space:nowrap}
+.account-summary-env-sub{font-size:8.5px;color:var(--muted);margin-top:4px}
+.account-summary-env-bar{height:5px;background:#e8eeee;border-radius:999px;overflow:hidden;margin-top:7px}
+.account-summary-env-bar i{display:block;height:100%;background:var(--brand3);border-radius:inherit}
+@media(max-width:380px){
+  .account-detail-actions .mini-btn{padding:10px 13px}
+  .account-summary-hero{grid-template-columns:1fr}
+  .account-summary-hero b{text-align:left}
+}
+
+
+/* v13.07 — cohérence tactile globale
+   Objectif : aucun bouton utile ne doit sembler minuscule ou difficile à toucher.
+   Les gros boutons/cartes conservent leur dessin ; les petits contrôles gagnent
+   surtout en zone tactile. */
+button{
+  touch-action:manipulation;
+}
+
+/* Boutons texte : même repère tactile partout */
+.btn,
+.mini-btn,
+.seg-btn,
+.filter-chip,
+.chip,
+.pilot-tab,
+.adjust-btn,
+.btn-link,
+.auth-tab,
+.income-primary,
+.category-chip,
+.action-menu button,
+.bank-dismiss,
+.ad-cta,
+.ad-plus-note,
+.b2-learning-more{
+  min-height:44px!important;
+}
+
+/* Les boutons principaux restent légèrement plus généreux */
+.btn{
+  min-height:45px!important;
+}
+
+/* Petits boutons carrés / icônes : zone tactile 44 × 44 minimum */
+.icon-btn,
+.dots,
+.tx-edit,
+.tx-delete,
+.lock-btn,
+.income-remove,
+.list-item .remove,
+.password-eye,
+.home-bell{
+  min-width:44px!important;
+  min-height:44px!important;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+}
+
+/* Sélecteur de budget de l'accueil */
+.budget-switch{
+  min-height:44px!important;
+  padding-top:9px!important;
+  padding-bottom:9px!important;
+}
+
+/* Onglets de pilotage : plus faciles à viser sans épaissir toute la carte */
+.pilot-tab{
+  padding:9px 7px!important;
+}
+
+/* Puces de choix : surface tactile cohérente */
+.chip,
+.filter-chip,
+.category-chip{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding-top:9px!important;
+  padding-bottom:9px!important;
+}
+
+/* Actions discrètes mais réellement cliquables */
+.btn-link{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:8px 10px!important;
+}
+.adjust-btn{
+  min-width:76px;
+  padding:9px 12px!important;
+}
+
+/* Menus contextuels */
+.action-menu button{
+  padding:11px 10px!important;
+}
+
+/* Sélecteurs oui/non et +/- déjà compacts : même hauteur tactile */
+.balance-sign button,
+.counter button{
+  min-height:44px!important;
+}
+
+/* Options de profil et grandes cartes : ne pas les réduire */
+.profile-option{
+  min-height:56px;
+}
+.choice{
+  min-height:64px;
+}
+.status-action{
+  min-height:56px;
+}
+
+/* Interrupteurs : on garde le visuel fin, mais on agrandit la zone touchable */
+.switch{
+  position:relative;
+}
+.switch::before{
+  content:"";
+  position:absolute;
+  inset:-8px -4px;
+}
+
+/* Navigation du bas et gros bouton + : déjà largement dimensionnés */
+.nav-btn{
+  min-height:64px;
+}
+.nav-plus{
+  min-width:56px;
+  min-height:56px;
+}
+
+/* Boutons des comptes : alignés sur la nouvelle norme */
+.account-detail-actions .mini-btn{
+  min-height:44px!important;
+  padding:11px 16px!important;
+}
+
+/* Les actions dans les modales restent faciles à toucher */
+.modal-actions .btn{
+  min-height:46px!important;
+}
+
+
+/* v13.08 — + central géométrique et réellement centré */
+.nav-plus{
+  display:grid!important;
+  place-items:center!important;
+  padding:0!important;
+}
+.nav-plus .nav-plus-icon{
+  width:22px!important;
+  height:22px!important;
+  display:block!important;
+  vertical-align:0!important;
+  line-height:0!important;
+  margin:0!important;
+}
+.nav-plus .nav-plus-icon svg{
+  display:block;
+  width:22px;
+  height:22px;
+}
+
 </style>
 </head>
 <body>
@@ -1460,6 +1771,9 @@ animation:b2HeroSquares 7.6s ease-in-out infinite
 <div class="app" id="app">
 <section class="page show" id="page-home">
   <div class="hero">
+    <div class="hero-deco-squares" aria-hidden="true">
+      <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+    </div>
     <div class="brandbar"><div class="logo" id="brandLogo">B<sup>2</sup><b class="plus-mark">+</b></div><div><div class="slogan">Mon budget ? C'est carré !</div></div></div><div class="home-controls"><button class="budget-switch" type="button" id="homeBudgetSwitch" aria-label="Changer de budget"><span class="ui-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3.5" y="5.5" width="17" height="13" rx="2"/><path d="M7 9.5h10M7 13.5h6"/></svg></span><span id="homeBudgetSwitchLabel">Aucun budget</span><span class="budget-switch-arrow" aria-hidden="true">⌄</span></button><button class="home-bell" id="homeNotificationBell" type="button" aria-label="Messages B²"><span class="ui-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6.5 9.5a5.5 5.5 0 0 1 11 0c0 6 2.3 6.4 2.3 7.8H4.2c0-1.4 2.3-1.8 2.3-7.8Z"/><path d="M9.8 20h4.4"/></svg></span><span class="home-bell-badge" id="homeNotificationBadge"></span></button></div><div class="hero-main" id="homeHero"></div>
   </div>
   <div class="content"><div id="homeContent"></div></div>
@@ -1538,7 +1852,7 @@ animation:b2HeroSquares 7.6s ease-in-out infinite
 <nav class="bottom-nav" id="bottomNav" aria-label="Navigation principale">
   <button class="nav-btn on" data-nav="home" type="button"><span class="ui-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 11.5 12 5l8 6.5"/><path d="M6.5 10.5V19h11v-8.5"/></svg></span>Accueil</button>
   <button class="nav-btn" data-nav="pilot" type="button"><span class="ui-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="6.5" height="6.5" rx="1.2"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.2"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.2"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.2"/></svg></span>Piloter</button>
-  <div class="nav-plus-wrap"><button class="nav-plus" id="mainPlus" type="button" aria-label="Ajouter"><span class="ui-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span></button></div>
+  <div class="nav-plus-wrap"><button class="nav-plus" id="mainPlus" type="button" aria-label="Ajouter"><span class="ui-ico nav-plus-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="10" y="4" width="4" height="16" rx="1.15" style="fill:currentColor;stroke:none"/><rect x="4" y="10" width="16" height="4" rx="1.15" style="fill:currentColor;stroke:none"/></svg></span></button></div>
   <button class="nav-btn" data-nav="budgets" type="button"><span class="ui-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="6.5" width="14" height="9" rx="2"/><path d="M7 3.5h11a2 2 0 0 1 2 2v8"/></svg></span>Budgets</button>
   <button class="nav-btn" data-nav="more" type="button"><span class="ui-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="6" cy="12" r="1.6" style="fill:currentColor;stroke:none"/><circle cx="12" cy="12" r="1.6" style="fill:currentColor;stroke:none"/><circle cx="18" cy="12" r="1.6" style="fill:currentColor;stroke:none"/></svg></span>Plus</button>
 </nav>
@@ -3018,9 +3332,14 @@ function adaptiveLearningSummary(b){
   return {patterns,evidence,historyPeriods,historyDays,trackedTxCount,historySpend,canShowEssential,level,maturityPct:r2(maturityPct)}
 }
 
+function predictedSpendableBeforeIncome(b,living=null){
+  const l=living||estimatedLivingNeedUntilIncome(b,shortTermMoneyContext(b));
+  return r2(num(l.predictedBeforeIncome)-Math.max(0,num(b?.reserve)))
+}
+
 function b2EstimateExplanationHTML(b,h){
   const ctx=shortTermMoneyContext(b),living=estimatedLivingNeedUntilIncome(b,ctx),a=adaptiveLearningSummary(b);
-  const need=r2(living.variableNeed+living.obligations),projected=living.predictedBeforeIncome,ready=living.canShowEssential;
+  const need=r2(living.variableNeed+living.obligations),projected=living.predictedBeforeIncome,spendable=predictedSpendableBeforeIncome(b,living),ready=living.canShowEssential;
   const rows=(living.breakdown||[]).filter(x=>num(x.amount)>.01).slice(0,5);
   const source=ready
     ?(a.historyPeriods>=3?'B² s’appuie surtout sur plusieurs périodes de dépenses réelles, tout en gardant ton budget comme garde-fou.':'B² combine maintenant ton budget avec les dépenses réellement observées. Le réel prendra encore plus de poids au fil des périodes.')
@@ -3034,7 +3353,7 @@ function b2EstimateExplanationHTML(b,h){
     ?'Cette estimation continuera d’évoluer : les périodes récentes comptent davantage que les anciennes.'
     :'B² n’affiche pas encore de besoin quotidien personnalisé : un chiffre précis donnerait une fausse impression de certitude.';
   const coverageNote=living.recentlyCovered>.5?` B² tient aussi compte d’environ ${euro(living.recentlyCovered)} de besoins déjà couverts par des dépenses récentes (par exemple courses ou carburant), au lieu de les compter une deuxième fois.`:'';
-  return `<details class="b2-estimate-details"><summary>Comment B² arrive à cette estimation ?</summary><div class="b2-estimate-explain"><div class="estimate-intro">${source}</div>${rowsHtml}${obligations}<div class="b2-estimate-total">${totalLabel}<br>Solde actuel : <strong>${ctx.cashNow<0?'−':''}${euro(Math.abs(ctx.cashNow))}</strong><br>Solde estimé juste avant le prochain revenu : <strong>${projected<0?'−':''}${euro(Math.abs(projected))}</strong></div><div class="b2-estimate-learning">${learningNote}${coverageNote} Le calendrier compte aussi : une journée sans dépense laisse un jour de moins à financer, tandis que les charges encore dues restent protégées.</div></div></details>`;
+  return `<details class="b2-estimate-details"><summary>Comment B² arrive à cette estimation ?</summary><div class="b2-estimate-explain"><div class="estimate-intro">${source}</div>${rowsHtml}${obligations}<div class="b2-estimate-total">${totalLabel}<br>Solde actuel : <strong>${ctx.cashNow<0?'−':''}${euro(Math.abs(ctx.cashNow))}</strong><br>Solde du compte estimé juste avant le prochain revenu : <strong>${projected<0?'−':''}${euro(Math.abs(projected))}</strong>${num(b.reserve)>0?`<br>Réserve protégée : <strong>${euro(b.reserve)}</strong><br>Disponible estimé après réserve : <strong>${spendable<0?'−':''}${euro(Math.abs(spendable))}</strong>`:''}</div><div class="b2-estimate-learning">${learningNote}${coverageNote} Le calendrier compte aussi : une journée sans dépense laisse un jour de moins à financer, tandis que les charges encore dues restent protégées.</div></div></details>`;
 }
 function b2LearningMaturity(b){
   const a=adaptiveLearningSummary(b),periods=a.historyPeriods,evidence=a.evidence,days=a.historyDays;
@@ -4151,20 +4470,21 @@ function budgetHealth(b){
   }
 
   const forecastRemaining=projectedEnd,forecastReliable=(b.incomeSources||[]).length>0||paceReliable||(b.history||[]).length>0;
+  const spendableBeforeIncome=predictedSpendableBeforeIncome(b,living);
   const forecast=ctx.nextIncome
     ?(learningReady
-      ?(living.predictedBeforeIncome>=0
-        ?`En gardant un rythme proche de tes besoins observés, B² estime environ ${euro(living.predictedBeforeIncome)} juste avant le prochain revenu.`
-        :`En incluant environ ${euro(living.variableNeed)} de besoins appris, B² anticipe environ ${euro(living.predictedBeforeIncome)} juste avant son arrivée.`)
-      :`Projection provisoire basée sur le budget actuel : environ ${euro(living.predictedBeforeIncome)} juste avant le prochain revenu.`)
+      ?(spendableBeforeIncome>=0
+        ?`En gardant un rythme proche de tes besoins observés, B² estime environ ${euro(spendableBeforeIncome)} encore disponibles juste avant le prochain revenu.`
+        :`En incluant environ ${euro(living.variableNeed)} de besoins appris, B² anticipe un disponible d’environ −${euro(Math.abs(spendableBeforeIncome))} juste avant son arrivée.`)
+      :`Projection provisoire basée sur le budget actuel : environ ${spendableBeforeIncome<0?'−':''}${euro(Math.abs(spendableBeforeIncome))} disponibles juste avant le prochain revenu.`)
     :(projectedEnd>=0
       ?`Avec ce qui est enregistré aujourd’hui, B² estime qu’il resterait environ ${euro(projectedEnd)}.`
       :`Avec ce qui est enregistré aujourd’hui, il manquerait environ ${euro(Math.abs(projectedEnd))}.`);
 
   let homeHint='';
   if(ctx.nextIncome){
-    const before=living.predictedBeforeIncome,sign=before>0?'+':'';
-    homeHint=`À ce rythme : ${sign}${euro(before)} estimés juste avant le prochain revenu${!learningReady?' · prévision encore basée surtout sur ton budget':''}.`;
+    const before=predictedSpendableBeforeIncome(b,living);
+    homeHint=`À ce rythme : env. ${before<0?'−':''}${euro(Math.abs(before))} avant le prochain revenu${num(b.reserve)>0?` · réserve ${euro(b.reserve)}`:''}${!learningReady?' · estimation encore surtout basée sur ton budget':''}.`;
   }else if(nextEvent?.type==='fixed')homeHint=`${nextEvent.name} · ${euro(nextEvent.amount)} ${nextEvent.days===0?'aujourd’hui':nextEvent.days===1?'demain':`le ${fmtDate(nextEvent.date)}`}.`;
   else homeHint=`Projection au ${fmtDate(projectionDate)} : ${projectedEnd>=0?'+':''}${euro(projectedEnd)}.`;
 
@@ -4180,7 +4500,7 @@ function budgetHealth(b){
     forecast,forecastReliable,forecastRemaining,progress,elapsedDays,nextCharge:upcomingFixedCharges(b)[0]||null,nextEvent,
     projectionDate,projectedEnd,currentCash:ctx.cashNow,floorBeforeIncome:ctx.floorBeforeIncome,nextIncome:ctx.nextIncome,
     daysToIncome:ctx.daysToIncome,safeDaily:ctx.safeDaily,bankPendingCount:bank.count,bankPendingAmount:bank.uncertainAmount,
-    livingNeed:living.variableNeed,dailyEssential:living.dailyEssential,predictedBeforeIncome:living.predictedBeforeIncome,
+    livingNeed:living.variableNeed,dailyEssential:living.dailyEssential,predictedBeforeIncome:living.predictedBeforeIncome,predictedSpendableBeforeIncome:spendableBeforeIncome,
     recoveryDebt:recovery.debt,recoveryFeasible:recovery.feasible,nextVariableCapacity:recovery.availableCapacity,
     learningLevel:living.learningLevel,learningReady:living.canShowEssential,learningMaturity:living.learningMaturity,livingBreakdown:living.breakdown,predictive,trajectory,trajectoryScore:trajectory.score,
     pressure,homeHint
@@ -4225,7 +4545,8 @@ function openHomeHealth(h){
   const nextName=__ctx.nextIncome?.name||'prochain revenu';
   const nextDate=__ctx.nextIncome?.nextDate?fmtDate(__ctx.nextIncome.nextDate):'';
   const nextAmount=__ctx.nextIncome?num(__ctx.nextIncome.amount):0;
-  const projected=__living.predictedBeforeIncome;
+  const accountProjected=__living.predictedBeforeIncome;
+  const projected=predictedSpendableBeforeIncome(b,__living);
   const need=Math.max(0,num(__living.variableNeed+__living.obligations));
   const daily=Math.max(0,num(__living.dailyEssential)),learningReady=__living.canShowEssential===true;
 
@@ -4919,7 +5240,7 @@ function showToast(t,actionLabel=null,actionFn=null){
   el.classList.add('show');
   $('#toastActionBtn')?.addEventListener('click',()=>{const fn=toastAction;toastAction=null;el.classList.remove('show');el.classList.remove('has-action');fn?.()});
   toastTimer=setTimeout(()=>{el.classList.remove('show');el.classList.remove('has-action');toastAction=null},4200)
-} function openModal(id){$('#'+id).classList.add('show')} function closeModal(id){$('#'+id).classList.remove('show')}
+} function scrollPageTop(behavior='smooth'){requestAnimationFrame(()=>window.scrollTo({top:0,behavior}))} function openModal(id){$('#'+id).classList.add('show')} function closeModal(id,toTop=false){$('#'+id).classList.remove('show');if(toTop)scrollPageTop()}
 
 let b2BankImportBusy=false,b2BankNativeCache=null;
 function nativeBankPlugin(){
@@ -5248,7 +5569,7 @@ function renderHome(){
         <span class="square-copy">
           <strong>${esc(health.title)}</strong>
           <span class="home-square-main">${esc(health.text)}</span>
-          ${health.homeHint?`<span class="home-square-detail-row"><span class="square-hint">${esc(health.homeHint)}</span><span class="home-square-more">Plus de détails →</span></span>`:'<span class="home-square-more">Plus de détails →</span>'}
+          ${health.homeHint?`<span class="home-square-detail-row"><span class="square-hint">${esc(health.homeHint)}</span><span class="home-square-more">Détails →</span></span>`:'<span class="home-square-more">Détails →</span>'}
         </span>
       </div>
     </button>
@@ -5320,31 +5641,30 @@ function nextPeriodForecast(b){
 }
 function nextPeriodCard(b){
   const f=nextPeriodForecast(b);if(!f)return '';
-  const primary=primaryIncomeSource(b);
-  return `<div class="card b2-next-card">
-    <div class="card-title"><h3>Prochaine période</h3><span>${fmtDate(f.start)}</span></div>
-    <div class="b2-next-main">
-      <div><span>Revenus prévus</span><strong>＋ ${euro(f.income)}</strong></div>
-      <div><span>Pour les enveloppes</span><strong>≈ ${euro(f.envelopes)}</strong></div>
-    </div>
-    <div class="small muted" style="line-height:1.45;margin-top:8px">
-      Après environ ${euro(f.protected.total)} de charges, épargne et sommes à protéger.
-      ${f.margin>.01?` B² prévoit aussi ${euro(f.margin)} de marge.`:' Tout le disponible restant sera réparti.'}
-    </div>
-    ${f.ended.length?`<div class="b2-next-ended">✓ ${f.ended.length===1?`« ${esc(f.ended[0].name)} » s’arrête`:`${f.ended.length} charges temporaires s’arrêtent`} avant ou pendant cette nouvelle période.</div>`:''}
-    <button class="btn btn-white btn-full" id="pilotNextPeriod" type="button" style="margin-top:10px">Voir la projection</button>
-  </div>`
+  return `<button class="b2-next-period-button" id="pilotNextPeriod" type="button">
+    <span class="b2-next-period-icon">${ico('calendar')}</span>
+    <span class="b2-next-period-copy">
+      <strong>Ma prochaine période</strong>
+      <small>${fmtDate(f.start)} · voir la projection</small>
+    </span>
+    <span class="b2-next-period-arrow">›</span>
+  </button>`
 }
 function openNextPeriodPreview(b){
   const f=nextPeriodForecast(b);if(!f)return;
-  const rows=(b.envelopes||[]).map(e=>{
-    const amount=r2(num(f.plan?.targets?.[e.id]));
-    return `<div class="b2-details-row"><span>${ico(e.icon)} ${esc(e.name)}</span><b>≈ ${euro(amount)}</b></div>`
+  const amounts=(b.envelopes||[]).map(e=>({e,amount:r2(num(f.plan?.targets?.[e.id]))}));
+  const max=Math.max(1,...amounts.map(x=>x.amount));
+  const rows=amounts.map(({e,amount})=>{
+    const pct=clamp(amount/max*100,3,100);
+    return `<div class="b2-next-env">
+      <div class="b2-next-env-top"><span>${ico(e.icon)} ${esc(e.name)}</span><b>≈ ${euro(amount)}</b></div>
+      <div class="b2-next-env-bar"><i style="width:${pct}%"></i></div>
+    </div>`
   }).join('')||'<div class="help">Aucune enveloppe sélectionnée.</div>';
 
   openSimple(
-    'Ta prochaine période',
-    `À partir du ${fmtDateFull(f.start)}, B² repartira avec ton nouveau revenu et les charges encore actives.`,
+    'Projection de ma prochaine période',
+    `À partir du ${fmtDateFull(f.start)}, voici ce que B² envisage avec les informations connues aujourd’hui.`,
     `<div class="card flat">
       <div class="summary-line"><span>Revenus habituels</span><strong>＋ ${euro(f.income)}</strong></div>
       <div class="summary-line"><span>Charges + épargne + sommes protégées</span><strong>− ${euro(f.protected.total)}</strong></div>
@@ -5353,10 +5673,12 @@ function openNextPeriodPreview(b){
       ${f.margin>.01?`<div class="summary-line"><span>Marge volontaire</span><strong>${euro(f.margin)}</strong></div>`:''}
     </div>
     <div class="section-title"><h3>Répartition envisagée</h3></div>
-    <div class="card flat">${rows}</div>
-    <div class="status info"><strong>Au changement de période</strong><br>B² te proposera de garder cette répartition ou d’ajuster directement tes enveloppes avant de démarrer la nouvelle période.</div>`,
+    <div class="card flat b2-next-env-list">${rows}</div>
+    ${f.ended.length?`<div class="status good"><strong>Bonne nouvelle</strong><br>${f.ended.length===1?`La charge « ${esc(f.ended[0].name)} » ne pèsera plus de la même façon sur la nouvelle période.`:`${f.ended.length} charges temporaires arrivent à leur fin.`}</div>`:''}
+    <div class="status info"><strong>Ce n’est pas figé.</strong><br>Au changement de période, B² te laissera ajuster tes enveloppes avant de repartir.</div>`,
     ()=>true
   );
+  $('#simpleModal')?.classList.add('ack-only');
   $('#simpleSave').textContent='Compris'
 }
 function renderPilot(){
@@ -5415,7 +5737,7 @@ function renderPilot(){
 
   if(pilotTab==='aside')body=`<div class="card"><div class="card-title"><h3>À préparer pour plus tard</h3><button class="btn-link" id="pilotEditBudgetAside" type="button">Modifier</button></div>${b.provisions.length?b.provisions.map(p=>fundProvision(b,p)).join(''):'<div class="empty">Rien à préparer pour l’instant.</div>'}</div><div class="card flat"><div class="status-icon-row"><div class="status-icon">${ico('shield')}</div><div class="square-copy"><strong>${euro(provisionsThisCycle(b))} protégés pour cette période</strong><span>Cet argent est déjà réservé pour ces dépenses futures.</span></div></div></div>`;
 
-  if(pilotTab==='savings')body=`<div class="card"><div class="card-title"><h3>Mon épargne</h3><button class="btn-link" id="pilotEditBudgetSaving" type="button">Modifier</button></div>${b.savings.length?b.savings.map(fundSaving).join(''):'<div class="empty">Aucune épargne prévue.</div>'}</div>${b.savings.length?`<div class="card flat"><div class="status-icon-row"><div class="status-icon">${ico('target')}</div><div class="square-copy"><strong>${euro(savingsThisCycle(b))} réservés à l’épargne pour cette période</strong><span>B² ne les compte pas dans l’argent à dépenser.</span></div></div></div>`:''}<div class="card"><div class="card-title"><h3>Réserve de sécurité</h3><strong>${euro(b.reserve)}</strong></div><div class="small muted">Disponible seulement si tu décides de l’utiliser pour un imprévu. Elle n’entre jamais dans la marge quotidienne.</div></div>`;
+  if(pilotTab==='savings')body=`<div class="card b2-reserve-pilot"><div class="card-title"><h3>Réserve de sécurité</h3><strong>${euro(b.reserve)}</strong></div><div class="small muted">Protégée des enveloppes et de la marge quotidienne.</div><button class="btn btn-white btn-full" id="pilotEditReserve" type="button" style="margin-top:10px">Modifier ma réserve</button></div><div class="card"><div class="card-title"><h3>Mon épargne</h3><button class="btn-link" id="pilotEditBudgetSaving" type="button">Modifier</button></div>${b.savings.length?b.savings.map(fundSaving).join(''):'<div class="empty">Aucune épargne prévue.</div>'}</div>${b.savings.length?`<div class="card flat"><div class="status-icon-row"><div class="status-icon">${ico('target')}</div><div class="square-copy"><strong>${euro(savingsThisCycle(b))} réservés à l’épargne pour cette période</strong><span>B² ne les compte pas dans l’argent à dépenser.</span></div></div></div>`:''}`;
 
   const now=pilotTab==='envelopes'?pilotNowCard(b):'';
   const future=pilotTab==='envelopes'?nextPeriodCard(b):'';
@@ -5449,6 +5771,7 @@ function renderPilot(){
   }));
   $('#pilotBalance')?.addEventListener('click',()=>openBalanceAssistant('auto'));
   $('#pilotEditBudgetAside')?.addEventListener('click',()=>startWizard(b.id,3));
+  $('#pilotEditReserve')?.addEventListener('click',()=>startWizard(b.id,4));
   $('#pilotEditBudgetSaving')?.addEventListener('click',()=>startWizard(b.id,4));
   $$('[data-smart-saving]',c).forEach(x=>x.addEventListener('click',()=>openSmartSaving(x.dataset.smartSaving)));
 }
@@ -5530,9 +5853,9 @@ function renderBudgetDetail(){
   const g=budgetById(detailId),c=$('#budgetDetailBody');if(!g){c.innerHTML='<div class="empty">Budget introuvable.</div>';return}
   $('#budgetDetailTitle').textContent=g.name;const accounts=accountsForBudget(g.id),locked=!canUseBudgetGroup(g);if(g.type==='shared')ensureBudgetOwner(g);
   const sharedTop=g.type==='shared'?`<div class="shared-hero"><div class="small">MON BUDGET PARTAGÉ · B²+</div><strong>${esc(g.name)}</strong><div class="small" style="margin-top:5px">${g.members.filter(m=>m.status==='joined').length} membre${g.members.filter(m=>m.status==='joined').length>1?'s':''} actif${g.members.filter(m=>m.status==='joined').length>1?'s':''}</div><div class="shared-actions"><button class="btn btn-white" id="detailInviteMember" type="button">Inviter</button><button class="btn btn-white" id="detailManageMembers" type="button">Membres</button></div></div>`:'';
-  c.innerHTML=`${sharedTop}${locked?'<div class="status warn"><strong>Budget verrouillé.</strong><br>Réactive B²+ pour l’utiliser. Tes données sont conservées.</div>':''}<div class="card"><div class="card-title"><h3>Comptes de ce budget</h3><span class="badge">${accounts.length}</span></div><div class="small muted">Choisis le compte à consulter ou à modifier.</div></div>${accounts.map(a=>{const future=a.startMode==='next'&&String(a.cycleStart)>todayISO(),on=g.active&&String(g.activeAccountId)===String(a.id);return `<div class="card account-detail-card"><div class="account-detail-head"><div class="budget-icon">${ico(accountIcon(a))}</div><div class="account-detail-copy"><strong>${esc(a.name)}</strong><span>${future?'Prévision':'Disponible'} ${euro(remaining(a))} · ${accountChargeCount(a)} charge${accountChargeCount(a)>1?'s':''}</span></div>${on?'<span class="badge">ACTIF</span>':''}</div><div class="account-detail-actions">${locked?'<button class="mini-btn" data-unlock-detail type="button">B²+</button>':`<button class="mini-btn" data-use-account="${a.id}" type="button">Afficher</button><button class="mini-btn" data-edit-account="${a.id}" type="button">Modifier</button>${accounts.length>1?`<button class="mini-btn danger" data-delete-account="${a.id}" type="button">Supprimer</button>`:''}`}</div></div>`}).join('')}<button class="btn ${locked?'btn-soft':'btn-primary'} btn-full" id="detailAddAccount" type="button">${locked?'Débloquer ce budget avec B²+':'＋ Ajouter un compte'}</button>`;
+  c.innerHTML=`${sharedTop}${locked?'<div class="status warn"><strong>Budget verrouillé.</strong><br>Réactive B²+ pour l’utiliser. Tes données sont conservées.</div>':''}<div class="card"><div class="card-title"><h3>Comptes de ce budget</h3><span class="badge">${accounts.length}</span></div><div class="small muted">Choisis le compte à consulter ou à modifier.</div></div>${accounts.map(a=>{const future=a.startMode==='next'&&String(a.cycleStart)>todayISO(),on=g.active&&String(g.activeAccountId)===String(a.id);return `<div class="card account-detail-card"><div class="account-detail-head"><div class="budget-icon">${ico(accountIcon(a))}</div><div class="account-detail-copy"><strong>${esc(a.name)}</strong><span>${future?'Prévision':'Disponible'} ${euro(remaining(a))} · ${accountChargeCount(a)} charge${accountChargeCount(a)>1?'s':''}</span></div>${on?'<span class="badge">ACTIF</span>':''}</div><div class="account-detail-actions">${locked?'<button class="mini-btn" data-unlock-detail type="button">B²+</button>':`<button class="mini-btn account-action-main" data-view-account="${a.id}" type="button">Voir le résumé</button><button class="mini-btn" data-edit-account="${a.id}" type="button">Modifier</button>${accounts.length>1?`<button class="mini-btn danger" data-delete-account="${a.id}" type="button">Supprimer</button>`:''}`}</div></div>`}).join('')}<button class="btn ${locked?'btn-soft':'btn-primary'} btn-full" id="detailAddAccount" type="button">${locked?'Débloquer ce budget avec B²+':'＋ Ajouter un compte'}</button>`;
   if(g.type==='shared'){$('#detailInviteMember')?.addEventListener('click',()=>shareBudget(g.id));$('#detailManageMembers')?.addEventListener('click',()=>openSharedMembers(g.id))}
-  $('#detailAddAccount')?.addEventListener('click',()=>locked?openPlus('Plusieurs budgets'):startAccountWizard(g.id));$$('[data-unlock-detail]',c).forEach(x=>x.addEventListener('click',()=>openPlus('Plusieurs budgets')));$$('[data-use-account]',c).forEach(x=>x.addEventListener('click',()=>activateAccountV11(x.dataset.useAccount)));$$('[data-edit-account]',c).forEach(x=>x.addEventListener('click',()=>startWizard(x.dataset.editAccount)));$$('[data-delete-account]',c).forEach(x=>x.addEventListener('click',()=>askDeleteAccountV11(x.dataset.deleteAccount)))
+  $('#detailAddAccount')?.addEventListener('click',()=>locked?openPlus('Plusieurs budgets'):startAccountWizard(g.id));$$('[data-unlock-detail]',c).forEach(x=>x.addEventListener('click',()=>openPlus('Plusieurs budgets')));$$('[data-view-account]',c).forEach(x=>x.addEventListener('click',()=>openAccountSummary(x.dataset.viewAccount)));$$('[data-edit-account]',c).forEach(x=>x.addEventListener('click',()=>startWizard(x.dataset.editAccount)));$$('[data-delete-account]',c).forEach(x=>x.addEventListener('click',()=>askDeleteAccountV11(x.dataset.deleteAccount)))
 }
 function renderEconomies(){
   const b=active(),c=$('#economiesContent');
@@ -7195,7 +7518,33 @@ function renderWizardBase(){
   }
   if(wizardStep===2)c.innerHTML=startStepHTML(wizard);
   if(wizardStep===3)c.innerHTML=expensesStepHTML();
-  if(wizardStep===4){const chosenSavings=new Set(wizard.savings.map(x=>x.name));c.innerHTML=`<h2 class="wizard-title">Mon épargne</h2><p class="wizard-lead">Pour construire une épargne ou financer un projet. Une dépense déjà connue avec une date va plutôt dans « À préparer pour plus tard ».</p><div class="status info">B² évite les doublons : une même somme ne doit pas être protégée ici et dans « À préparer pour plus tard ».</div><div class="chips">${SAVING_PRESETS.map(x=>`<button class="chip ${chosenSavings.has(x)?'on':''}" data-add-saving="${esc(x)}" type="button">${chosenSavings.has(x)?'✓':'＋'} ${esc(x)}</button>`).join('')}</div><button class="btn btn-white btn-full" id="customSaving" type="button" style="margin-top:10px">＋ Autre nom</button><div class="section-title"><h3>Épargne prévue</h3></div><div class="card flat">${wizard.savings.length?wizard.savings.map(savingWizardRow).join(''):'<div class="empty">Aucune épargne prévue.</div>'}</div>`;}
+  if(wizardStep===4){
+    const chosenSavings=new Set(wizard.savings.map(x=>x.name));
+    c.innerHTML=`<h2 class="wizard-title">Sécurité & épargne</h2>
+      <p class="wizard-lead">Commence par protéger une petite somme pour les imprévus, puis ajoute ton épargne si tu le souhaites.</p>
+
+      <div class="card b2-reserve-focus">
+        <div class="b2-reserve-focus-head">
+          <div class="status-icon">${ico('shield')}</div>
+          <div>
+            <strong>Ma réserve de sécurité</strong>
+            <span>Argent protégé : B² ne le répartit pas dans tes enveloppes.</span>
+          </div>
+        </div>
+        <div class="field b2-reserve-focus-field">
+          <label for="wReserve">Montant à garder de côté <span class="muted">(facultatif)</span></label>
+          <div class="b2-money-input"><input id="wReserve" type="number" min="0" step="0.01" inputmode="decimal" value="${wizard.reserve||''}" placeholder="Ex. 100"><span>€</span></div>
+        </div>
+        <div class="help">Exemple : avec 100 € de réserve, ces 100 € restent visibles dans ton compte mais ne sont jamais considérés comme disponibles à dépenser.</div>
+      </div>
+
+      <div class="section-title"><h3>Mon épargne</h3></div>
+      <div class="status info">B² évite les doublons : une même somme ne doit pas être protégée ici et dans « À préparer pour plus tard ».</div>
+      <div class="chips">${SAVING_PRESETS.map(x=>`<button class="chip ${chosenSavings.has(x)?'on':''}" data-add-saving="${esc(x)}" type="button">${chosenSavings.has(x)?'✓':'＋'} ${esc(x)}</button>`).join('')}</div>
+      <button class="btn btn-white btn-full" id="customSaving" type="button" style="margin-top:10px">＋ Autre nom</button>
+      <div class="section-title"><h3>Épargne prévue</h3></div>
+      <div class="card flat">${wizard.savings.length?wizard.savings.map(savingWizardRow).join(''):'<div class="empty">Aucune épargne prévue.</div>'}</div>`;
+  }
 
   if(wizardStep===6)c.innerHTML=envelopesStepHTML();
   if(wizardStep===7){
@@ -7299,7 +7648,7 @@ function renderWizardBase(){
         </div>
       </div>`;
   }
-  if(wizardStep===4)c.insertAdjacentHTML('beforeend',`<div class="field"><label for="wReserve">Réserve pour imprévus (facultatif)</label><input id="wReserve" type="number" min="0" step="0.01" value="${wizard.reserve}"></div>`);
+
   wireWizard();
 }
 function counterHTML(id,label,val,min){return `<div class="card flat"><div class="card-title"><h3>${label}</h3></div><div class="counter"><button data-count="${id}" data-delta="-1" data-min="${min}" type="button">−</button><div class="count" id="${id}">${val}</div><button data-count="${id}" data-delta="1" data-min="${min}" type="button">＋</button></div></div>`}
@@ -7825,7 +8174,7 @@ function openSmartSaving(id){
   const b=active(),g=b?.savings.find(x=>String(x.id)===String(id));if(!g)return;if(!isPlus()){openPlus('Les objectifs intelligents');return}
   openSimple('Objectif intelligent B²+','B² suit ton objectif et adapte ses conseils au fil du temps.',`<div class="field"><label for="simpleTarget">Montant cible</label><input id="simpleTarget" type="number" step="0.01" inputmode="decimal" value="${g.targetAmount||''}"></div><div class="field"><label for="simpleDue">Date cible</label><input id="simpleDue" type="date" value="${g.dueDate||''}"></div>`,()=>{const target=num($('#simpleTarget').value),due=$('#simpleDue').value;if(target<=0||!due){showToast('Indique un montant et une date.');return false}g.targetAmount=r2(target);g.dueDate=due;save();return true})
 }
-function openSimple(title,lead,fields,handler){$('#simpleSave').classList.remove('hidden');$('#simpleTitle').textContent=title;$('#simpleLead').textContent=lead;$('#simpleFields').innerHTML=fields;simpleSaveHandler=handler;openModal('simpleModal')}
+function openSimple(title,lead,fields,handler){const modal=$('#simpleModal');modal?.classList.remove('ack-only','account-summary-modal');$('#simpleSave').classList.remove('hidden');$('#simpleSave').textContent='Ajouter';$('#simpleTitle').textContent=title;$('#simpleLead').textContent=lead;$('#simpleFields').innerHTML=fields;simpleSaveHandler=handler;openModal('simpleModal')}
 function startClosing(){if(!active()){showToast('Aucun compte actif.');return}closingStep=0;closingReview={carry:0,held:0,reserveRecovery:0,oneOffs:[],incomes:[],editBudget:false};showPage('closing')}
 function renderClosing(){
   const b=active(),c=$('#closingContent');if(!b){c.innerHTML='<div class="empty">Aucun compte actif.</div>';return}
@@ -8070,6 +8419,85 @@ function homeAccountStripV11(g,current){
   const accounts=accountsForBudget(g.id);
   return `<div class="home-accounts-wrap"><div class="home-accounts-head"><strong>Mes comptes</strong><span>${accounts.length} dans ce budget</span></div><div class="home-account-strip">${accounts.map(a=>`<button class="home-account-pill ${String(a.id)===String(current?.id)?'on':''}" data-home-account="${a.id}" aria-pressed="${String(a.id)===String(current?.id)}" type="button"><span>${esc(a.name)}</span><strong class="${remaining(a)<0?'bad':''}">${euro(remaining(a))}</strong></button>`).join('')}<button class="home-account-add" id="homeAddAccount" type="button"><span aria-hidden="true">+</span><strong>Ajouter</strong></button></div></div>`
 }
+function openAccountSummary(id){
+  const a=byId(id),g=a?budgetById(a.budgetGroupId):null;
+  if(!a||!g)return;
+
+  const isCurrent=g.active&&String(g.activeAccountId)===String(a.id);
+  const fixed=r2(fixedThisCycle(a));
+  const oneOff=r2((a.oneOffs||[]).reduce((s,x)=>s+Math.max(0,num(x.amount)),0));
+  const aside=r2(provisionsThisCycle(a));
+  const savings=r2(savingsThisCycle(a));
+  const reserve=Math.max(0,num(a.reserve));
+  const primary=primaryIncomeSource(a);
+  const next=nextExpectedIncome(a)||primary;
+  const accountBalance=r2(currentCashEstimate(a));
+  const spendable=r2(remaining(a));
+
+  const envelopes=(a.envelopes||[]).map(e=>{
+    const amount=Math.max(0,num(e.amount)),spent=Math.max(0,spentFor(a,e.id)),left=Math.max(0,r2(amount-spent));
+    const pct=amount>0?clamp(spent/amount*100,0,100):0;
+    return `<div class="account-summary-env">
+      <div class="account-summary-env-top">
+        <span>${ico(e.icon)} <strong>${esc(e.name)}</strong></span>
+        <b>${euro(left)}</b>
+      </div>
+      <div class="account-summary-env-sub"><span>${euro(amount)} prévus${spent>.01?` · ${euro(spent)} utilisés`:''}</span><span>reste</span></div>
+      <div class="account-summary-env-bar"><i style="width:${pct}%"></i></div>
+    </div>`
+  }).join('')||'<div class="help">Aucune enveloppe enregistrée.</div>';
+
+  const nextIncomeHTML=next?.amount>0
+    ?`<div class="account-summary-next">
+        <div><span>Prochain revenu</span><strong>${esc(next.name||'Revenu')}</strong></div>
+        <div><b>＋ ${euro(next.amount)}</b><small>${next.nextDate?fmtDateFull(next.nextDate):'date non renseignée'}</small></div>
+      </div>`
+    :'';
+
+  const statusLine=isCurrent
+    ?'<div class="status good compact"><strong>Compte actif</strong><br>C’est celui actuellement utilisé par l’accueil et Piloter.</div>'
+    :`<button class="btn btn-primary btn-full" id="summaryUseAccount" type="button">Utiliser ce compte sur l’accueil</button>`;
+
+  openSimple(
+    `Résumé · ${a.name}`,
+    `Une vue simple de ce que B² a enregistré dans « ${g.name} ».`,
+    `<div class="account-summary-hero">
+      <div><span>Disponible à utiliser</span><strong class="${spendable<0?'bad':''}">${euro(spendable)}</strong></div>
+      <div><span>Solde estimé du compte</span><b>${euro(accountBalance)}</b></div>
+    </div>
+
+    <div class="account-summary-grid">
+      <div><span>Charges</span><strong>${euro(fixed+oneOff)}</strong><small>cette période</small></div>
+      <div><span>À préparer</span><strong>${euro(aside)}</strong><small>mis de côté</small></div>
+      <div><span>Épargne</span><strong>${euro(savings)}</strong><small>cette période</small></div>
+      <div><span>Réserve</span><strong>${euro(reserve)}</strong><small>protégée</small></div>
+    </div>
+
+    ${nextIncomeHTML}
+
+    <div class="section-title account-summary-section"><h3>Mes enveloppes</h3></div>
+    <div class="card flat account-summary-env-list">${envelopes}</div>
+
+    <div class="section-title account-summary-section"><h3>Repères du compte</h3></div>
+    <div class="card flat">
+      <div class="summary-line"><span>Période</span><strong>${fmtDate(a.cycleStart)} → ${fmtDate(a.cycleEnd)}</strong></div>
+      <div class="summary-line"><span>Foyer</span><strong>${esc(householdLabel(a))}</strong></div>
+      <div class="summary-line"><span>Mode de marge</span><strong>${esc(profileMarginLabel(a))}</strong></div>
+    </div>
+
+    ${statusLine}`,
+    ()=>true
+  );
+
+  $('#simpleModal')?.classList.add('ack-only','account-summary-modal');
+  $('#simpleSave').textContent='Fermer';
+
+  $('#summaryUseAccount')?.addEventListener('click',()=>{
+    closeModal('simpleModal');
+    activateAccountV11(a.id)
+  })
+}
+
 function activateAccountV11(id,quiet=false){
   const a=byId(id),g=a?budgetById(a.budgetGroupId):null;if(!a||!g)return;
   if(!canUseBudgetGroup(g)){openPlus('Plusieurs budgets');return}
