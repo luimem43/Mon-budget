@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#075a4d">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<title>B² v14.06 — partage lisible, e-mail et résiliation propre</title>
+<title>B² v14.07 — fin B²+ et badges premium clairs</title>
 <style>
 :root{
   --brand:#075a4d;--brand2:#0a7965;--brand3:#0f8f72;--lime:#b9ef68;
@@ -1978,6 +1978,22 @@ button{
 .shared-budget-row.locked-feature .badge.shared-primary{opacity:1}
 #sendShareInvite .ui-ico{width:18px;height:18px;margin-right:7px;vertical-align:-4px}
 
+
+/* v14.07 — les badges premium n'ont plus l'air d'être à repayer */
+.plus-badge.included{
+  background:#e5f6ef!important;
+  color:#086553!important;
+  border:1px solid #c6e8dc!important;
+  box-shadow:none!important;
+}
+.plus-ended-mark{
+  width:58px;height:58px;border-radius:18px;background:#e5f6ef;color:#086553;
+  display:flex;align-items:center;justify-content:center;margin:2px auto 12px;
+}
+.plus-ended-mark .ui-ico{width:30px;height:30px}
+#plusEndedModal h3,#sharedPausedModal h3{text-align:center;margin-top:0}
+#plusEndedModal .lead,#sharedPausedModal .lead{text-align:center}
+
 </style>
 </head>
 <body>
@@ -2272,6 +2288,27 @@ button{
   <button class="btn btn-danger btn-full" id="confirmCancelPlus" type="button">Confirmer la résiliation</button>
   <button class="btn btn-soft btn-full" data-close="cancelPlusModal" type="button" style="margin-top:8px">Annuler</button>
 </div></div>
+
+<div class="modal" id="plusEndedModal"><div class="sheet"><div class="grab"></div>
+  <div class="plus-ended-mark"><span id="plusEndedIcon"></span></div>
+  <h3 id="plusEndedTitle">Ton accès B²+ est terminé</h3>
+  <p class="lead" id="plusEndedLead">Tu retrouves maintenant la version gratuite de B².</p>
+  <div class="status info" id="plusEndedData">
+    Tes données sont conservées. Les fonctions B²+ sont simplement mises en pause.
+  </div>
+  <div class="status warn hidden" id="plusEndedShared"></div>
+  <button class="btn btn-primary btn-full" id="plusEndedReactivate" type="button">Réactiver B²+</button>
+  <button class="btn btn-soft btn-full" id="plusEndedFree" type="button" style="margin-top:8px">Continuer avec B² gratuit</button>
+</div></div>
+
+<div class="modal" id="sharedPausedModal"><div class="sheet"><div class="grab"></div>
+  <div class="plus-ended-mark"><span id="sharedPausedIcon"></span></div>
+  <h3>Budget partagé en pause</h3>
+  <p class="lead" id="sharedPausedLead">Le propriétaire doit réactiver B²+ pour reprendre les modifications.</p>
+  <div class="status info">Les données du budget sont conservées. Tes budgets personnels ne sont pas concernés.</div>
+  <button class="btn btn-primary btn-full" id="sharedPausedOk" type="button">J’ai compris</button>
+</div></div>
+
 <div class="modal" id="plusModal"><div class="sheet"><div class="grab"></div><div class="plus-hero"><strong>B²+</strong><p id="plusContext">Le Carré gratuit surveille le présent. B²+ ajoute la mémoire, les habitudes et les recommandations dans le temps.</p></div>
 <div class="founder-offer" id="founderOfferCard">
   <span class="founder-kicker" id="founderKicker">OFFRE DE LANCEMENT · TARIF FONDATEUR</span>
@@ -2722,6 +2759,8 @@ async function refreshReferralStatus({render=true,silent=true}={}){
     const {data,error}=await b2supabase.rpc('b2_referral_status');
     if(error)throw error;
     applyReferralStatusPayload(data&&typeof data==='object'?data:{});
+    syncOwnedSharedEntitlement({remote:true});
+    if(b2PushEnabledOnDevice())queueB2LocalScheduleSync();
     if(render){
       ensurePlusBill(active());
       renderAll();
@@ -2863,6 +2902,12 @@ async function ensureB2NotificationPermission(ask=false){
 }
 function handleB2NotificationOpen(extra={}){
   const type=extra?.type||extra?.data?.type||'';
+  if(type==='plus_expired'||type==='plus_expiring'){
+    showPage('more');if(type==='plus_expired')setTimeout(checkB2EntitlementNotices,120);return
+  }
+  if(type==='shared_owner_plus_ended'){
+    showPage('budgets');setTimeout(checkB2EntitlementNotices,120);return
+  }
   if(String(type).startsWith('shared_')||type==='shared_invite'){
     refreshB2Messages().finally(()=>{showPage('home');setTimeout(openNotificationCenter,100)})
   }else showPage('home')
@@ -2913,7 +2958,19 @@ async function postB2LocalNotification(title,body,category='essential',extra={})
 }
 async function cancelB2LocalSchedules(){
   const l=nativeLocalNotificationsPlugin();if(!l)return;
-  try{await l.cancel({notifications:[{id:22001},{id:22002}]})}catch(e){}
+  try{
+    const pending=await l.getPending?.();
+    const ids=(pending?.notifications||[])
+      .map(x=>Math.round(num(x.id)))
+      .filter(id=>id===22001||id===22002||id===22003||id===22004||(id>=23000&&id<28000));
+    if(ids.length)await l.cancel({notifications:ids.map(id=>({id}))})
+  }catch(e){
+    try{await l.cancel({notifications:[{id:22001},{id:22002},{id:22003},{id:22004}]})}catch(_){}
+  }
+}
+function stableLocalNotificationId(seed,base=23000,span=5000){
+  let h=0;for(const ch of String(seed||''))h=((h*31)+ch.charCodeAt(0))>>>0;
+  return base+(h%span)
 }
 function queueB2LocalScheduleSync(){
   clearTimeout(b2LocalScheduleTimer);
@@ -2930,6 +2987,53 @@ async function syncB2LocalNotificationSchedules(){
     if(at.getTime()>Date.now()+60000)rows.push({id:22001,title:'B² · Revenu prévu aujourd’hui',body:`Ton revenu « ${src.name||'principal'} » était prévu aujourd’hui. Confirme sa réception pour préparer la nouvelle période.`,channelId:'b2_essential',schedule:{at},extra:{type:'income_due'}})
   }
   if(state.settings.weekly===true)rows.push({id:22002,title:'B² · Ton point de la semaine',body:'Ton résumé hebdomadaire est prêt. Ouvre B² pour voir où en est ton budget.',channelId:'b2_weekly',schedule:{on:{weekday:1,hour:18,minute:0},repeats:true},extra:{type:'weekly_summary'}});
+
+  const expiry=finitePlusExpiryInfo();
+  if(state.settings.essential!==false&&expiry&&expiry.end>Date.now()+60000){
+    const before=new Date(expiry.end-72*3600000);
+    if(before.getTime()>Date.now()+60000){
+      rows.push({
+        id:22003,
+        title:'B²+ se termine dans 3 jours',
+        body:expiry.source==='referral'
+          ?'Ton accès offert B²+ arrive bientôt à son terme. Tu pourras choisir de poursuivre avec B²+ ou de revenir à la version gratuite.'
+          :'Ton abonnement B²+ arrive à la fin de sa période. Il ne sera pas renouvelé.',
+        channelId:'b2_essential',
+        schedule:{at:before},
+        extra:{type:'plus_expiring'}
+      })
+    }
+    rows.push({
+      id:22004,
+      title:'B² · Ton accès B²+ est terminé',
+      body:(state.budgetGroups||[]).some(isOwnedSharedBudget)
+        ?'Tes données sont conservées. Ton budget partagé est maintenant en pause jusqu’à une réactivation de B²+.'
+        :'Tes données sont conservées. Ouvre B² pour choisir entre la version gratuite et B²+.',
+      channelId:'b2_essential',
+      schedule:{at:new Date(expiry.end)},
+      extra:{type:'plus_expired'}
+    })
+  }
+
+  // Pour un membre invité, le téléphone peut aussi prévenir à la date où
+  // le B²+ du propriétaire se termine.
+  if(state.settings.pushShared!==false){
+    (state.budgetGroups||[])
+      .filter(g=>g.type==='shared'&&g.remoteShared&&!isOwnedSharedBudget(g)&&g.ownerAccessUntil)
+      .forEach(g=>{
+        const end=Date.parse(g.ownerAccessUntil||'');
+        if(!Number.isFinite(end)||end<=Date.now()+60000)return;
+        rows.push({
+          id:stableLocalNotificationId(g.remoteSharedId||g.id),
+          title:'B² · Budget partagé en pause',
+          body:`« ${g.name} » est en pause : l’accès B²+ du propriétaire arrive à son terme.`,
+          channelId:'b2_shared',
+          schedule:{at:new Date(end)},
+          extra:{type:'shared_owner_plus_ended',budget_id:g.remoteSharedId||g.id}
+        })
+      })
+  }
+
   if(rows.length)try{await l.schedule({notifications:rows})}catch(e){console.warn('B² schedule notifications',e)}
 }
 
@@ -3049,7 +3153,8 @@ async function syncRemoteSharedBudgets({render=true}={}){
     b2ApplyingRemote=false;
     if(activeRemote){const g=state.budgetGroups.find(x=>String(x.remoteSharedId||'')===String(activeRemote));if(g){state.budgetGroups.forEach(x=>x.active=x===g)}}
     ensureActive();persistB2LocalOnly();
-    if(render)renderAll();
+    if(b2PushEnabledOnDevice())queueB2LocalScheduleSync();
+    if(render){renderAll();setTimeout(checkB2EntitlementNotices,120)}
     return true
   }catch(e){b2ApplyingRemote=false;console.warn('B² shared sync unavailable',e);return false}
 }
@@ -3064,7 +3169,8 @@ async function ensureRemoteSharedBudget(g,{shareHistory=true}={}){
     const {data,error}=await b2supabase.rpc('b2_shared_create',{p_name:g.name,p_data:sharedPayload(g)});if(error)throw error;
     g.remoteShared=true;g.remoteSharedId=data?.budget_id||null;g.remoteRevision=num(data?.revision)||1;g.remoteRole='owner';g.remoteOwnerId=cloudSession.user.id;g.shareStartedAt=Date.now();g.sharedHistoryMode=shareHistory?'all':'today';
     g.members=[{id:cloudSession.user.id,userId:cloudSession.user.id,name:accountIdentifier(),recipient:cloudSession.user.email||'',contribution:0,current:true,status:'joined',role:'owner'}];
-    syncBudgetSharing(g);accountsForBudget(g.id).forEach(a=>a.remoteSharedId=g.remoteSharedId);persistB2LocalOnly();queueCloudSave();return !!g.remoteSharedId
+    syncOwnedSharedEntitlement({remote:false});
+    syncBudgetSharing(g);accountsForBudget(g.id).forEach(a=>a.remoteSharedId=g.remoteSharedId);persistB2LocalOnly();queueCloudSave();queueB2LocalScheduleSync();return !!g.remoteSharedId
   }catch(e){
     restoreBudgetConversionSnapshot(groupSnapshot,accountSnapshots);if(archive)removeShareArchive(archive.id);persistB2LocalOnly();console.warn('B² shared create',e);showToast('Impossible de créer le budget partagé en ligne. Ton budget personnel n’a pas été modifié.');return false
   }
@@ -3268,7 +3374,9 @@ async function loadCloudBackupOrSeed(){
   if(b2PushEnabledOnDevice())await initB2Notifications({ask:false});
   await startB2Realtime();
   ensurePlusBill(active());
-  renderHeaderAccount();renderAll();showPage(currentPage||'home')
+  syncOwnedSharedEntitlement({remote:true});
+  renderHeaderAccount();renderAll();showPage(currentPage||'home');
+  setTimeout(checkB2EntitlementNotices,260)
 }
 async function finishCloudLogin(session,message='Connexion réussie.'){
   cloudSession=session;
@@ -3553,6 +3661,104 @@ function paidPlusPeriodEndText(){
   return new Intl.DateTimeFormat('fr-FR',{day:'numeric',month:'long',year:'numeric'}).format(new Date(t))
 }
 function isPlus(){return hasPaidPlus()||hasReferralPlus()}
+function plusFeatureBadge(){
+  return isPlus()
+    ?'<span class="plus-badge included">INCLUS</span>'
+    :'<span class="plus-badge">B²+</span>'
+}
+
+const B2_PLUS_EXPIRY_SEEN_KEY='B2_PLUS_EXPIRY_SEEN_V1';
+const B2_SHARED_PAUSE_SEEN_KEY='B2_SHARED_PAUSE_SEEN_V1';
+
+function paidPlusAutoRenews(){
+  return state.plan?.tier==='plus'&&state.plan?.cancelAtPeriodEnd!==true
+}
+function finitePlusExpiryInfo(){
+  // Un abonnement payant encore renouvelé n'a pas de date de fin à annoncer.
+  if(paidPlusAutoRenews())return null;
+  const candidates=[];
+  if(state.plan?.tier==='plus'&&state.plan?.cancelAtPeriodEnd===true){
+    const t=Date.parse(state.plan?.subscriptionPeriodEnd||'');
+    if(Number.isFinite(t)&&t>0)candidates.push({end:t,source:'subscription'})
+  }
+  const referral=referralPlusUntilMs();
+  if(referral>0)candidates.push({end:referral,source:'referral'});
+  if(!candidates.length)return null;
+  const end=Math.max(...candidates.map(x=>x.end));
+  const source=candidates.some(x=>x.source==='subscription'&&x.end===end)?'subscription':'referral';
+  return {end,source}
+}
+function plusExpiryFingerprint(info){
+  return info?`${info.source}:${Math.round(info.end)}`:''
+}
+function sharedEntitlementEndMs(){
+  if(paidPlusAutoRenews())return 0;
+  const paid=state.plan?.tier==='plus'&&state.plan?.cancelAtPeriodEnd===true
+    ?Date.parse(state.plan?.subscriptionPeriodEnd||'')||0:0;
+  return Math.max(paid,referralPlusUntilMs())
+}
+function syncOwnedSharedEntitlement({remote=true}={}){
+  const owned=(state.budgetGroups||[]).filter(g=>isOwnedSharedBudget(g));
+  if(!owned.length)return;
+  const unlimited=paidPlusAutoRenews();
+  const end=sharedEntitlementEndMs();
+  owned.forEach(g=>{
+    const before=g.ownerAccessUntil||null;
+    if(unlimited)g.ownerAccessUntil=null;
+    else if(end>0)g.ownerAccessUntil=new Date(end).toISOString();
+    if(remote&&g.remoteShared&&before!==g.ownerAccessUntil)queueRemoteSharedSave(g)
+  })
+}
+function localNoticeRead(key){try{return localStorage.getItem(key)||''}catch(e){return ''}}
+function localNoticeWrite(key,value){try{localStorage.setItem(key,String(value||''))}catch(e){}}
+
+function openPlusEndedNotice(info){
+  const owned=(state.budgetGroups||[]).filter(g=>isOwnedSharedBudget(g));
+  if($('#plusEndedIcon'))$('#plusEndedIcon').innerHTML=ico('spark');
+  $('#plusEndedTitle').textContent=info?.source==='referral'
+    ?'Ton accès offert B²+ est terminé'
+    :'Ton accès B²+ est terminé';
+  $('#plusEndedLead').textContent='Tu retrouves maintenant la version gratuite de B².';
+  $('#plusEndedData').innerHTML='<strong>Rien n’est supprimé.</strong><br>Tes données et tes anciens budgets sont conservés. Les fonctions B²+ sont simplement mises en pause.';
+  const box=$('#plusEndedShared');
+  if(owned.length){
+    box.classList.remove('hidden');
+    box.innerHTML=`<strong>${owned.length>1?'Tes budgets partagés sont en pause.':'Ton budget partagé est en pause.'}</strong><br>Réactive B²+ pour reprendre la gestion commune avec ${owned.length>1?'leurs membres':'ses membres'}.`
+  }else box.classList.add('hidden');
+  openModal('plusEndedModal')
+}
+function pausedSharedForMember(){
+  return (state.budgetGroups||[]).find(g=>g.type==='shared'&&g.remoteShared&&!isOwnedSharedBudget(g)&&sharedOwnerAccessExpired(g))||null
+}
+function openSharedPausedNotice(g){
+  if(!g)return;
+  if($('#sharedPausedIcon'))$('#sharedPausedIcon').innerHTML=ico('group');
+  $('#sharedPausedLead').textContent=`« ${g.name} » est temporairement en pause. L’accès B²+ du propriétaire est arrivé à son terme.`;
+  openModal('sharedPausedModal')
+}
+function checkB2EntitlementNotices(){
+  try{
+    syncOwnedSharedEntitlement({remote:true});
+    const info=finitePlusExpiryInfo();
+    if(info&&info.end<=Date.now()&&!isPlus()){
+      const fingerprint=plusExpiryFingerprint(info);
+      if(fingerprint&&localNoticeRead(B2_PLUS_EXPIRY_SEEN_KEY)!==fingerprint){
+        localNoticeWrite(B2_PLUS_EXPIRY_SEEN_KEY,fingerprint);
+        renderAll();
+        openPlusEndedNotice(info);
+        return
+      }
+    }
+    const paused=pausedSharedForMember();
+    if(paused){
+      const key=`${paused.remoteSharedId||paused.id}:${paused.ownerAccessUntil||''}`;
+      if(localNoticeRead(B2_SHARED_PAUSE_SEEN_KEY)!==key){
+        localNoticeWrite(B2_SHARED_PAUSE_SEEN_KEY,key);
+        openSharedPausedNotice(paused)
+      }
+    }
+  }catch(e){console.warn('B² entitlement notice',e)}
+}
 function freeAccount(){
   if(isPlus())return null;
   let b=state.plan?.freeAccountId?byId(state.plan.freeAccountId):null;
@@ -6375,7 +6581,7 @@ async function chooseBankAssist(enabled){
 }
 window.chooseBankAssist=chooseBankAssist;
 window.addEventListener('focus',()=>{if(state?.settings?.bankAssist===true)setTimeout(()=>importNativeBankNotifications({silent:false}),450)});
-window.addEventListener('focus',()=>{if(cloudSession?.user)setTimeout(()=>refreshReferralStatus({render:true,silent:true}),650)});
+window.addEventListener('focus',()=>{if(cloudSession?.user)setTimeout(()=>refreshReferralStatus({render:true,silent:true}).then(()=>{syncOwnedSharedEntitlement({remote:true});checkB2EntitlementNotices()}),650)});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&state?.settings?.bankAssist===true)setTimeout(()=>importNativeBankNotifications({silent:true}),500)});
 setTimeout(async()=>{
   if(state?.settings?.bankAssist===true&&active()){
@@ -6434,7 +6640,11 @@ function renderPlanBrand(){
 }
 function renderMore(){
   const analysis=$('#analysisCard');
-  if(analysis)analysis.classList.toggle('hidden',!advancedIntelligenceEnabled());
+  if(analysis){
+    analysis.classList.toggle('hidden',!advancedIntelligenceEnabled());
+    const badge=analysis.querySelector('.plus-badge');
+    if(badge){badge.textContent=isPlus()?'INCLUS':'B²+';badge.classList.toggle('included',isPlus())}
+  }
   const slot=$('#moreAdSlot');
   if(slot){slot.innerHTML=adCard('more');wireAds(slot)}
 }
@@ -6582,8 +6792,9 @@ function confirmDeactivatePlus(){
     g.ownerAccessUntil=new Date(accessEnd).toISOString();
     if(g.remoteShared)queueRemoteSharedSave(g)
   });
+  syncOwnedSharedEntitlement({remote:true});
   removePlusBills();
-  closeModal('cancelPlusModal');save();
+  closeModal('cancelPlusModal');save();queueB2LocalScheduleSync();
   showToast(`Résiliation enregistrée · B²+ reste actif jusqu’au ${paidPlusPeriodEndText()}.`)
 }
 function resumePlusRenewal(){
@@ -6591,7 +6802,7 @@ function resumePlusRenewal(){
   state.plan.cancelAtPeriodEnd=false;state.plan.subscriptionCanceledAt=null;
   if(paidPlusPeriodEndMs()<=Date.now())state.plan.subscriptionPeriodEnd=new Date(plusAddMonth(Date.now())).toISOString();
   state.budgetGroups.filter(isOwnedSharedBudget).forEach(g=>{g.ownerAccessUntil=null;if(g.remoteShared)queueRemoteSharedSave(g)});
-  ensurePlusBill(active());save();showToast('Renouvellement B²+ réactivé.')
+  ensurePlusBill(active());save();queueB2LocalScheduleSync();showToast('Renouvellement B²+ réactivé.')
 }
 function handleSubscriptionAction(){
   if(paidPlusCancellationPending()){resumePlusRenewal();closeModal('subscriptionModal');return}
@@ -6955,13 +7166,13 @@ function renderMovements(){
 function renderBudgets(){
   const c=$('#budgetsContent');
   if(!state.budgetGroups.length){
-    c.innerHTML=`<div class="card"><div class="empty"><div class="big">${ico('grid')}</div><strong>Aucun budget pour le moment.</strong><p class="small">Commence par créer ton budget principal.</p><button class="btn btn-primary" id="emptyNewBudget" type="button">Créer mon budget</button></div></div><button class="choice locked-feature" id="emptySharedBudget" type="button"><span class="choice-icon">${ico('group')}</span><div><strong>Mon budget partagé <span class="plus-badge">B²+</span></strong><span>Un même budget géré à plusieurs.</span></div></button>${adCard('budgets')}`;
+    c.innerHTML=`<div class="card"><div class="empty"><div class="big">${ico('grid')}</div><strong>Aucun budget pour le moment.</strong><p class="small">Commence par créer ton budget principal.</p><button class="btn btn-primary" id="emptyNewBudget" type="button">Créer mon budget</button></div></div><button class="choice ${isPlus()?'':'locked-feature'}" id="emptySharedBudget" type="button"><span class="choice-icon">${ico('group')}</span><div><strong>Mon budget partagé ${plusFeatureBadge()}</strong><span>Un même budget géré à plusieurs.</span></div></button>${adCard('budgets')}`;
     $('#emptyNewBudget').addEventListener('click',()=>startNewBudget(false));
     $('#emptySharedBudget').addEventListener('click',startSharedBudget);
     wireAds(c);return
   }
-  const budgetsHtml=state.budgetGroups.map(g=>{const a=accountsForBudget(g.id),locked=!canUseBudgetGroup(g),cur=byId(g.activeAccountId)||a[0],shared=g.type==='shared';return `<div class="budget-row ${g.active?'active':''} ${shared?'shared-budget-row':''} ${locked?'locked-feature':''}"><div class="budget-main"><div class="budget-icon">${ico(shared?'group':'grid')}</div><div class="budget-copy"><strong>${esc(g.name)}${locked&&shared&&isOwnedSharedBudget(g)?' <span class="plus-badge">B²+</span>':''}</strong><span>${shared?'Budget partagé':'Personnel'} · ${a.length} compte${a.length>1?'s':''}${cur?` · ${esc(cur.name)} actif`:''}</span></div><div class="budget-status-stack">${shared?'<span class="badge shared shared-primary">PARTAGÉ</span>':''}<span class="badge ${shared?'shared-state':''}">${locked?'VERROUILLÉ':g.active?'ACTIF':shared?'COMMUN':'BUDGET'}</span></div><button class="dots" data-menu-budget="${g.id}" type="button">•••</button></div><div class="action-menu" id="menu-${g.id}">${!g.active&&!locked?`<button data-activate="${g.id}" type="button">✓ Utiliser ce budget</button>`:locked?`<button data-unlock-budget="${g.id}" type="button">Débloquer avec B²+</button>`:''}<button data-open-budget="${g.id}" type="button">Voir le budget</button><button data-rename-budget="${g.id}" type="button">Renommer</button>${g.type!=='shared'&&isPlus()?`<button data-share-budget="${g.id}" type="button">Partager ce budget</button>`:''}<button data-duplicate="${g.id}" type="button" ${!isPlus()?'disabled':''}>Dupliquer le budget <span class="plus-badge">B²+</span></button><button class="danger" data-delete-budget="${g.id}" type="button">${g.remoteShared&&g.remoteRole!=='owner'?'Quitter le budget':'Supprimer le budget'}</button></div></div>`}).join('');
-  c.innerHTML=`<button class="choice ${isPlus()?'':'locked-feature'}" id="extraBudgetShortcut" type="button" style="margin-bottom:10px"><span class="choice-icon">${ico('grid')}</span><div><strong>Créer un autre budget <span class="plus-badge">B²+</span></strong><span>${isPlus()?'Perso, pro, projet… garde chaque univers séparé.':'B²+ permet de séparer plusieurs univers de budget.'}</span></div></button><button class="choice ${isPlus()?'':'locked-feature'}" id="sharedBudgetShortcut" type="button" style="margin-bottom:12px"><span class="choice-icon">${ico('group')}</span><div><strong>Mon budget partagé <span class="plus-badge">B²+</span></strong><span>${isPlus()?'Crée un budget à gérer à plusieurs.':'Un budget commun à gérer ensemble.'}</span></div></button>${adCard('budgets')}${budgetsHtml}`;
+  const budgetsHtml=state.budgetGroups.map(g=>{const a=accountsForBudget(g.id),locked=!canUseBudgetGroup(g),cur=byId(g.activeAccountId)||a[0],shared=g.type==='shared';return `<div class="budget-row ${g.active?'active':''} ${shared?'shared-budget-row':''} ${locked?'locked-feature':''}"><div class="budget-main"><div class="budget-icon">${ico(shared?'group':'grid')}</div><div class="budget-copy"><strong>${esc(g.name)}${locked&&shared&&isOwnedSharedBudget(g)?' <span class="plus-badge">B²+</span>':''}</strong><span>${shared?'Budget partagé':'Personnel'} · ${a.length} compte${a.length>1?'s':''}${cur?` · ${esc(cur.name)} actif`:''}</span></div><div class="budget-status-stack">${shared?'<span class="badge shared shared-primary">PARTAGÉ</span>':''}<span class="badge ${shared?'shared-state':''}">${locked?'VERROUILLÉ':g.active?'ACTIF':shared?'COMMUN':'BUDGET'}</span></div><button class="dots" data-menu-budget="${g.id}" type="button">•••</button></div><div class="action-menu" id="menu-${g.id}">${!g.active&&!locked?`<button data-activate="${g.id}" type="button">✓ Utiliser ce budget</button>`:locked?`<button data-unlock-budget="${g.id}" type="button">Débloquer avec B²+</button>`:''}<button data-open-budget="${g.id}" type="button">Voir le budget</button><button data-rename-budget="${g.id}" type="button">Renommer</button>${g.type!=='shared'&&isPlus()?`<button data-share-budget="${g.id}" type="button">Partager ce budget</button>`:''}<button data-duplicate="${g.id}" type="button" ${!isPlus()?'disabled':''}>Dupliquer le budget${isPlus()?'':' <span class="plus-badge">B²+</span>'}</button><button class="danger" data-delete-budget="${g.id}" type="button">${g.remoteShared&&g.remoteRole!=='owner'?'Quitter le budget':'Supprimer le budget'}</button></div></div>`}).join('');
+  c.innerHTML=`<button class="choice ${isPlus()?'':'locked-feature'}" id="extraBudgetShortcut" type="button" style="margin-bottom:10px"><span class="choice-icon">${ico('grid')}</span><div><strong>Créer un autre budget ${plusFeatureBadge()}</strong><span>${isPlus()?'Perso, pro, projet… garde chaque univers séparé.':'B²+ permet de séparer plusieurs univers de budget.'}</span></div></button><button class="choice ${isPlus()?'':'locked-feature'}" id="sharedBudgetShortcut" type="button" style="margin-bottom:12px"><span class="choice-icon">${ico('group')}</span><div><strong>Mon budget partagé ${plusFeatureBadge()}</strong><span>${isPlus()?'Crée un budget à gérer à plusieurs.':'Un budget commun à gérer ensemble.'}</span></div></button>${adCard('budgets')}${budgetsHtml}`;
   $('#extraBudgetShortcut').addEventListener('click',()=>startNewBudget(false));
   $('#sharedBudgetShortcut').addEventListener('click',startSharedBudget);
   wireBudgetActions(c);wireAds(c)
@@ -9590,6 +9801,8 @@ function normalizeBudgetGroupV11(g){
     members:Array.isArray(g.members)?g.members.map((m,i)=>({id:m.id||uid(),userId:m.userId||null,name:m.name||`Membre ${i+1}`,contribution:num(m.contribution),current:!!m.current,status:m.status||(m.current?'joined':'pending'),role:m.role||(m.current?'owner':'member'),recipient:m.recipient||''})):[],
     shareInvites:Array.isArray(g.shareInvites)?g.shareInvites:[],
     remoteShared:!!g.remoteShared,remoteSharedId:g.remoteSharedId||null,remoteRevision:Math.max(0,num(g.remoteRevision)),remoteRole:g.remoteRole||null,remoteOwnerId:g.remoteOwnerId||null,
+    shareStartedAt:num(g.shareStartedAt)||null,sharedHistoryMode:g.sharedHistoryMode==='today'?'today':g.sharedHistoryMode==='all'?'all':null,
+    ownerAccessUntil:g.ownerAccessUntil||null,
     createdAt:g.createdAt||Date.now(),updatedAt:Date.now()
   }
 }
@@ -9937,7 +10150,7 @@ $$('[data-billmode]',$('#billModes')).forEach(x=>x.addEventListener('click',()=>
   const raw=$('#billDueDay')?.value;billDraft.dueDay=raw?clamp(Math.round(num(raw)),1,31):billDraft.dueDay;
   billDraft.mode=x.dataset.billmode;
   $$('[data-billmode]',$('#billModes')).forEach(y=>y.classList.toggle('on',y===x));renderBillFields()
-}));$('#saveBillBtn').addEventListener('click',saveBill);$$('[data-savingmode]',$('#savingModes')).forEach(x=>x.addEventListener('click',()=>{savingDraft.amount=num($('#savingAmount')?.value)||savingDraft.amount;savingDraft.target=num($('#savingTarget')?.value)||savingDraft.target;savingDraft.due=$('#savingDue')?.value||savingDraft.due;savingDraft.mode=x.dataset.savingmode;$$('[data-savingmode]',$('#savingModes')).forEach(y=>y.classList.toggle('on',y===x));renderSavingFields()}));$('#saveSavingBtn').addEventListener('click',saveSaving);$('#simpleSave').addEventListener('click',()=>{if(simpleSaveHandler?.()!==false){closeModal('simpleModal');if(currentPage==='wizard')renderWizard();else renderPage(currentPage)}});$('#plusPrimary').addEventListener('click',activatePlusDemo);$('#saveSubscriptionBilling')?.addEventListener('click',saveSubscriptionBilling);$('#startCancelPlus')?.addEventListener('click',handleSubscriptionAction);$('#confirmCancelPlus')?.addEventListener('click',confirmDeactivatePlus);$('#anotherAccountAdd')?.addEventListener('click',()=>{const id=v11PostWizardGroupId;closeModal('anotherAccountModal');if(id)startAccountWizard(id)});$('#anotherAccountDone')?.addEventListener('click',()=>{const id=v11PostWizardGroupId;closeModal('anotherAccountModal');if(id){detailId=id;showPage('budget-detail')}else showPage('budgets')});$('#confirmAction').addEventListener('click',()=>{const fn=confirmHandler;confirmHandler=null;closeModal('confirmModal');fn?.()});
+}));$('#saveBillBtn').addEventListener('click',saveBill);$$('[data-savingmode]',$('#savingModes')).forEach(x=>x.addEventListener('click',()=>{savingDraft.amount=num($('#savingAmount')?.value)||savingDraft.amount;savingDraft.target=num($('#savingTarget')?.value)||savingDraft.target;savingDraft.due=$('#savingDue')?.value||savingDraft.due;savingDraft.mode=x.dataset.savingmode;$$('[data-savingmode]',$('#savingModes')).forEach(y=>y.classList.toggle('on',y===x));renderSavingFields()}));$('#saveSavingBtn').addEventListener('click',saveSaving);$('#simpleSave').addEventListener('click',()=>{if(simpleSaveHandler?.()!==false){closeModal('simpleModal');if(currentPage==='wizard')renderWizard();else renderPage(currentPage)}});$('#plusPrimary').addEventListener('click',activatePlusDemo);$('#saveSubscriptionBilling')?.addEventListener('click',saveSubscriptionBilling);$('#startCancelPlus')?.addEventListener('click',handleSubscriptionAction);$('#plusEndedReactivate')?.addEventListener('click',()=>{closeModal('plusEndedModal');openPlus('B²+')});$('#plusEndedFree')?.addEventListener('click',()=>{closeModal('plusEndedModal');renderAll();showPage('home')});$('#sharedPausedOk')?.addEventListener('click',()=>{closeModal('sharedPausedModal');showPage('budgets')});$('#confirmCancelPlus')?.addEventListener('click',confirmDeactivatePlus);$('#anotherAccountAdd')?.addEventListener('click',()=>{const id=v11PostWizardGroupId;closeModal('anotherAccountModal');if(id)startAccountWizard(id)});$('#anotherAccountDone')?.addEventListener('click',()=>{const id=v11PostWizardGroupId;closeModal('anotherAccountModal');if(id){detailId=id;showPage('budget-detail')}else showPage('budgets')});$('#confirmAction').addEventListener('click',()=>{const fn=confirmHandler;confirmHandler=null;closeModal('confirmModal');fn?.()});
 $$('[data-share-history]',$('#shareHistoryChoices')).forEach(x=>x.addEventListener('click',()=>{
   shareConversionMode=x.dataset.shareHistory==='all'?'all':'today';$$('[data-share-history]',$('#shareHistoryChoices')).forEach(y=>y.classList.toggle('on',y===x));
   $('#shareConversionSummary').textContent=shareConversionMode==='all'?'Les anciens mouvements et périodes de ce budget seront partagés avec les membres que tu inviteras.':'Le partage commencera aujourd’hui. B² conservera une archive privée de ce qui précède.'
