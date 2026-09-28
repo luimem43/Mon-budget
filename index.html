@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#075a4d">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<title>B² v13.08 — bouton + parfaitement centré</title>
+<title>B² v13.12 — clôture accessible et rappel de revenu</title>
 <style>
 :root{
   --brand:#075a4d;--brand2:#0a7965;--brand3:#0f8f72;--lime:#b9ef68;
@@ -1227,35 +1227,32 @@ opacity:.10;animation:b2SquareFade 8.8s ease-in-out infinite
 .home-square-card::before{
   content:"";
   position:absolute;
-  left:-8px;
-  top:34px;
-  width:76px;
-  height:76px;
-  border-radius:22px;
-  background:linear-gradient(145deg,rgba(11,117,101,.06),rgba(11,117,101,.018));
-  box-shadow:
-    56px -18px 0 -26px rgba(11,117,101,.042),
-    102px 10px 0 -38px rgba(11,117,101,.03),
-    30px 56px 0 -18px rgba(11,117,101,.028);
-  transform:rotate(-12deg);
-  opacity:.95;
+  left:-18px;
+  top:14px;
+  width:122px;
+  height:122px;
+  border-radius:24px;
+  background:
+    linear-gradient(90deg,rgba(11,117,101,.06) 1px,transparent 1px),
+    linear-gradient(rgba(11,117,101,.06) 1px,transparent 1px);
+  background-size:20px 20px;
+  transform:rotate(-9deg);
+  opacity:.92;
   pointer-events:none;
 }
 .home-square-card::after{
   content:"";
   position:absolute;
-  right:18px;
-  top:22px;
-  width:70px;
-  height:70px;
-  border-radius:18px;
-  background:linear-gradient(145deg,rgba(255,255,255,.34),rgba(255,255,255,.08));
+  right:26px;
+  top:24px;
+  width:18px;
+  height:18px;
+  background:rgba(11,117,101,.10);
   box-shadow:
-    0 0 0 1px rgba(11,117,101,.055),
-    -34px 24px 0 -22px rgba(11,117,101,.04),
-    -74px 46px 0 -34px rgba(11,117,101,.03);
-  transform:rotate(14deg);
-  opacity:.8;
+    -28px 18px 0 rgba(11,117,101,.075),
+    -56px 40px 0 rgba(11,117,101,.055);
+  transform:rotate(0deg);
+  opacity:1;
   pointer-events:none;
 }
 .home-square-status{
@@ -1735,6 +1732,66 @@ button{
   display:block;
   width:22px;
   height:22px;
+}
+
+
+/* v13.12 — rappel de revenu + outils de période */
+.income-close-prompt{
+  border-color:rgba(7,90,77,.18)!important;
+  background:linear-gradient(145deg,#f7fffb,#eef9f5)!important;
+  margin-bottom:11px!important
+}
+.income-close-actions{
+  display:grid;
+  grid-template-columns:1.25fr .75fr;
+  gap:8px;
+  margin-top:11px
+}
+.pilot-period-tools{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:8px;
+  margin:10px 0 12px
+}
+.pilot-period-tools .b2-next-period-button{
+  margin:0;
+  grid-template-columns:34px minmax(0,1fr) 16px;
+  padding:10px 11px
+}
+.pilot-period-tools .b2-next-period-icon{
+  width:34px;
+  height:34px
+}
+.b2-close-period-button{
+  border:1px solid var(--line);
+  background:#fff;
+  border-radius:17px;
+  padding:10px 11px;
+  display:grid;
+  grid-template-columns:34px minmax(0,1fr);
+  gap:9px;
+  align-items:center;
+  text-align:left;
+  box-shadow:var(--shadow);
+  min-height:56px
+}
+.b2-close-period-button .b2-next-period-copy strong{
+  color:var(--text)
+}
+#simpleModal.ack-only .modal-actions [data-close="simpleModal"]{
+  display:none!important
+}
+#simpleModal.ack-only .modal-actions{
+  display:flex!important;
+  justify-content:center!important
+}
+#simpleModal.ack-only #simpleSave{
+  width:min(220px,72%)!important;
+  margin:0 auto!important
+}
+@media(max-width:370px){
+  .pilot-period-tools{grid-template-columns:1fr}
+  .income-close-actions{grid-template-columns:1fr}
 }
 
 </style>
@@ -5526,6 +5583,35 @@ function confirmDeactivatePlus(){
   keep.activeAccountId=keep.activeAccountId||accountsForBudget(keep.id)[0]?.id||null;
   ensureActive();closeModal('cancelPlusModal');save();showToast(`B²+ résilié · « ${keep.name} » reste utilisable.`)
 }
+function incomeClosingReminderKey(b){return `B2_INCOME_CLOSE_REMINDER_${b?.id||'none'}`}
+function shouldAskIncomeClosing(b){
+  if(!b)return false;
+  const src=primaryIncomeSource(b);
+  if(!src?.nextDate)return false;
+  const today=todayISO();
+  if(today<src.nextDate)return false;
+  return localStorage.getItem(incomeClosingReminderKey(b))!==today
+}
+function incomeClosingPromptCard(b){
+  if(!shouldAskIncomeClosing(b))return '';
+  const src=primaryIncomeSource(b);
+  const lateDays=Math.max(0,daysBetween(src.nextDate,todayISO()));
+  const when=lateDays===0?'était prévu aujourd’hui':lateDays===1?'était prévu hier':`était prévu il y a ${lateDays} jours`;
+  return `<div class="card income-close-prompt">
+    <div class="status-icon-row">
+      <div class="status-icon">${ico('income')}</div>
+      <div class="square-copy">
+        <strong>Ton revenu principal ${when}</strong>
+        <span>Tu l’as reçu ? Si oui, B² peut faire le point et préparer ta nouvelle période.</span>
+      </div>
+    </div>
+    <div class="income-close-actions">
+      <button class="btn btn-primary" id="incomeCloseYes" type="button">Oui, faire le point</button>
+      <button class="btn btn-soft" id="incomeCloseLater" type="button">Pas encore</button>
+    </div>
+  </div>`
+}
+
 function renderHome(){
   updateNotificationBell();
   const g=activeBudgetGroup(),b=active(),hero=$('#homeHero'),content=$('#homeContent'),sw=$('#homeBudgetSwitch'),swLabel=$('#homeBudgetSwitchLabel');
@@ -5560,7 +5646,9 @@ function renderHome(){
   const watchBlock=watch.length?`<div class="section-title"><h3>À regarder</h3><button class="btn-link" data-home-go="pilot" type="button">Piloter</button></div><div class="card"><div class="env-preview">${watch.map(e=>envMini(b,e)).join('')}</div></div>`:'';
   const readyFunds=readyProvisions(b),readyFundsCard=readyFunds.length?`<button class="card status-action" id="readyProvisionCard" type="button"><div class="status-icon-row"><div class="status-icon">${ico('gift')}</div><div class="square-copy"><strong>${esc(readyFunds[0].name)} est prêt${readyFunds.length>1?` · +${readyFunds.length-1}`:''}</strong><span>${euro(readyFunds[0].savedAmount)} sont prêts à être utilisés.</span><span class="status-cta">Choisir quoi en faire →</span></div></div></button>`:'';
 
+  const incomeClosePrompt=incomeClosingPromptCard(b);
   content.innerHTML=`
+    ${incomeClosePrompt}
     <button class="card status-action home-square-card" id="homeStatusCard" type="button">
       <div class="square-status home-square-status">
         <span class="home-square-stage"><span class="home-square-scale"><span class="square-mark b2-dynamic ${statusClass}" style="${squareMotionStyle(health)}"><i>B²</i><i>B²</i><i>B²</i><i>B²</i><i>B²</i><i>B²</i><i>B²</i><i>B²</i><i>B²</i><i>B²</i><i>B²</i><i>B²</i></span></span></span>
@@ -5576,6 +5664,15 @@ function renderHome(){
     <div class="section-title"><h3>Derniers mouvements</h3><button class="btn-link" data-home-go="movements" type="button">Tout voir</button></div>
     <div class="card">${recent.length?recent.map(txMini).join(''):'<div class="empty">Aucun mouvement pour cette période.</div>'}</div>`;
 
+  $('#incomeCloseYes')?.addEventListener('click',()=>{
+    localStorage.removeItem(incomeClosingReminderKey(b));
+    startClosing()
+  });
+  $('#incomeCloseLater')?.addEventListener('click',()=>{
+    localStorage.setItem(incomeClosingReminderKey(b),todayISO());
+    renderHome();
+    showToast('D’accord. B² te le redemandera demain.')
+  });
   $$('[data-home-account]',content).forEach(x=>x.addEventListener('click',()=>activateAccountV11(x.dataset.homeAccount,true)));
   $('#homeAddAccount')?.addEventListener('click',()=>startAccountWizard(g.id));
   $('#homeStatusCard')?.addEventListener('click',()=>openHomeHealth(health));
@@ -5677,7 +5774,8 @@ function openNextPeriodPreview(b){
     ()=>true
   );
   $('#simpleModal')?.classList.add('ack-only');
-  $('#simpleSave').textContent='Compris'
+  $('#simpleModal [data-close="simpleModal"]')?.classList.add('hidden');
+  $('#simpleSave').textContent='J’ai compris'
 }
 function renderPilot(){
   const b=active(),c=$('#pilotContent');if(!b){c.innerHTML=`<div class="card"><div class="empty">Crée d’abord un compte.</div></div>`;return}
@@ -5738,9 +5836,15 @@ function renderPilot(){
   if(pilotTab==='savings')body=`<div class="card b2-reserve-pilot"><div class="card-title"><h3>Réserve de sécurité</h3><strong>${euro(b.reserve)}</strong></div><div class="small muted">Protégée des enveloppes et de la marge quotidienne.</div><button class="btn btn-white btn-full" id="pilotEditReserve" type="button" style="margin-top:10px">Modifier ma réserve</button></div><div class="card"><div class="card-title"><h3>Mon épargne</h3><button class="btn-link" id="pilotEditBudgetSaving" type="button">Modifier</button></div>${b.savings.length?b.savings.map(fundSaving).join(''):'<div class="empty">Aucune épargne prévue.</div>'}</div>${b.savings.length?`<div class="card flat"><div class="status-icon-row"><div class="status-icon">${ico('target')}</div><div class="square-copy"><strong>${euro(savingsThisCycle(b))} réservés à l’épargne pour cette période</strong><span>B² ne les compte pas dans l’argent à dépenser.</span></div></div></div>`:''}`;
 
   const now=pilotTab==='envelopes'?pilotNowCard(b):'';
-  const future=pilotTab==='envelopes'?nextPeriodCard(b):'';
+  const periodTools=pilotTab==='envelopes'?`<div class="pilot-period-tools">
+    ${nextPeriodCard(b)}
+    <button class="b2-close-period-button" id="pilotManualClose" type="button">
+      <span class="b2-next-period-icon">${ico('calendar')}</span>
+      <span class="b2-next-period-copy"><strong>Clôturer la période</strong><small>Faire le point maintenant</small></span>
+    </button>
+  </div>`:'';
 
-  c.innerHTML=`<div class="pilot-hero"><div class="pilot-total"><div><span>DISPONIBLE À UTILISER</span><br><strong class="${remaining(b)<0?'bad':''}">${euro(remaining(b))}</strong></div><div style="text-align:right"><span>${householdLabel(b)}</span><br><span>${b.type==='shared'?'Budget partagé':'Budget personnel'}</span></div></div>${tabs}</div>${now}${allocationNotice}${future}${body}`;
+  c.innerHTML=`<div class="pilot-hero"><div class="pilot-total"><div><span>DISPONIBLE À UTILISER</span><br><strong class="${remaining(b)<0?'bad':''}">${euro(remaining(b))}</strong></div><div style="text-align:right"><span>${householdLabel(b)}</span><br><span>${b.type==='shared'?'Budget partagé':'Budget personnel'}</span></div></div>${tabs}</div>${now}${allocationNotice}${periodTools}${body}`;
 
   const pilotAd=adCard('pilot');
   if(pilotAd){
@@ -5760,6 +5864,7 @@ function renderPilot(){
   $('#pilotNowInbox')?.addEventListener('click',()=>openNotificationCenter());
   $('#pilotNowMovements')?.addEventListener('click',()=>showPage('movements'));
   $('#pilotNextPeriod')?.addEventListener('click',()=>openNextPeriodPreview(b));
+  $('#pilotManualClose')?.addEventListener('click',()=>startClosing());
   $('#pilotUseAll')?.addEventListener('click',()=>{autoBalance(b,1);renderPilot()});
   $('#pilotUseMargin')?.addEventListener('click',()=>{autoBalance(b,1);renderPilot()});
   $('#pilotRestoreMargin')?.addEventListener('click',()=>{autoBalance(b,profileAllocationShare(b));renderPilot()});
@@ -8172,7 +8277,18 @@ function openSmartSaving(id){
   const b=active(),g=b?.savings.find(x=>String(x.id)===String(id));if(!g)return;if(!isPlus()){openPlus('Les objectifs intelligents');return}
   openSimple('Objectif intelligent B²+','B² suit ton objectif et adapte ses conseils au fil du temps.',`<div class="field"><label for="simpleTarget">Montant cible</label><input id="simpleTarget" type="number" step="0.01" inputmode="decimal" value="${g.targetAmount||''}"></div><div class="field"><label for="simpleDue">Date cible</label><input id="simpleDue" type="date" value="${g.dueDate||''}"></div>`,()=>{const target=num($('#simpleTarget').value),due=$('#simpleDue').value;if(target<=0||!due){showToast('Indique un montant et une date.');return false}g.targetAmount=r2(target);g.dueDate=due;save();return true})
 }
-function openSimple(title,lead,fields,handler){const modal=$('#simpleModal');modal?.classList.remove('ack-only','account-summary-modal');$('#simpleSave').classList.remove('hidden');$('#simpleSave').textContent='Ajouter';$('#simpleTitle').textContent=title;$('#simpleLead').textContent=lead;$('#simpleFields').innerHTML=fields;simpleSaveHandler=handler;openModal('simpleModal')}
+function openSimple(title,lead,fields,handler){
+  const modal=$('#simpleModal');
+  modal?.classList.remove('ack-only','account-summary-modal');
+  $('#simpleModal [data-close="simpleModal"]')?.classList.remove('hidden');
+  $('#simpleSave').classList.remove('hidden');
+  $('#simpleSave').textContent='Ajouter';
+  $('#simpleTitle').textContent=title;
+  $('#simpleLead').textContent=lead;
+  $('#simpleFields').innerHTML=fields;
+  simpleSaveHandler=handler;
+  openModal('simpleModal')
+}
 function startClosing(){if(!active()){showToast('Aucun compte actif.');return}closingStep=0;closingReview={carry:0,held:0,reserveRecovery:0,oneOffs:[],incomes:[],editBudget:false};showPage('closing')}
 function renderClosing(){
   const b=active(),c=$('#closingContent');if(!b){c.innerHTML='<div class="empty">Aucun compte actif.</div>';return}
@@ -8181,14 +8297,16 @@ function renderClosing(){
     c.innerHTML=`<div class="card"><div class="card-title"><h3>Fin de la période</h3></div><div class="small muted">${cycleLabel(b)}</div></div>${isPlus()?`<button class="choice on" id="closingAnalysis" type="button"><span class="choice-icon">${ico('analysis')}</span><div><strong>Voir mon analyse B²+</strong><span>Graphiques, écarts, tendances et recommandations.</span></div></button>`:''}<button class="btn btn-primary btn-full" id="closeNext" type="button" style="margin-top:12px">Terminer cette période</button>`;
     $('#closingAnalysis')?.addEventListener('click',()=>showPage('analysis'));$('#closeNext').addEventListener('click',()=>{closingStep=1;renderClosing()});return
   }
-  if(closingStep===1){c.innerHTML=`<div class="card"><div class="card-title"><h3>Combien te reste-t-il vraiment ?</h3></div><div class="small muted" style="line-height:1.5">Indique seulement l’argent encore disponible.</div><div class="field" style="margin-top:14px">
+  if(closingStep===1){
+    const estimatedClosing=r2(remaining(b)),estimatedNegative=estimatedClosing<0;
+    c.innerHTML=`<div class="card"><div class="card-title"><h3>Combien te reste-t-il vraiment ?</h3></div><div class="small muted" style="line-height:1.5">B² estime actuellement <strong>${estimatedClosing<0?'− ':''}${euro(Math.abs(estimatedClosing))}</strong>. Corrige le montant si ton compte réel est différent.</div><div class="field" style="margin-top:14px">
   <label for="closingFree">Disponible restant</label>
   <div class="balance-sign">
-    <button class="on" data-closesign="positive" type="button">Solde positif</button>
-    <button class="negative" data-closesign="negative" type="button">À découvert</button>
+    <button class="${!estimatedNegative?'on':''}" data-closesign="positive" type="button">Solde positif</button>
+    <button class="negative ${estimatedNegative?'on':''}" data-closesign="negative" type="button">À découvert</button>
   </div>
-  <input id="closingFree" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0,00">
-</div></div><button class="btn btn-primary btn-full" id="closeFreeNext" type="button">Continuer</button>`;let closingNegative=false;
+  <input id="closingFree" type="number" min="0" step="0.01" inputmode="decimal" value="${Math.abs(estimatedClosing)}" placeholder="0,00">
+</div></div><button class="btn btn-primary btn-full" id="closeFreeNext" type="button">Continuer</button>`;let closingNegative=estimatedNegative;
     $$('[data-closesign]',c).forEach(x=>x.addEventListener('click',()=>{
       closingNegative=x.dataset.closesign==='negative';
       $$('[data-closesign]',c).forEach(b=>b.classList.toggle('on',b===x))
