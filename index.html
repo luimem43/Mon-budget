@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#075a4d">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<title>B² v14.28 — Carré pertinent : il parle toujours, chiffre seulement quand utile</title>
+<title>B² v14.31 — filtre bancaire intelligent + apprentissage des fausses notifications</title>
 <style>
 :root{
   --brand:#075a4d;--brand2:#0a7965;--brand3:#0f8f72;--lime:#b9ef68;
@@ -2064,6 +2064,24 @@ button{
 .b2-scenarios-note{font-size:9px;color:#62736f;line-height:1.42;margin-top:9px}
 @media(max-width:370px){.b2-scenario-grid{grid-template-columns:1fr}.b2-scenario-row{text-align:left;display:grid;grid-template-columns:1fr auto;gap:4px 8px}.b2-scenario-row small{grid-column:1/-1}}
 
+
+.b2-scenario-row.main{border-color:#9ccdc0;box-shadow:0 5px 14px rgba(12,110,91,.08)}
+.b2-scenario-row span i{display:block;margin-top:2px;font-style:normal;font-size:7px;color:#0a7462;font-weight:950;text-transform:uppercase;letter-spacing:.04em}
+.b2-scenario-row .scenario-def{min-height:28px;margin-top:5px;font-size:7.8px;line-height:1.25;color:#73837f}
+.b2-scenario-row b{line-height:1.2}
+.b2-scenarios-note strong{color:#2f4b44}
+
+
+.b2-profile-gauge{margin:0 0 10px;background:#fff;border:1px solid #dce9e5;border-radius:13px;padding:9px 10px}
+.b2-profile-gauge-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.b2-profile-gauge-top span{font-size:8px;font-weight:900;letter-spacing:.04em;text-transform:uppercase;color:#667a74}
+.b2-profile-gauge-top strong{font-size:8.5px;color:#0a7462;text-align:right}
+.b2-profile-gauge-track{height:7px;background:#e8f0ed;border-radius:999px;overflow:hidden;margin:7px 0 5px}
+.b2-profile-gauge-track i{display:block;height:100%;background:#0b7764;border-radius:999px;transition:width .3s ease}
+.b2-profile-gauge small{display:block;font-size:8px;line-height:1.3;color:#7a8985}
+
+.bank-source-list>b{display:inline-flex;align-items:center;gap:5px}
+.bank-source-list>b button{border:0;background:transparent;color:inherit;font:inherit;font-weight:950;padding:0 1px;cursor:pointer}
 </style>
 </head>
 <body>
@@ -4542,6 +4560,7 @@ function envelopeCategoryKind(e){
   if(/animaux|animal|chien|chat/.test(n))return 'pets';
   if(/maison|travaux|entretien|bricol/.test(n))return 'home';
   if(/vetement/.test(n))return 'clothes';
+  if(/tabac|cigarette|cigarettes|vapote|vape/.test(n))return 'tobacco';
   if(/petit plaisir|achat plaisir|shopping/.test(n))return 'shopping';
   if(/loisir|sortie|restaurant/.test(n))return 'leisure';
   if(/cadeau|evenement/.test(n))return 'gifts';
@@ -4550,7 +4569,7 @@ function envelopeCategoryKind(e){
 }
 function essentialityOfEnvelope(e,b){
   const p=budgetProfileOf(b),kind=envelopeCategoryKind(e),priority=priorityOf(e);
-  let v={food:1,children:.42,transport:p.mobility==='high'?.90:p.mobility==='low'?.55:.74,health:.82,home:.42,clothes:.28,pets:.46,beauty:.08,leisure:.12,gifts:.06,travel:.04,shopping:.04,other:.24}[kind]??.24;
+  let v={food:1,children:.42,transport:p.mobility==='high'?.90:p.mobility==='low'?.55:.74,health:.82,home:.42,clothes:.28,pets:.46,beauty:.08,leisure:.12,gifts:.06,travel:.04,shopping:.04,tobacco:.03,other:.24}[kind]??.24;
   if(priority==='essential')v=Math.max(v,kind==='children'?.62:.88);
   if(priority==='important')v=Math.max(v,.56);
   if(priority==='flexible')v=Math.min(v,.52);
@@ -4989,6 +5008,17 @@ function b2PlusCalendarMultiplier(kind,b,ctx=null){
   if(kind==='gifts')return r2(clamp(.96+c.weekendPressure*.04,.92,1.08));
   return 1
 }
+function approxEuro(v){
+  return `${Math.round(Math.abs(num(v))).toLocaleString('fr-FR')} €`
+}
+function b2ConfidenceDisplay(c){
+  const score=Math.max(0,num(c?.score));
+  if(score>=82)return {label:'B² te connaît bien',copy:'Tes dépenses réelles pèsent fortement dans l’estimation.'};
+  if(score>=64)return {label:'Estimation personnalisée',copy:'B² dispose déjà d’un historique utile.'};
+  if(score>=45)return {label:'B² apprend tes habitudes',copy:'Le réel commence à compléter ton profil et ton budget.'};
+  return {label:'B² apprend encore',copy:'B² s’appuie surtout sur ton profil, ton budget et des repères publics.'}
+}
+
 function b2PlusConfidenceModel(b,living=null){
   const a=adaptiveLearningSummary(b);
   const profile=budgetProfileOf(b);
@@ -5030,6 +5060,7 @@ function b2PlusScenarioNeedFactor(kind,b){
   if(kind==='beauty')return .30;
   if(kind==='leisure')return p.leisure==='active'?.88:p.leisure==='home'?.42:.66;
   if(kind==='shopping')return profileHas(p,'shopping')?.48:.30;
+  if(kind==='tobacco')return .55;
   if(kind==='gifts')return .24;
   if(kind==='travel')return profileHas(p,'travel')?.34:.16;
   return .35
@@ -5059,7 +5090,7 @@ function b2PlusForecastScenarios(b,ctx=null,living=null){
       ['children','pets'].includes(kind)?.72:
       ['home'].includes(kind)?.45:
       ['clothes'].includes(kind)?.28:
-      ['leisure','shopping','gifts','travel','beauty'].includes(kind)?.16:.30;
+      ['leisure','shopping','gifts','travel','beauty','tobacco'].includes(kind)?.16:.30;
     const tightDaily=r2(Math.max(0,num(pattern.daily))*season*tightFactor);
     const tightCoverage=recentFutureCoverage(b,e,tightDaily,days);
     const tight=r2(tightCoverage.remainingNeed);
@@ -5097,9 +5128,9 @@ function b2PlusForecastScenarios(b,ctx=null,living=null){
   });
 
   const scenarios={
-    tight:scenario('Serré',tightNeed),
+    tight:scenario('Optimiste',tightNeed),
     probable:scenario('Probable',probableNeed),
-    prudent:scenario('Prudent',prudentNeed)
+    prudent:scenario('Pessimiste',prudentNeed)
   };
 
   const drivers=[...rows].sort((a,z)=>z.probable-a.probable).slice(0,4);
@@ -5107,16 +5138,61 @@ function b2PlusForecastScenarios(b,ctx=null,living=null){
 }
 function b2PlusScenarioHTML(b,ctx=null,living=null){
   if(!advancedIntelligenceEnabled())return '';
-  const s=b2PlusForecastScenarios(b,ctx,living),c=s.confidence;
-  const fmtScenario=x=>`<div class="b2-scenario-row"><span>${x.name}</span><b class="${x.remaining<0?'bad':''}">${x.remaining<0?'− ':''}${euro(Math.abs(x.remaining))}</b><small>${x.remaining<0?`manque ${euro(x.shortfall)}`:`reste estimé`}</small></div>`;
-  const drivers=s.drivers.filter(x=>x.probable>.01).slice(0,3).map(x=>`${esc(x.name)} ≈ ${euro(x.probable)}`).join(' · ');
+  const s=b2PlusForecastScenarios(b,ctx,living),c=b2ConfidenceDisplay(s.confidence);
+
+  const defs={
+    tight:'Tu dépenses moins que prévu.',
+    probable:'Le scénario central de B²+.',
+    prudent:'Plus de dépenses ou d’imprévus.'
+  };
+  const fmtScenario=(key,x)=>{
+    const result=x.remaining<0
+      ?`Manque ~ ${approxEuro(x.shortfall)}`
+      :`Marge ~ ${approxEuro(x.remaining)}`;
+    return `<div class="b2-scenario-row ${key==='probable'?'main':''}">
+      <span>${x.name}${key==='probable'?'<i>référence B²+</i>':''}</span>
+      <small class="scenario-def">${defs[key]}</small>
+      <b class="${x.remaining<0?'bad':''}">${result}</b>
+    </div>`
+  };
+
+  const drivers=s.drivers
+    .filter(x=>x.probable>.01)
+    .slice(0,3)
+    .map(x=>`${esc(x.name)} ~ ${approxEuro(x.probable)}`)
+    .join(' · ');
+
+  const central=s.probable.remaining<0
+    ?`Le chiffre affiché sur l’accueil correspond au scénario Probable : manque estimé ~ ${approxEuro(s.probable.shortfall)}.`
+    :`Le scénario Probable est la référence centrale de B²+ ; l’accueil reste plus simple tant que la marge est confortable.`;
+
+  const knowledgePct=clamp(num(s.confidence?.score),12,96);
   return `<div class="b2-scenarios">
-    <div class="b2-scenarios-head"><div><span>B²+ · scénarios</span><strong>Ce qui peut réellement se passer</strong></div><b>${c.label} · ${c.score}/100</b></div>
-    <div class="b2-scenario-grid">${fmtScenario(s.tight)}${fmtScenario(s.probable)}${fmtScenario(s.prudent)}</div>
-    <div class="b2-scenarios-note">${drivers?`Principaux besoins estimés : ${drivers}. `:''}${s.calendar.weekends?`${s.calendar.weekends} jour${s.calendar.weekends>1?'s':''} de week-end avant le prochain revenu sont intégrés au calendrier. `:''}Le scénario probable mélange ton profil, ton budget, les repères publics et ton historique ; le scénario prudent ajoute une marge liée à l’incertitude.</div>
+    <div class="b2-scenarios-head">
+      <div><span>B²+ · scénarios</span><strong>Trois façons de lire la suite du mois</strong></div>
+    </div>
+    <div class="b2-profile-gauge">
+      <div class="b2-profile-gauge-top">
+        <span>Connaissance de ton profil</span>
+        <strong>${c.label}</strong>
+      </div>
+      <div class="b2-profile-gauge-track" aria-label="Progression de la connaissance du profil">
+        <i style="width:${knowledgePct}%"></i>
+      </div>
+      <small>${c.copy}</small>
+    </div>
+    <div class="b2-scenario-grid">
+      ${fmtScenario('tight',s.tight)}
+      ${fmtScenario('probable',s.probable)}
+      ${fmtScenario('prudent',s.prudent)}
+    </div>
+    <div class="b2-scenarios-note">
+      <strong>${central}</strong>
+      ${drivers?`<br>Ce qui pèse le plus dans le scénario probable : ${drivers}.`:''}
+      <br>${c.copy}
+    </div>
   </div>`
 }
-
 function predictedSpendableBeforeIncome(b,living=null){
   const l=living||estimatedLivingNeedUntilIncome(b,shortTermMoneyContext(b));
   if(Number.isFinite(num(l.spendableBeforeIncome)))return r2(num(l.spendableBeforeIncome));
@@ -5125,34 +5201,46 @@ function predictedSpendableBeforeIncome(b,living=null){
 
 function b2EstimateExplanationHTML(b,h){
   const advanced=advancedIntelligenceEnabled();
-  const ctx=shortTermMoneyContext(b),living=advanced?estimatedLivingNeedUntilIncome(b,ctx):estimatedLivingNeedUntilIncomeBasic(b,ctx),a=advanced?adaptiveLearningSummary(b):null;
-  const need=r2(living.variableNeed+living.obligations),projected=living.predictedBeforeIncome,spendable=predictedSpendableBeforeIncome(b,living),ready=living.canShowEssential;
-  const openingCarry=r2(num(b.openingCarry)),openingIncome=r2(num(b.openingIncomeAmount));
-  const openingBreakdown=(Math.abs(openingCarry)>.01||openingIncome>.01)
-    ?`<div class="b2-estimate-row"><span>Départ de cette période</span><strong>${euro(num(b.startBalance))}</strong></div>
-      ${openingIncome>.01?`<div class="b2-estimate-row"><span>↳ Salaire déjà reçu</span><strong>＋ ${euro(openingIncome)}</strong></div>`:''}
-      ${Math.abs(openingCarry)>.01?`<div class="b2-estimate-row"><span>↳ Report de la période précédente</span><strong>${openingCarry<0?'−':'＋'} ${euro(Math.abs(openingCarry))}</strong></div>`:''}`
-    :'';
-  const rows=(living.breakdown||[]).filter(x=>num(x.amount)>.01).slice(0,5);
+  const ctx=shortTermMoneyContext(b);
+  const living=advanced?estimatedLivingNeedUntilIncome(b,ctx):estimatedLivingNeedUntilIncomeBasic(b,ctx);
+  const a=advanced?adaptiveLearningSummary(b):null;
+
+  const rows=(living.breakdown||[])
+    .filter(x=>num(x.amount)>.01)
+    .slice(0,4);
+
   const source=advanced
-    ?(!ready
-      ?`B²+ croise déjà ton foyer, tes réponses, les repères publics français, ton budget et les premiers mouvements. L’historique personnel prendra progressivement le dessus.`
-      :(a.historyPeriods>=3
-        ?'B²+ s’appuie maintenant surtout sur tes dépenses réelles ; le profil, le budget et les repères publics ne sont plus que des garde-fous.'
-        :'B²+ mélange encore ton profil, ton budget et les premières périodes observées.'))
-    :`Version gratuite : B² vérifie la cohérence avec ton foyer, tes réponses de départ, des repères publics et la période actuelle. L’apprentissage historique personnalisé est réservé à B²+.`;
-  const obligations=living.obligations>0?`<div class="b2-estimate-row"><span>Charges obligatoires avant le revenu</span><strong>${euro(living.obligations)}</strong></div>`:'';
-  const rowsHtml=rows.map(x=>`<div class="b2-estimate-row"><span>${esc(x.name)}${x.benchmarkUsed?`<small style="display:block;margin-top:2px;color:var(--muted);font-size:9px">repère profil/public : ${euro(x.benchmarkReferenceMonthly||x.benchmarkMonthly)}/mois${advanced?` · poids actuel ${Math.round(num(x.benchmarkWeight)*100)} %`:''}</small>`:''}${num(x.coverageCredit)>.5?`<small style="display:block;margin-top:2px;color:var(--muted);font-size:9px">${euro(x.coverageCredit)} déjà couverts par des dépenses récentes</small>`:''}</span><strong>${euro(x.amount)}</strong></div>`).join('');
-  const totalLabel=ready
-    ?`Besoin essentiel estimé pour les ${living.days} prochain${living.days>1?'s':''} jour${living.days>1?'s':''} : <strong>${euro(need)}</strong>`
-    :`Marge provisoire intégrée à la projection : <strong>≈ ${euro(Math.round(need))}</strong>`;
-  const learningNote=advanced
-    ?(ready
-      ?'B²+ donne maintenant la priorité à tes dépenses réelles ; les périodes récentes comptent davantage que les anciennes.'
-      :'B²+ apprend encore : les repères publics et ton profil empêchent les estimations absurdes en attendant un historique solide.')
-    :'B² gratuit reste cohérent grâce au profil, aux repères publics, au budget et aux mouvements de la période, mais ne construit pas de mémoire prédictive longue.';
-  const coverageNote=living.recentlyCovered>.5?` B² tient aussi compte d’environ ${euro(living.recentlyCovered)} de besoins déjà couverts par des dépenses récentes (par exemple courses ou carburant), au lieu de les compter une deuxième fois.`:'';
-  return `<details class="b2-estimate-details"><summary>Comment B² arrive à cette estimation ?</summary><div class="b2-estimate-explain"><div class="estimate-intro">${source}</div>${openingBreakdown}<div class="b2-estimate-row"><span>Argent disponible aujourd’hui</span><strong>${ctx.cashNow<0?'−':'＋'} ${euro(Math.abs(ctx.cashNow))}</strong></div>${obligations}${rowsHtml}<div class="b2-estimate-total">${totalLabel}<br>Solde du compte estimé avant le prochain revenu : <strong>${projected<0?'−':''}${euro(Math.abs(projected))}</strong><br>Disponible estimé à utiliser à ce moment-là : <strong>${spendable<0?'−':''}${euro(Math.abs(spendable))}</strong>${num(b.reserve)>0?`<br>Réserve protégée : <strong>${euro(b.reserve)}</strong>`:''}</div><div class="b2-estimate-learning">${learningNote}${coverageNote} Le calendrier compte aussi : une journée sans dépense laisse un jour de moins à financer, tandis que les charges encore dues restent protégées.</div></div></details>`;
+    ?(a?.historyPeriods>=3
+      ?'B²+ s’appuie surtout sur tes dépenses réelles. Ton profil et les repères publics servent encore de garde-fous.'
+      :'B²+ combine ton profil, ton budget, les repères publics et les premiers mouvements enregistrés.')
+    :'B² gratuit combine ton foyer, ton budget, des repères publics et les mouvements de la période actuelle.';
+
+  const rowsHtml=rows.map(x=>`
+    <div class="b2-estimate-row">
+      <span>${esc(x.name)}</span>
+      <strong>~ ${approxEuro(x.amount)}</strong>
+    </div>`).join('');
+
+  const coverage=living.recentlyCovered>.5
+    ?` B² a déjà retiré environ ${approxEuro(living.recentlyCovered)} correspondant à des besoins couverts récemment.`
+    :'';
+
+  const plusNote=advanced
+    ?`<div class="b2-estimate-learning"><strong>À savoir :</strong> le scénario Probable ajoute aussi une part réaliste des dépenses non essentielles présentes dans tes enveloppes. C’est pour cela qu’il peut être plus élevé que le seul besoin essentiel.</div>`
+    :'';
+
+  return `<details class="b2-estimate-details">
+    <summary>Comment B² arrive à cette estimation ?</summary>
+    <div class="b2-estimate-explain">
+      <div class="estimate-intro">${source}</div>
+      <div class="b2-estimate-row"><span>Disponible à utiliser aujourd’hui</span><strong>${euro(remaining(b))}</strong></div>
+      <div class="b2-estimate-learning"><strong>Essentiel, ici :</strong> courses du quotidien, déplacements nécessaires et dépenses obligatoires.</div>
+      ${rowsHtml}
+      <div class="b2-estimate-total">Besoin essentiel restant estimé : <strong>~ ${approxEuro(living.variableNeed)}</strong></div>
+      <div class="b2-estimate-learning">${advanced?'B²+ remplacera progressivement les repères généraux par ton historique réel.':'L’apprentissage sur plusieurs périodes est réservé à B²+.'}${coverage}</div>
+      ${plusNote}
+    </div>
+  </details>`
 }
 function b2LearningMaturity(b){
   const a=adaptiveLearningSummary(b),periods=a.historyPeriods,evidence=a.evidence,days=a.historyDays;
@@ -5199,7 +5287,7 @@ function survivalEssentialityOfEnvelope(e,b){
   const kind=envelopeCategoryKind(e),priority=priorityOf(e),p=budgetProfileOf(b);
   // Ce calcul concerne uniquement ce qui peut réellement être nécessaire avant le prochain revenu.
   // Une enveloppe « Enfants » n'est pas vitale en soi : repas, vêtements et sorties vivent déjà dans leurs catégories.
-  if(['leisure','travel','shopping','clothes','beauty','gifts'].includes(kind))return 0;
+  if(['leisure','travel','shopping','clothes','beauty','gifts','tobacco'].includes(kind))return 0;
   if(kind==='food')return 1;
   if(kind==='transport')return p.mobility==='high'?.82:p.mobility==='low'?.42:.62;
   if(kind==='health')return priority==='essential'?.58:priority==='important'?.32:.14;
@@ -6412,6 +6500,91 @@ function runSquareScenarioChecks(){
     return a.possible===false
   });
 
+  add('Cohérence Carré','Accueil et Piloter utilisent le même manque probable B²+',()=>{
+    const b=mk({
+      startMode:'now',startBalance:500,cycleStart:todayISO(),cycleEnd:addDaysISO(todayISO(),30),
+      household:{adults:1,children:2},
+      budgetProfile:{meals:'mixed',mobility:'regular',childStages:['school']},
+      envelopes:[
+        env('food','Courses & quotidien',120,'essential'),
+        env('fun','Loisirs & sorties',80,'flexible')
+      ],
+      incomeSources:[{id:'salary',name:'Salaire',amount:1700,nextDate:addDaysISO(todayISO(),30),primary:true}]
+    });
+    const ctx=shortTermMoneyContext(b),living=estimatedLivingNeedUntilIncome(b,ctx),s=b2PlusForecastScenarios(b,ctx,living);
+    const gate=b2ForecastAttentionGate(b,ctx,living,s);
+    const insight=b2ForecastNumberInsight(b,gate,s,living);
+    const h=budgetHealth(b);
+    if(!insight||!h.primary)return false;
+    const expected=Math.round(s.probable.shortfall);
+    return h.primary.id==='forecast-main'
+      &&Math.round(insight.amount)===expected
+      &&h.actionText.includes(String(expected))
+  });
+
+  add('Cohérence Carré','Le score de confiance reste interne',()=>{
+    const b=mk({envelopes:[env('food','Courses & quotidien',200,'essential')]});
+    const c=b2ConfidenceDisplay(b2PlusConfidenceModel(b));
+    return !!c.label&&!c.label.includes('/100')
+  });
+
+  add('Cohérence Carré','b2SquareCommunication déclare le mode avancé localement',()=>{
+    const src=String(b2SquareCommunication);
+    return src.includes('const advanced=advancedIntelligenceEnabled()')
+  });
+
+  add('Scénarios B²+','Les noms affichés sont Optimiste, Probable et Pessimiste',()=>{
+    const b=mk({
+      startBalance:1000,cycleEnd:addDaysISO(todayISO(),20),
+      envelopes:[env('food','Courses & quotidien',300,'essential')],
+      incomeSources:[{id:'salary',name:'Salaire',amount:1700,nextDate:addDaysISO(todayISO(),20),primary:true}]
+    });
+    const ctx=shortTermMoneyContext(b),living=estimatedLivingNeedUntilIncome(b,ctx),s=b2PlusForecastScenarios(b,ctx,living);
+    return s.tight.name==='Optimiste'&&s.probable.name==='Probable'&&s.prudent.name==='Pessimiste'
+  });
+
+  add('Scénarios B²+','La jauge garde le score interne sans afficher /100',()=>{
+    const b=mk({envelopes:[env('food','Courses & quotidien',300,'essential')]});
+    const ctx=shortTermMoneyContext(b),living=estimatedLivingNeedUntilIncome(b,ctx);
+    const markup=b2PlusScenarioHTML(b,ctx,living);
+    return markup.includes('Connaissance de ton profil')
+      &&markup.includes('b2-profile-gauge-track')
+      &&!markup.includes('/100')
+  });
+
+  add('Banque','Gmail est rejeté comme source bancaire',()=>{
+    return !!builtInNonBankApp('com.google.android.gm')
+  });
+
+  add('Banque','Une annonce beBee avec salaire est reconnue comme contenu non bancaire',()=>{
+    return bankTextLooksCommercialOrJob('beBee Alerts · TECHNICO COMMERCIAL · De 1 795,21 € à 3 800,00 € par mois')
+      &&!bankTextHasStrongMovementContext('beBee Alerts · TECHNICO COMMERCIAL · De 1 795,21 € à 3 800,00 € par mois')
+  });
+
+  add('Banque','Un montant signé seul depuis une source inconnue ne suffit plus',()=>{
+    const p=parseBankNotificationText('- 3 800,00',{sourceFinance:false,sourceTrusted:false,strongContext:false});
+    return num(p.amount)===0
+  });
+
+  add('Banque','Les principales apps bancaires sont reconnues par package',()=>{
+    return !!builtInBankApp('com.caisseepargne.android.mobilebanking','Banxo')
+      &&!!builtInBankApp('fr.banquepopulaire.cyberplus','Banque Populaire')
+      &&!!builtInBankApp('fr.creditagricole.androidapp','Ma Banque')
+      &&!!builtInBankApp('com.boursorama.android.clients','BoursoBank')
+      &&!!builtInBankApp('com.revolut.revolut','Revolut')
+      &&!!builtInBankApp('de.number26.android','N26')
+  });
+
+  add('Banque','Deux callbacks presque identiques sont dédoublonnés',()=>{
+    const b={bankNotifications:[{
+      id:'a',type:'expense',amount:18.55,merchant:'Super U',rawText:'Paiement carte 18,55 € Super U',
+      sourceApp:'fr.creditagricole.androidapp',createdAt:Date.now()-30000
+    }]};
+    const n={id:'b',type:'expense',amount:18.55,merchant:'Super U',rawText:'Paiement carte débité 18,55 € Super U',
+      sourceApp:'fr.creditagricole.androidapp',createdAt:Date.now()};
+    return !!repeatedBankNotification(b,n)
+  });
+
   // B — Negative balances at different points in the period
   add('Découvert','-50 € avec 20 jours peut devenir critique',()=>{
     const b=mk({startBalance:-50,cycleStart:addDaysISO(todayISO(),-10),cycleEnd:addDaysISO(todayISO(),20),incomeSources:salary(20,1400),
@@ -6942,6 +7115,7 @@ function b2ForecastNumberInsight(b,gate,plusScenarios=null,living=null){
   }
 }
 function b2SquareCommunication(b,ctx,living,gate,plusScenarios,plusConfidence,primary){
+  const advanced=advancedIntelligenceEnabled();
   const eventInsight=b2KnownEventInsight(b,ctx);
   const forecastInsight=b2ForecastNumberInsight(b,gate,plusScenarios,living);
   const insight=eventInsight||forecastInsight||null;
@@ -6959,7 +7133,7 @@ function b2SquareCommunication(b,ctx,living,gate,plusScenarios,plusConfidence,pr
       title:'Marge à surveiller',
       text:'Ton budget tient encore, mais la marge commence à devenir plus serrée pour ton foyer.',
       hint:advanced
-        ?`B²+ continue d’affiner la situation${plusConfidence?` · confiance ${plusConfidence.label}`:''}. Clique sur le Carré pour voir les scénarios.`
+        ?`B²+ affine encore la situation. Clique sur le Carré pour voir les trois scénarios.`
         :'Aucun changement obligatoire pour l’instant. Clique sur le Carré pour comprendre le repère.',
       numberInsight:null
     }
@@ -6972,7 +7146,7 @@ function b2SquareCommunication(b,ctx,living,gate,plusScenarios,plusConfidence,pr
         ?'Ta marge est confortable. B²+ continue d’apprendre ton fonctionnement sans te surcharger.'
         :'Ta marge est confortable pour cette période.',
       hint:advanced
-        ?'Clique sur le Carré si tu veux voir les scénarios Serré, Probable et Prudent.'
+        ?'Clique sur le Carré si tu veux voir les scénarios Optimiste, Probable et Pessimiste.'
         :'B² continue de surveiller la période et te préviendra si quelque chose change.',
       numberInsight:null
     }
@@ -7029,59 +7203,57 @@ function budgetHealth(b){
     ))
   }
 
-  if(ctx.nextIncome&&survivalSpendableBeforeIncome<-.01){
-    const debt=Math.abs(survivalSpendableBeforeIncome),sev=trajectory.level;
-    const top=living.breakdown.slice(0,2).map(x=>`${x.name} ≈ ${euro(x.amount)}`).join(' · ');
-    const benchmarkNote=living.benchmarkDriven
-      ?` Comme ton historique est encore court, B² utilise aussi un repère prudent adapté à ton foyer (${living.benchmarkHousehold}), calibré sur des budgets-types français.`
-      :'';
-    const livingText=`B² estime encore environ ${euro(living.variableNeed)} nécessaires pour les dépenses essentielles${top?` (${top})`:''}.${benchmarkNote} Avec ${euro(Math.max(0,rem))} disponibles à utiliser aujourd’hui, cela ne suffit pas jusqu’à ${ctx.nextIncome.name}.`;
-    signals.push(healthSignal(
-      'survival',sev,`${living.days} jour${living.days>1?'s':''} à tenir avant le prochain revenu`,livingText,'pilot',null,
-      sev>=4
-        ? `Tu as ${euro(Math.max(0,rem))} réellement disponibles à utiliser. B² estime environ ${euro(living.variableNeed)} de besoins essentiels avant ${ctx.nextIncome.name}, soit un manque d’environ ${euro(debt)}.`
-        : sev===3
-          ? `Priorité aux dépenses indispensables : il manque environ ${euro(debt)} pour couvrir le repère prudent jusqu’au prochain revenu.`
-          : `Repère actuel : environ ${euro(living.dailyEssential)}/jour pour les besoins indispensables.`
-    ))
-  }else if(!ctx.nextIncome&&projectedEnd<-.01){
+  if(ctx.nextIncome){
+    const centralRemaining=advanced&&plusScenarios
+      ?num(plusScenarios.probable.remaining)
+      :num(survivalSpendableBeforeIncome);
+
+    if(centralRemaining<-.01){
+      const debt=Math.abs(centralRemaining);
+      const sev=advanced&&plusScenarios
+        ?(plusScenarios.tight.remaining<-.01?4:debt>Math.max(80,num(plusScenarios.current)*.35)?3:2)
+        :Math.max(2,trajectory.level);
+
+      const centralNeed=advanced&&plusScenarios
+        ?num(plusScenarios.probable.need)
+        :num(living.variableNeed);
+
+      const top=advanced&&plusScenarios
+        ?plusScenarios.drivers.filter(x=>x.probable>.01).slice(0,2).map(x=>`${x.name} ~ ${approxEuro(x.probable)}`).join(' · ')
+        :(living.breakdown||[]).slice(0,2).map(x=>`${x.name} ~ ${approxEuro(x.amount)}`).join(' · ');
+
+      const detailText=advanced
+        ?`Le scénario Probable de B²+ estime environ ${approxEuro(centralNeed)} de dépenses à financer d’ici ${ctx.nextIncome.name}${top?` (${top})`:''}. Avec ${euro(Math.max(0,rem))} disponibles, la marge est insuffisante.`
+        :`B² estime environ ${approxEuro(centralNeed)} de besoins à financer d’ici ${ctx.nextIncome.name}. Avec ${euro(Math.max(0,rem))} disponibles, la marge est insuffisante.`;
+
+      signals.push(healthSignal(
+        'forecast-main',
+        sev,
+        `${living.days} jour${living.days>1?'s':''} à tenir avant le prochain revenu`,
+        detailText,
+        'pilot',
+        null,
+        `B² estime un manque d’environ ${approxEuro(debt)} au scénario ${advanced?'Probable':'prudent'}. Priorise les courses du quotidien, les déplacements nécessaires et les dépenses obligatoires.`
+      ))
+    }else if(advanced&&plusScenarios&&plusScenarios.prudent.remaining<-.01){
+      signals.push(healthSignal(
+        'plus-lifestyle',
+        1,
+        'La marge de sécurité est faible',
+        `Le scénario Probable tient encore, mais le scénario Pessimiste devient négatif.`,
+        'pilot',
+        null,
+        `Aucun changement obligatoire pour l’instant. Garde simplement un peu de marge sur le non-essentiel.`
+      ))
+    }
+  }else if(projectedEnd<-.01){
     const lack=Math.abs(projectedEnd);
     signals.push(healthSignal('projection',4,'Aucun revenu à venir ne couvre la situation',`Avec ce qui est renseigné aujourd’hui, il manquerait environ ${euro(lack)}.`,'pilot',over[0]?.env?.id||null,`Réduis ou décale environ ${euro(lack)}, ou renseigne ton prochain revenu.`))
-  }else if(!ctx.nextIncome&&rem<-.01){
+  }else if(rem<-.01){
     signals.push(healthSignal('global',4,'Le disponible ne suffit pas',`Il manque ${euro(Math.abs(rem))} et aucun revenu à venir n’est renseigné pour compenser.`,'pilot',over[0]?.env?.id||null,`Réduis ou décale environ ${euro(Math.abs(rem))}, ou renseigne le prochain revenu attendu.`))
   }
 
-  if(advanced&&ctx.nextIncome&&plusScenarios&&!signals.some(x=>x.id==='survival')){
-    const s=plusScenarios;
-    if(s.tight.remaining<-.01){
-      signals.push(healthSignal(
-        'plus-lifestyle',4,
-        'Même un mois très serré ne tient pas',
-        `B²+ estime qu’en réduisant fortement les dépenses compressibles, il manquerait encore environ ${euro(s.tight.shortfall)} avant le prochain revenu.`,
-        'pilot',null,
-        `Priorité absolue aux dépenses indispensables. B²+ peut t’aider à revoir volontairement les montants de tes enveloppes.`
-      ))
-    }else if(s.probable.remaining<-.01){
-      const sev=s.probable.shortfall>Math.max(80,s.current*.35)?3:2;
-      signals.push(healthSignal(
-        'plus-lifestyle',sev,
-        'Ton rythme probable ne rentre pas dans la marge',
-        `Le strict nécessaire peut tenir, mais avec ton profil et tes habitudes actuelles B²+ estime un manque d’environ ${euro(s.probable.shortfall)}.`,
-        'pilot',null,
-        `Pour rester dans le vert, vise plutôt le scénario serré et réduis temporairement les dépenses non essentielles.`
-      ))
-    }else if(s.prudent.remaining<-.01){
-      signals.push(healthSignal(
-        'plus-lifestyle',1,
-        'La marge de sécurité est faible',
-        `Le scénario probable tient, mais le scénario prudent ferait apparaître un manque d’environ ${euro(s.prudent.shortfall)}.`,
-        'pilot',null,
-        `Garde une marge sur les loisirs et achats tant que la période n’est pas plus avancée.`
-      ))
-    }
-  }
-
-  if(ctx.nextIncome&&forecastAttention.mode==='watch'&&!signals.some(x=>['survival','plus-lifestyle'].includes(x.id))){
+  if(ctx.nextIncome&&forecastAttention.mode==='watch' &&!signals.some(x=>['forecast-main','plus-lifestyle'].includes(x.id))){
     signals.push(healthSignal(
       'forecast-margin',1,
       'La marge mérite juste un œil',
@@ -7091,7 +7263,7 @@ function budgetHealth(b){
     ))
   }
 
-  if(rem<-.01&&!signals.some(x=>x.id==='survival')){
+  if(rem<-.01&&!signals.some(x=>x.id==='forecast-main')){
     const lack=Math.abs(rem),nextCapacity=Math.max(1,num(recovery.availableCapacity)||normalCycleIncome(b)||1),ratio=lack/nextCapacity;
     const sev=!ctx.nextIncome?4:!recovery.feasible?4:ratio>.55?3:ratio>.28?2:1;
     signals.push(healthSignal(
@@ -7167,7 +7339,7 @@ function budgetHealth(b){
   const primary=signals.find(s=>s.severity>0)||null,level=primary?.severity||0;
   let title='Tout est carré',text='Ton budget reste cohérent.',detail='',action='none',focusEnvId=null,actionText='Aucune action nécessaire aujourd’hui.';
   if(primary){
-    if(primary.id==='survival'||primary.id==='spendable-negative') title=level===4?'Pas assez prévu jusqu’au prochain revenu':level===3?'Retour dans le vert à préparer':level===2?'Marge à reconstruire':'Situation à surveiller';
+    if(primary.id==='forecast-main'||primary.id==='spendable-negative') title=level>=3?'Marge probablement insuffisante':level===2?'Marge à reconstruire':'Situation à surveiller';
     else if(primary.id==='plus-lifestyle') title=level===4?'Même en serrant, ça ne tient pas':level===3?'Ton mois est trop serré':level===2?'Tes habitudes dépassent la marge':'Marge de sécurité faible';
     else if(primary.id==='over') title=redistributable?'Enveloppe à rééquilibrer':'Enveloppe dépassée';
     else if(primary.id==='forecast-margin') title='Marge à surveiller';
@@ -7285,15 +7457,17 @@ function openHomeHealth(h){
   const __gate=b2ForecastAttentionGate(b,__ctx,__living,__scenarios);
 
   let simpleTitle=h.title;
-  if(h.level>=4) simpleTitle='Budget à ajuster';
-  else if(projected<0||remaining(b)<0) simpleTitle='Disponible à surveiller';
-  else if(h.level>=2) simpleTitle='Marge serrée';
 
   let simpleSub='';
   if(__ctx.nextIncome){
+    const centralShortfall=__advanced&&__scenarios
+      ?Math.max(0,num(__scenarios.probable.shortfall))
+      :Math.max(0,-num(projected));
     simpleSub=__gate.mode==='quiet'
       ?`${days} jour${days>1?'s':''} avant le prochain revenu · marge confortable`
-      :`${days} jour${days>1?'s':''} avant le prochain revenu${projected<0?` · disponible estimé : −${euro(Math.abs(projected))}`:''}`;
+      :centralShortfall>.01
+        ?`${days} jour${days>1?'s':''} avant le prochain revenu · manque estimé ~ ${approxEuro(centralShortfall)}`
+        :`${days} jour${days>1?'s':''} avant le prochain revenu · marge à surveiller`;
   }else{
     simpleSub=h.homeHint||h.text||'B² suit ta trajectoire.';
   }
@@ -7303,23 +7477,23 @@ function openHomeHealth(h){
   let nowMain='';
   let nowSub='';
   if(__ctx.nextIncome){
-    nowMain=__gate.mode==='quiet'
-      ?'Aucune alerte particulière'
-      :(days>0?`${days} jour${days>1?'s':''} à tenir`:'Le prochain revenu arrive aujourd’hui');
+    const centralShortfall=__advanced&&__scenarios
+      ?Math.max(0,num(__scenarios.probable.shortfall))
+      :Math.max(0,-num(projected));
+
     if(__gate.mode==='quiet'){
+      nowMain='Aucune alerte particulière';
       nowSub=__advanced
-        ?'La marge est confortable. Comme tu as choisi d’ouvrir le Carré, B²+ te montre quand même ses scénarios pour t’aider à piloter ou à économiser davantage.'
-        :'La marge est confortable. Comme tu as choisi d’ouvrir le Carré, B² te montre le repère utilisé pour vérifier la cohérence du mois.'
-    }else if(projected<0){
-      const reservePart=Math.max(0,num(b.reserve));
-      nowSub=`B² part de ${euro(Math.max(0,__ctx.cashNow))} disponibles aujourd’hui. Il estime encore ${euro(__living.obligations)} de charges à payer et environ ${euro(__living.variableNeed)} pour les dépenses essentielles${reservePart>.01?`, avec ${euro(reservePart)} de réserve protégée`:''}. Cela donnerait −${euro(Math.abs(projected))} juste avant le prochain revenu.`;
-    }else if(need>0){
-      const base=learningReady
-        ?`B²+ estime encore environ ${euro(need)} nécessaires pour l’essentiel à partir de tes habitudes.`
-        :__advanced
-          ?`B² s’appuie encore surtout sur ton budget actuel : l’historique n’est pas encore assez long.`
-          :`B² estime ce besoin à partir de ton budget et de la période actuelle.`;
-      nowSub=`${base} Disponible estimé juste avant le prochain revenu : ${projected<0?'−':''}${euro(Math.abs(projected))}.`
+        ?'La marge est confortable. Comme tu as ouvert le Carré, B²+ te montre quand même ses scénarios.'
+        :'La marge est confortable. B² continue simplement de surveiller la période.'
+    }else if(centralShortfall>.01){
+      nowMain='La marge risque de ne pas suffire';
+      nowSub=__advanced
+        ?`Avec ${euro(remaining(b))} disponibles, le scénario Probable de B²+ estime un manque d’environ ${approxEuro(centralShortfall)} avant le prochain revenu.`
+        :`Avec ${euro(remaining(b))} disponibles, B² estime un manque d’environ ${approxEuro(centralShortfall)} avant le prochain revenu.`
+    }else{
+      nowMain='La marge mérite juste un œil';
+      nowSub='Le budget tient encore. B² surveille simplement son évolution.'
     }
   }else{
     nowMain=projected>=0?'La période tient pour l’instant':'Le budget ne tient pas encore';
@@ -7329,20 +7503,18 @@ function openHomeHealth(h){
 
   let actionMain=__gate.mode==='quiet'?'Gère ton budget normalement.':'Continue comme ça.';
   let actionSub=__gate.mode==='quiet'
-    ?(__advanced?'B²+ continue d’apprendre discrètement et n’interviendra que si la marge devient réellement intéressante à surveiller.':'B² reste en veille et n’interviendra que si la marge se resserre.')
+    ?(__advanced?'B²+ continue d’apprendre en arrière-plan.':'B² reste en veille.')
     :'';
-  if(h.level>=4){
-    actionMain='Reste sur l’essentiel jusqu’au prochain revenu.';
-    actionSub=learningReady&&daily>0
-      ?`Repère appris par B²+ : environ ${euro(daily)}/jour pour les dépenses indispensables.`
-      :__advanced?`B²+ combine déjà ton profil, les repères publics et ton budget ; confiance ${__confidence.label}.`:'B² utilise ton profil, les repères publics, ton budget et la période actuelle.';
-  }else if(projected<0 || h.level>=2){
-    actionMain='Garde les dépenses non essentielles au minimum.';
-    actionSub=learningReady&&daily>0
-      ?`Repère appris par B²+ : environ ${euro(daily)}/jour pour l’essentiel.`
-      :__advanced?`B²+ surveille la marge avec ton profil, les repères et les premiers comportements observés ; confiance ${__confidence.label}.`:'B² surveille la marge avec ton profil et les repères de départ.';
+
+  if(h.level>=3){
+    actionMain='Priorise l’essentiel jusqu’au prochain revenu.';
+    actionSub='Courses du quotidien, déplacements nécessaires et dépenses obligatoires.';
+  }else if(h.level===2){
+    actionMain='Réduis d’abord le non-essentiel.';
+    actionSub='B² surveille la marge ; aucun changement brutal n’est nécessaire.';
   }else if(h.level===1){
     actionMain='Pas d’ajustement important pour l’instant.';
+    actionSub='Garde simplement un peu de marge.'
   }
 
   let afterMain='';
@@ -7351,12 +7523,10 @@ function openHomeHealth(h){
     const learnedModel=__ctx.nextIncome?incomeArrivalModel(__ctx.nextIncome,incomeScheduledDateForMonth(__ctx.nextIncome,__ctx.nextIncome.nextDate)):null;
     const dateWord=learnedModel?.count===1&&!learnedModel.confident?' autour du ':' le ';
     afterMain=`Prochain ${esc(String(nextName).toLowerCase())} : +${euro(nextAmount)}${nextDate?`${dateWord}${nextDate}`:''}`;
-    if(num(h.recoveryDebt)>0){
-      afterSub=h.recoveryFeasible
-        ?`B² intégrera environ ${euro(h.recoveryDebt)} de rattrapage dans le budget suivant. Si la trajectoire reste conforme, le carré pourra alors repasser au vert.`
-        :'Le budget suivant devra être davantage ajusté pour absorber le découvert.';
+    if(remaining(b)<-.01&&num(h.recoveryDebt)>0){
+      afterSub='B² tiendra compte du déficit réel au démarrage de la période suivante.';
     }else{
-      afterSub='B² recalculera la suite avec ce revenu.';
+      afterSub='Cette estimation s’arrête à ce revenu. B² recalculera la suite dès qu’il arrivera.';
     }
   }else{
     afterMain='Aucun prochain revenu enregistré';
@@ -7366,12 +7536,13 @@ function openHomeHealth(h){
   const detailLines=[];
   if(__gate.mode==='quiet'){
     detailLines.push(__advanced
-      ?`L’accueil reste volontairement simple, mais ici B²+ te laisse consulter les scénarios et les hypothèses utilisées.`
-      :`L’accueil reste volontairement simple ; ce détail montre le repère de cohérence utilisé par B² gratuit.`);
+      ?`B²+ continue d’apprendre en arrière-plan. Les scénarios sont affichés ici uniquement parce que tu as ouvert le Carré.`
+      :`B² reste volontairement simple sur l’accueil et détaille son repère seulement ici.`);
   }else if(__living.breakdown?.length){
+    const learningLabel=__advanced?b2ConfidenceDisplay(__confidence).label:'Repère de période';
     detailLines.push(__advanced
-      ?`B²+ : ${__living.breakdown.slice(0,4).map(x=>`${esc(x.name)} ${euro(x.amount)}`).join(' · ')} · confiance ${__confidence.label} (${__confidence.score}/100).`
-      :`Calcul gratuit : foyer + repères publics + budget actuel + mouvements de cette période.`);
+      ?`${learningLabel}. B²+ affine cette estimation à mesure que ton historique grandit.`
+      :`B² gratuit utilise ton foyer, ton budget, les repères publics et les mouvements de cette période.`);
   }
   if(h.predictive?.actionable && h.predictive.mainRisk){
     detailLines.push(`À surveiller : ${esc(h.predictive.mainRisk.name)}.`);
@@ -7595,7 +7766,7 @@ function pilotNowCard(b){
     </div>`
   }
 
-  const budgetPressure=['survival','spendable-negative','projection','global','plus-lifestyle','predictive','forecast-margin'].includes(primaryId);
+  const budgetPressure=['forecast-main','spendable-negative','projection','global','plus-lifestyle','predictive','forecast-margin'].includes(primaryId);
   if(budgetPressure){
     const button=adjust.possible
       ?`<button class="btn btn-primary" id="pilotNowAdjustEnvelopes" type="button">Ajuster mes enveloppes</button>`
@@ -7749,6 +7920,139 @@ function findPlannedBankMatch(b,n){
    - + = crédit / remboursement, - = dépense
    - le logo n'est pas utilisé : Android fournit l'application source
    ============================================================ */
+const B2_KNOWN_BANK_APPS=[
+  {pkg:'com.caisseepargne.android.mobilebanking',label:'Caisse d’Épargne / Banxo'},
+  {pkg:'fr.banquepopulaire.cyberplus',label:'Banque Populaire'},
+  {pkg:'fr.creditagricole.androidapp',label:'Crédit Agricole'},
+  {pkg:'com.boursorama.android.clients',label:'BoursoBank'},
+  {pkg:'com.revolut.revolut',label:'Revolut'},
+  {pkg:'de.number26.android',label:'N26'},
+  {pkg:'com.fortuneo.android',label:'Fortuneo'},
+  {pkg:'net.bnpparibas.mescomptes',label:'BNP Paribas'},
+  {pkg:'fr.bnpp.digitalbanking',label:'Hello bank!'},
+  {pkg:'com.fullsix.android.labanquepostale.accountaccess',label:'La Banque Postale'},
+  {pkg:'mobi.societegenerale.mobile.lappli',label:'SG'}
+];
+
+const B2_BANK_LABEL_RX=/(?:caisse\s+d['’ ]?epargne|banxo|banque\s+populaire|credit\s+agricole|crédit\s+agricole|bourso(?:bank|rama)?|revolut|\bn26\b|fortuneo|banque\s+postale|bnp\s*paribas|hello\s*bank|societe\s+generale|société\s+générale|credit\s+mutuel|crédit\s+mutuel|\bcic\b|\blcl\b|nickel|\bwise\b|\bbunq\b|\bqonto\b|\bshine\b|\blydia\b|\bsumeria\b|trade\s+republic|monabanq|bforbank)/i;
+
+const B2_ALWAYS_NONBANK_PACKAGES={
+  'com.google.android.gm':'Gmail',
+  'com.microsoft.office.outlook':'Outlook',
+  'com.samsung.android.email.provider':'E-mail Samsung',
+  'com.yahoo.mobile.client.android.mail':'Yahoo Mail',
+  'ch.protonmail.android':'Proton Mail'
+};
+
+function builtInBankApp(sourceApp,label=''){
+  const pkg=String(sourceApp||'').trim().toLowerCase();
+  const hit=B2_KNOWN_BANK_APPS.find(x=>x.pkg.toLowerCase()===pkg);
+  if(hit)return hit;
+  const text=String(label||'').trim();
+  if(text&&B2_BANK_LABEL_RX.test(text))return {pkg:sourceApp||'',label:text};
+  return null
+}
+function builtInNonBankApp(sourceApp){
+  const pkg=String(sourceApp||'').trim().toLowerCase();
+  return pkg&&B2_ALWAYS_NONBANK_PACKAGES[pkg]?{pkg,label:B2_ALWAYS_NONBANK_PACKAGES[pkg]}:null
+}
+function bankSourceFriendlyName(sourceApp,label=''){
+  const bank=builtInBankApp(sourceApp,label);if(bank)return bank.label;
+  const non=builtInNonBankApp(sourceApp);if(non)return non.label;
+  return String(label||sourceApp||'Application').trim()
+}
+function rejectedBankSources(){
+  const rows=Array.isArray(state?.settings?.rejectedBankSources)?state.settings.rejectedBankSources:[];
+  const seen=new Set();
+  return rows.filter(x=>{
+    const pkg=String(x?.packageName||'').trim();
+    if(!pkg||seen.has(pkg))return false;
+    seen.add(pkg);return true
+  }).slice(-24)
+}
+function rejectedBankSource(packageName){
+  const pkg=String(packageName||'').trim();
+  return !!pkg&&rejectedBankSources().some(x=>String(x.packageName)===pkg)
+}
+function isBlockedBankSource(packageName){
+  return !!builtInNonBankApp(packageName)||rejectedBankSource(packageName)
+}
+function bankTextLooksCommercialOrJob(raw){
+  const t=normalizeSpeechText(raw||'');
+  if(!t)return false;
+  const job=/\b(?:offre(?:s)? d emploi|emploi|recrutement|candidature|poste\b|h\/f|technico commercial|nouvelles offres|offres d emploi|brut annuel|net mensuel|par mois)\b/i;
+  const promo=/\b(?:promo|promotion|offre limitee|offre limitée|reduction|réduction|livraison|commande|newsletter|vous avez ete choisi|vous avez été choisi|bon plan|soldes)\b/i;
+  return job.test(t)||promo.test(t)
+}
+function bankTextHasStrongMovementContext(raw){
+  const t=normalizeSpeechText(raw||'');
+  if(!t)return false;
+  return /\b(?:prelevement|prélèvement|virement (?:recu|reçu|emis|émis|effectue|effectué)|retrait (?:dab|distributeur|especes|espèces)|compte (?:debite|débité|credite|crédité)|operation (?:debitee|débitée|creditee|créditée)|transaction (?:debitee|débitée|creditee|créditée)|paiement (?:par )?carte|carte (?:debitee|débitée|utilisee|utilisée)|remboursement (?:recu|reçu|credite|crédité)|solde (?:disponible|apres|après))\b/i.test(t)
+}
+function bankSourceLooksFinancial(sourceApp,label=''){
+  return !!builtInBankApp(sourceApp,label)||knownBankSource(sourceApp)
+}
+function visibleBankNotification(n){
+  if(!n||n.status!=='pending')return false;
+  if(isBlockedBankSource(n.sourceApp))return false;
+  if(bankTextLooksCommercialOrJob(n.rawText)&&!bankTextHasStrongMovementContext(n.rawText))return false;
+  const sourceKnown=n.sourceFinance===true||n.sourceTrusted===true||bankSourceLooksFinancial(n.sourceApp,n.sourceAppLabel);
+  if(!sourceKnown&&!bankTextHasStrongMovementContext(n.rawText))return false;
+  return true
+}
+function rememberNonBankSource(n){
+  const pkg=String(n?.sourceApp||'').trim();
+  if(!pkg)return false;
+  state.settings=state.settings||{};
+  let rows=rejectedBankSources().filter(x=>String(x.packageName)!==pkg);
+  rows.push({
+    packageName:pkg,
+    label:bankSourceFriendlyName(pkg,n?.sourceAppLabel||''),
+    lastSeenAt:Date.now()
+  });
+  state.settings.rejectedBankSources=rows.slice(-24);
+
+  state.settings.bankSources=bankSources().filter(x=>String(x.packageName)!==pkg);
+
+  (state.budgets||[]).forEach(b=>{
+    (b.bankNotifications||[]).forEach(x=>{
+      if(x.status==='pending'&&String(x.sourceApp||'')===pkg){
+        x.status='ignored';x.kind='non-bank-source';x.remindLater=false
+      }
+    })
+  });
+
+  try{
+    const p=nativeBankPlugin();
+    p?.blockSource?.({packageName:pkg});
+    p?.untrustSource?.({packageName:pkg})
+  }catch(e){}
+  return true
+}
+function restoreRejectedBankSource(packageName){
+  const pkg=String(packageName||'').trim();if(!pkg)return;
+  state.settings.rejectedBankSources=rejectedBankSources().filter(x=>String(x.packageName)!==pkg);
+  try{nativeBankPlugin()?.unblockSource?.({packageName:pkg})}catch(e){}
+  save();showToast(`${bankSourceFriendlyName(pkg)} pourra de nouveau être analysée.`)
+}
+function markNotificationNotBank(id){
+  const b=active(),n=(b?.bankNotifications||[]).find(x=>String(x.id)===String(id));if(!b||!n)return;
+  const name=bankSourceFriendlyName(n.sourceApp,n.sourceAppLabel);
+  if(n.sourceApp){
+    rememberNonBankSource(n);
+    save();
+    showToast(`${name} est maintenant ignorée pour les mouvements bancaires.`)
+  }else{
+    n.status='ignored';n.kind='non-bank';n.remindLater=false;save();
+    showToast('Cette notification a été écartée.')
+  }
+}
+function rejectedBankSourcesSettingsHTML(){
+  const rows=rejectedBankSources();
+  if(!rows.length)return '';
+  return `<div class="bank-source-list"><span>Applications que B² ignore</span>${rows.map(x=>`<b>${esc(bankSourceDisplayName(x))}<button type="button" data-bank-source-restore="${esc(x.packageName)}" aria-label="Réautoriser ${esc(bankSourceDisplayName(x))}">×</button></b>`).join('')}</div>`
+}
+
 function bankSources(){
   const rows=Array.isArray(state?.settings?.bankSources)?state.settings.bankSources:[];
   const seen=new Set();
@@ -7766,7 +8070,7 @@ function bankSourceDisplayName(x){
   return String(x?.label||x?.packageName||'Banque').trim()
 }
 function rememberBankSource(sourceApp,label='',opts={}){
-  const pkg=String(sourceApp||'').trim();if(!pkg)return false;
+  const pkg=String(sourceApp||'').trim();if(!pkg||isBlockedBankSource(pkg))return false;
   state.settings=state.settings||{};
   const rows=bankSources();
   const i=rows.findIndex(x=>String(x.packageName)===pkg);
@@ -7792,19 +8096,27 @@ function rememberBankSourceFromNotification(n,opts={}){
 async function syncNativeBankSources(){
   try{
     const p=nativeBankPlugin();if(!p)return false;
+    for(const x of B2_KNOWN_BANK_APPS){
+      await p.trustSource?.({packageName:x.pkg,label:x.label})
+    }
     for(const x of bankSources()){
       await p.trustSource?.({packageName:x.packageName,label:x.label||x.packageName})
+    }
+    for(const x of rejectedBankSources()){
+      await p.blockSource?.({packageName:x.packageName,label:x.label||x.packageName})
     }
     return true
   }catch(e){return false}
 }
 function bankSourcesSettingsHTML(){
   const rows=bankSources();
-  if(!rows.length)return `<div class="small muted" style="margin-top:8px">B² reconnaîtra automatiquement les applications financières puis apprendra celles que tu confirmes comme banques.</div>`;
-  return `<div class="bank-source-list"><span>Applications bancaires reconnues</span>${rows.map(x=>`<b>${esc(bankSourceDisplayName(x))}</b>`).join('')}</div>`
+  const recognized=rows.length
+    ?`<div class="bank-source-list"><span>Applications bancaires reconnues</span>${rows.map(x=>`<b>${esc(bankSourceDisplayName(x))}</b>`).join('')}</div>`
+    :`<div class="small muted" style="margin-top:8px">B² reconnaît déjà les principales applications bancaires et apprend celles que tu confirmes.</div>`;
+  return `${recognized}${rejectedBankSourcesSettingsHTML()}`
 }
 
-function parseBankNotificationText(raw,{sourceFinance=false,sourceTrusted=false}={}){
+function parseBankNotificationText(raw,{sourceFinance=false,sourceTrusted=false,strongContext=false}={}){
   const original=String(raw||'').replace(/[−–—﹣]/g,'-').replace(/[＋]/g,'+');
   const t=original.replace(/\s+/g,' ').trim(),low=normalizeSpeechText(t);
   const amountBody=String.raw`\d{1,3}(?:[ \u00a0\u202f]\d{3})*(?:[.,]\d{1,2})?|\d{1,6}(?:[.,]\d{1,2})?`;
@@ -7844,9 +8156,10 @@ function parseBankNotificationText(raw,{sourceFinance=false,sourceTrusted=false}
   }
 
   // 3) Certaines applis bancaires n'affichent QUE "-18,55" ou "+1200".
-  // Un signe explicite est suffisamment fort pour être retenu comme candidat.
-  if(!amount){
-    const signed=new RegExp(`(?:^|[\\s|,;:(])([+\\-]\\s*(?:${amountBody}))(?=$|[\\s,;|.)\\]])`,'i');
+  // Un montant signé seul n'est accepté que depuis une source bancaire
+  // reconnue, financière, ou avec un contexte bancaire fort.
+  if(!amount&&(sourceFinance||sourceTrusted||strongContext)){
+    const signed=new RegExp(`(?:^|[\s|,;:(])([+\-]\s*(?:${amountBody}))(?=$|[\s,;|.)\]])`,'i');
     m=t.match(signed);
     if(m&&take(m[1]))format='signed-bare'
   }
@@ -7893,11 +8206,15 @@ function parseBankNotificationText(raw,{sourceFinance=false,sourceTrusted=false}
   return {type,amount,merchant,rawText:t,sign,format}
 }
 function repeatedBankNotification(b,n){
-  const key=bankAliasKey(n.rawText||n.merchant);
-  if(!key)return null;
+  const rawKey=bankAliasKey(n.rawText||''),merchantKey=bankAliasKey(n.merchant||'');
   return (b.bankNotifications||[]).find(x=>{
-    const other=bankAliasKey(x.rawText||x.merchant);
-    return x.id!==n.id&&x.type===n.type&&Math.abs(num(x.amount)-num(n.amount))<=.01&&other&&other===key&&Math.abs(num(x.createdAt)-num(n.createdAt))<=3*60000
+    if(x.id===n.id||x.type!==n.type||Math.abs(num(x.amount)-num(n.amount))>.01)return false;
+    if(String(x.sourceApp||'')!==String(n.sourceApp||''))return false;
+    const dt=Math.abs(num(x.createdAt)-num(n.createdAt));
+    const otherRaw=bankAliasKey(x.rawText||''),otherMerchant=bankAliasKey(x.merchant||'');
+    const exactRaw=rawKey&&otherRaw&&rawKey===otherRaw&&dt<=10*60000;
+    const sameMerchant=merchantKey&&otherMerchant&&merchantKey===otherMerchant&&dt<=90*1000;
+    return exactRaw||sameMerchant
   })
 }
 function linkBankNotification(b,n,tx){
@@ -7928,15 +8245,28 @@ function registerBankNotification(data,{silent=false,force=false}={}){
   if(state.settings.bankAssist!==true&&!force){if(!silent)showToast('Active les notifications bancaires dans Réglages.');return {status:'disabled'}}
 
   const rawText=String(data.rawText||'').trim(),sourceApp=String(data.sourceApp||'').trim();
-  const sourceAppLabel=String(data.sourceAppLabel||data.appLabel||'').trim(),sourceFinance=data.sourceFinance===true,sourceTrusted=data.sourceTrusted===true||knownBankSource(sourceApp);
-  const parsed=rawText?parseBankNotificationText(rawText,{sourceFinance,sourceTrusted}):{};
+  const sourceAppLabel=String(data.sourceAppLabel||data.appLabel||'').trim();
+  if(!rawText)return null;
+
+  if(isBlockedBankSource(sourceApp))return {status:'filtered-source'};
+
+  const builtIn=builtInBankApp(sourceApp,sourceAppLabel);
+  const strongContext=bankTextHasStrongMovementContext(rawText);
+  const commercialOrJob=bankTextLooksCommercialOrJob(rawText);
+  const sourceFinance=data.sourceFinance===true||!!builtIn;
+  const sourceTrusted=data.sourceTrusted===true||knownBankSource(sourceApp)||!!builtIn;
+
+  if(commercialOrJob&&!strongContext)return {status:'filtered-content'};
+  if(!sourceFinance&&!sourceTrusted&&!strongContext)return {status:'filtered-weak'};
+
+  const parsed=parseBankNotificationText(rawText,{sourceFinance,sourceTrusted,strongContext});
   const amount=Math.abs(num(data.amount||parsed.amount));
   const merchant=String(data.merchant||parsed.merchant||'Paiement carte').trim();
   const type=data.type==='income'||data.type==='expense'?data.type:(parsed.type||'expense');
   const isWithdrawal=type==='expense'&&/\b(retrait|dab|distributeur|atm)\b/i.test(`${merchant} ${rawText}`);
   const n={id:uid(),type,amount,merchant,rawText,sourceApp,sourceAppLabel,sourceFinance,sourceTrusted,createdAt:data.createdAt||Date.now(),status:'pending',candidateId:null,matchedTxId:null,kind:isWithdrawal?'withdrawal':'payment',matchKind:null,plannedKind:null,plannedId:null,suggestedCategoryId:null,confidence:'low',reason:'',duplicateOfNotificationId:null};
   if(!n.amount)return null;b.bankNotifications=b.bankNotifications||[];
-  if(sourceFinance||sourceTrusted)rememberBankSource(sourceApp,sourceAppLabel||sourceApp,{confirmed:true});
+  if((sourceFinance||sourceTrusted)&&sourceApp)rememberBankSource(sourceApp,bankSourceFriendlyName(sourceApp,sourceAppLabel),{confirmed:true});
 
   const repeated=repeatedBankNotification(b,n);
   if(repeated){
@@ -7999,7 +8329,7 @@ function matchPendingBankToTransaction(b,tx){
   const env=b.envelopes.find(e=>String(e.id)===String(tx.categoryId));if(env)learnBankAlias(env,best.n.merchant);
   return best.n
 }
-function pendingBank(b){return (b.bankNotifications||[]).filter(n=>n.status==='pending')}
+function pendingBank(b){return (b.bankNotifications||[]).filter(n=>visibleBankNotification(n))}
 function bankPlannedEntity(b,n){
   if(!b||!n?.plannedId)return null;
   if(n.plannedKind==='fixed')return (b.fixed||[]).find(x=>String(x.id)===String(n.plannedId))||null;
@@ -8123,7 +8453,7 @@ function renderNotificationCenter(){
   const c=$('#notificationCenterContent');if(!c)return;
   const b=active(),bank=b?pendingBank(b):[];
   const invites=sharedInvitesInboxHTML(),remote=remoteInboxHTML();
-  const bankHTML=bank.length?`<div class="inbox-summary"><span class="ui-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6.5 9.5a5.5 5.5 0 0 1 11 0c0 6 2.3 6.4 2.3 7.8H4.2c0-1.4 2.3-1.8 2.3-7.8Z"/><path d="M9.8 20h4.4"/></svg></span><div><strong>${bank.length} mouvement${bank.length>1?'s':''} bancaire${bank.length>1?'s':''} à vérifier</strong><span>Ils restent ici tant que tu ne les as pas confirmés ou ignorés.</span></div></div>${bank.map(n=>`${bankNotificationCardHTML(b,n)}<button class="bank-dismiss" data-bank-dismiss="${n.id}" type="button">Ignorer ce mouvement</button>`).join('')}`:'';
+  const bankHTML=bank.length?`<div class="inbox-summary"><span class="ui-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6.5 9.5a5.5 5.5 0 0 1 11 0c0 6 2.3 6.4 2.3 7.8H4.2c0-1.4 2.3-1.8 2.3-7.8Z"/><path d="M9.8 20h4.4"/></svg></span><div><strong>${bank.length} mouvement${bank.length>1?'s':''} bancaire${bank.length>1?'s':''} à vérifier</strong><span>Confirme seulement ce qui vient réellement d’une banque.</span></div></div>${bank.map(n=>bankNotificationCardHTML(b,n)).join('')}`:'';
   if(!invites&&!remote&&!bankHTML){
     c.innerHTML=`<div class="inbox-empty"><span class="ui-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6.5 9.5a5.5 5.5 0 0 1 11 0c0 6 2.3 6.4 2.3 7.8H4.2c0-1.4 2.3-1.8 2.3-7.8Z"/><path d="M9.8 20h4.4"/></svg></span><strong>Tout est à jour</strong><span>Aucun message B² n’attend ton attention.</span></div>`;
     updateNotificationBell();return
@@ -8139,7 +8469,8 @@ function wireNotificationActions(root,fromInbox=false){
   $$('[data-bank-add-income]',root).forEach(x=>x.addEventListener('click',()=>addBankIncome(x.dataset.bankAddIncome)));
   $$('[data-bank-already]',root).forEach(x=>x.addEventListener('click',()=>{bankReviewId=x.dataset.bankAlready;markBankAlreadyAdded();if(fromInbox)setTimeout(renderNotificationCenter,0)}));
   $$('[data-bank-ignore]',root).forEach(x=>x.addEventListener('click',()=>{ignoreBankNotification(x.dataset.bankIgnore);if(fromInbox)setTimeout(renderNotificationCenter,0)}));
-  $$('[data-bank-dismiss]',root).forEach(x=>x.addEventListener('click',()=>{dismissBankNotification(x.dataset.bankDismiss);if(fromInbox)setTimeout(renderNotificationCenter,0)}))
+  $$('[data-bank-dismiss]',root).forEach(x=>x.addEventListener('click',()=>{dismissBankNotification(x.dataset.bankDismiss);if(fromInbox)setTimeout(renderNotificationCenter,0)}));
+  $$('[data-bank-not-bank]',root).forEach(x=>x.addEventListener('click',()=>{markNotificationNotBank(x.dataset.bankNotBank);if(fromInbox)setTimeout(renderNotificationCenter,0)}))
 }
 
 function bankNotificationCardHTML(b,n){
@@ -8151,13 +8482,33 @@ function bankNotificationCardHTML(b,n){
   if(candidate)sub+=` · ressemble à « ${candidate.label||candidate.category||'mouvement'} »`;
   else if(planned)sub+=` · B² pense reconnaître « ${planned.name} »`;
   else if(env)sub+=` · B² propose ${env.name}`;
+
   const conf=`<span class="bank-confidence ${esc(n.confidence||'low')}">${bankConfidenceLabel(n.confidence||'low')}</span>`;
+  const sourceName=bankSourceFriendlyName(n.sourceApp,n.sourceAppLabel);
+  const recognizedSource=n.sourceFinance===true||n.sourceTrusted===true||bankSourceLooksFinancial(n.sourceApp,n.sourceAppLabel);
+  const sourceAction=recognizedSource
+    ?`<button class="btn btn-white" data-bank-dismiss="${n.id}" type="button">Ignorer ce mouvement</button>`
+    :`<button class="btn btn-white" data-bank-not-bank="${n.id}" type="button">Ce n’est pas bancaire</button>`;
+  const laterAndSource=`<div class="two" style="margin-top:8px"><button class="btn btn-soft" data-bank-ignore="${n.id}" type="button">Me le rappeler</button>${sourceAction}</div>`;
+
   let actions='';
-  if(candidate)actions=`<div class="two" style="margin-top:10px"><button class="btn btn-mint" data-bank-link="${n.id}" type="button">Oui, même dépense</button><button class="btn btn-white" data-bank-add="${n.id}" type="button">Non, autre dépense</button></div><button class="btn btn-soft btn-full" data-bank-ignore="${n.id}" type="button" style="margin-top:8px">Me le rappeler</button>`;
-  else if(planned)actions=`<div class="two" style="margin-top:10px"><button class="btn btn-mint" data-bank-plan="${n.id}" type="button">Confirmer</button><button class="btn btn-white" data-bank-reject-plan="${n.id}" type="button">Ce n’est pas ça</button></div><button class="btn btn-soft btn-full" data-bank-ignore="${n.id}" type="button" style="margin-top:8px">Me le rappeler</button>`;
-  else if(n.type==='expense')actions=`<div class="two" style="margin-top:10px"><button class="btn btn-primary" data-bank-add="${n.id}" type="button">${env?`Ajouter à ${esc(env.name)}`:'Vérifier et ajouter'}</button><button class="btn btn-white" data-bank-already="${n.id}" type="button">Déjà saisie</button></div><button class="btn btn-soft btn-full" data-bank-ignore="${n.id}" type="button" style="margin-top:8px">Me le rappeler</button>`;
-  else actions=`<div class="two" style="margin-top:10px"><button class="btn btn-primary" data-bank-add-income="${n.id}" type="button">Ajouter ce revenu</button><button class="btn btn-white" data-bank-already="${n.id}" type="button">Déjà saisi</button></div><button class="btn btn-soft btn-full" data-bank-ignore="${n.id}" type="button" style="margin-top:8px">Me le rappeler</button>`;
-  return `<div class="card bank-card ${cls}"><div class="tx-row"><div class="tx-icon ${n.type==='income'?'income':''}">${n.type==='income'?ico('plus'):ico('check')}</div><div class="tx-body"><strong>${esc(title)}</strong><span>${sub}</span><div class="bank-match-meta">${conf}</div><div class="bank-reason">${esc(n.reason||'Mouvement détecté par la banque.')}${n.sourceAppLabel?` · Source : ${esc(n.sourceAppLabel)}`:''}</div></div></div>${actions}</div>`
+  if(candidate)actions=`<div class="two" style="margin-top:10px"><button class="btn btn-mint" data-bank-link="${n.id}" type="button">Oui, même dépense</button><button class="btn btn-white" data-bank-add="${n.id}" type="button">Non, autre dépense</button></div>${laterAndSource}`;
+  else if(planned)actions=`<div class="two" style="margin-top:10px"><button class="btn btn-mint" data-bank-plan="${n.id}" type="button">Confirmer</button><button class="btn btn-white" data-bank-reject-plan="${n.id}" type="button">Ce n’est pas ça</button></div>${laterAndSource}`;
+  else if(n.type==='expense')actions=`<div class="two" style="margin-top:10px"><button class="btn btn-primary" data-bank-add="${n.id}" type="button">${env?`Ajouter à ${esc(env.name)}`:'Vérifier et ajouter'}</button><button class="btn btn-white" data-bank-already="${n.id}" type="button">Déjà saisie</button></div>${laterAndSource}`;
+  else actions=`<div class="two" style="margin-top:10px"><button class="btn btn-primary" data-bank-add-income="${n.id}" type="button">Ajouter ce revenu</button><button class="btn btn-white" data-bank-already="${n.id}" type="button">Déjà saisi</button></div>${laterAndSource}`;
+
+  return `<div class="card bank-card ${cls}">
+    <div class="tx-row">
+      <div class="tx-icon ${n.type==='income'?'income':''}">${n.type==='income'?ico('plus'):ico('check')}</div>
+      <div class="tx-body">
+        <strong>${esc(title)}</strong>
+        <span>${sub}</span>
+        <div class="bank-match-meta">${conf}</div>
+        <div class="bank-reason">${esc(n.reason||'Mouvement à confirmer.')}${sourceName?` · Source : ${esc(sourceName)}`:''}</div>
+      </div>
+    </div>
+    ${actions}
+  </div>`
 }
 function addBankIncome(id){
   const b=active(),n=(b?.bankNotifications||[]).find(x=>String(x.id)===String(id));if(!b||!n)return;
@@ -8232,7 +8583,7 @@ async function importNativeBankNotifications({silent=true}={}){
         sourceTrusted:item?.sourceTrusted===true,
         createdAt:num(item?.createdAt)||Date.now()
       },{silent:true,force:true});
-      if(res)imported++;
+      if(res&&!String(res.status||'').startsWith('filtered'))imported++;
     }
     if(imported){
       updateNotificationBell();
@@ -9033,7 +9384,7 @@ function renderSettings(){
     </div>
     <div class="card"><div class="card-title"><h3>Notifications bancaires</h3><span class="badge">ANDROID</span></div>
       ${switchHTML('bankAssist','Aider B² à repérer mes dépenses','B² rapproche les notifications avec tes charges, tes dépenses, tes remboursements et tes revenus.',s.bankAssist===true)}
-      <div class="small muted" style="margin-top:8px">B² reconnaît l’application Android qui envoie le mouvement. Il peut apprendre plusieurs banques et distingue les montants débités (−) des crédits ou remboursements (+).</div>
+      <div class="small muted" style="margin-top:8px">B² privilégie les notifications envoyées directement par les applications bancaires. Les e-mails, annonces d’emploi et messages commerciaux sont écartés. Si une application est mal reconnue, tu peux apprendre à B² à l’ignorer.</div>
       ${bankSourcesSettingsHTML()}
     </div>
     <div class="card"><div class="card-title"><h3>Sauvegarde cloud</h3><span class="badge">ACTIVE</span></div>
@@ -9064,6 +9415,7 @@ function renderSettings(){
     }
     renderSettings();showToast('Préférence enregistrée.')
   }));
+  $$('[data-bank-source-restore]',$('#settingsContent')).forEach(x=>x.addEventListener('click',()=>restoreRejectedBankSource(x.dataset.bankSourceRestore)));
   $('#managePlus').addEventListener('click',()=>hasReferralPlus()&&!hasPaidPlus()?showPage('referral'):hasPaidPlus()?openSubscriptionManager():openPlus('B²+'));
   $('#languageSetting')?.addEventListener('click',openLanguageModal)
 }
