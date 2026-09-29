@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#075a4d">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<title>B² v14.31 — filtre bancaire intelligent + apprentissage des fausses notifications</title>
+<title>B² v14.32 — libellé Piloter : Ajuster mon budget</title>
 <style>
 :root{
   --brand:#075a4d;--brand2:#0a7965;--brand3:#0f8f72;--lime:#b9ef68;
@@ -7762,14 +7762,14 @@ function pilotNowCard(b){
     return `<div class="pilot-now ${cls}"><span class="pilot-now-kicker">À faire maintenant</span>
       <strong>${first?.env?.name?`${esc(first.env.name)} est dépassée`:'Une enveloppe est dépassée'}</strong>
       <p>Il n’y a pas assez de marge ailleurs pour corriger ce dépassement par un simple transfert.</p>
-      <button class="btn btn-primary" id="pilotNowAdjustEnvelopes" type="button">Ajuster mes enveloppes</button>
+      <button class="btn btn-primary" id="pilotNowAdjustEnvelopes" type="button">Ajuster mon budget</button>
     </div>`
   }
 
   const budgetPressure=['forecast-main','spendable-negative','projection','global','plus-lifestyle','predictive','forecast-margin'].includes(primaryId);
   if(budgetPressure){
     const button=adjust.possible
-      ?`<button class="btn btn-primary" id="pilotNowAdjustEnvelopes" type="button">Ajuster mes enveloppes</button>`
+      ?`<button class="btn btn-primary" id="pilotNowAdjustEnvelopes" type="button">Ajuster mon budget</button>`
       :'';
     return `<div class="pilot-now ${cls}"><span class="pilot-now-kicker">À faire maintenant</span>
       <strong>${esc(h.title)}</strong>
