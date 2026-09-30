@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#075a4d">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<title>B² v14.37 — intelligence du Carré : modèle financier adaptatif</title>
+<title>B² v14.43 — audit financier & cohérence des flux</title>
 <style>
 :root{
   --brand:#075a4d;--brand2:#0a7965;--brand3:#0f8f72;--lime:#b9ef68;
@@ -1507,7 +1507,23 @@ opacity:.10;animation:b2SquareFade 8.8s ease-in-out infinite
 .b2-allocation-notice{margin:12px 0 14px!important}
 .b2-allocation-notice.urgent{border-color:rgba(183,74,56,.22);background:rgba(255,245,242,.96)}
 .b2-allocation-notice.calm{background:rgba(4,116,94,.045)}
+.b2-allocation-notice.income-ready{border:1.5px solid rgba(4,116,94,.28);background:linear-gradient(145deg,rgba(229,249,241,.98),#fff);box-shadow:0 10px 28px rgba(8,74,61,.08)}
 .b2-allocation-notice .btn{margin-top:10px}
+.b2-allocation-amount{font-size:27px!important;letter-spacing:-.55px;line-height:1.05}
+.b2-allocation-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:11px}
+.b2-allocation-actions .btn{margin-top:0}
+.income-allocation-summary{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0 13px}
+.income-allocation-summary>div{background:var(--soft);border-radius:14px;padding:11px 12px}
+.income-allocation-summary span{display:block;color:var(--muted);font-size:9.5px;margin-bottom:3px}
+.income-allocation-summary strong{display:block;font-size:16px}
+.income-allocation-list{display:grid;gap:8px}
+.income-allocation-row{display:grid;grid-template-columns:minmax(0,1fr) 108px;gap:9px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+.income-allocation-row:last-child{border-bottom:0}
+.income-allocation-row .income-allocation-name{min-width:0}
+.income-allocation-row .income-allocation-name strong{display:block;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.income-allocation-row .income-allocation-name span{display:block;font-size:9px;color:var(--muted);margin-top:3px}
+.income-allocation-row input{width:100%;border:1px solid var(--line);border-radius:10px;padding:9px;text-align:right}
+@media(max-width:380px){.b2-allocation-actions{grid-template-columns:1fr}.income-allocation-row{grid-template-columns:minmax(0,1fr) 96px}}
 .b2-next-card{margin:12px 0 16px!important}
 .b2-next-card .card-title{align-items:center}
 .b2-next-card .card-title>span{font-size:12px;color:var(--muted);font-weight:750}
@@ -2210,6 +2226,8 @@ button{
 <div class="field hidden" id="txTransferWrap"><label for="txTransferAccount">Vers quel compte ?</label><select id="txTransferAccount"></select><div class="help">Le transfert sera créé sur les deux comptes, sans compter comme dépense ni comme revenu.</div></div>
 <div class="field hidden" id="txMemberWrap"><label for="txMember">Qui a payé ?</label><select id="txMember"></select><div class="help">Le budget reste commun ; B² garde simplement la trace de qui a payé quoi.</div></div>
 <div class="field"><label for="txLabel">Libellé</label><input id="txLabel" autocomplete="off" placeholder="Ex. restaurant"></div><div class="field"><label for="txDate">Date</label><input id="txDate" type="date"></div><div class="modal-actions"><button class="btn btn-soft" data-close="transactionModal" type="button">Annuler</button><button class="btn btn-primary" id="saveTxBtn" type="button">Enregistrer</button></div></div></div>
+
+<div class="modal" id="incomeAllocationModal"><div class="sheet"><div class="grab"></div><h3>Répartir mon argent</h3><p class="lead" id="incomeAllocationLead">Choisis librement combien ajouter dans chaque enveloppe.</p><div id="incomeAllocationSummary"></div><div class="card flat"><div class="income-allocation-list" id="incomeAllocationBody"></div></div><div class="help">Tu peux répartir tout ou seulement une partie. Ce que tu ne répartis pas reste disponible.</div><div class="modal-actions"><button class="btn btn-soft" data-close="incomeAllocationModal" type="button">Annuler</button><button class="btn btn-primary" id="applyIncomeAllocation" type="button">Appliquer</button></div></div></div>
 
 <div class="modal" id="voiceModal"><div class="sheet"><div class="grab"></div><h3>Parler à B²</h3><p class="lead" style="margin-bottom:10px">Dis simplement le montant et ce que tu as payé. B² s’arrête dès que tu as fini.</p><button class="voice-orb" id="voiceOrb" type="button" aria-label="Démarrer le micro"><span class="ui-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 15a3.5 3.5 0 0 0 3.5-3.5V7.5A3.5 3.5 0 0 0 12 4a3.5 3.5 0 0 0-3.5 3.5v4A3.5 3.5 0 0 0 12 15Z"/><path d="M18 11.5a6 6 0 0 1-12 0"/><path d="M12 17.5V20"/><path d="M9 20h6"/></svg></span></button><div class="voice-live" id="voiceLive" aria-live="polite">Appuie sur le micro et parle.</div><div class="voice-example">Ex. « 54 euros courses », « 32 euros essence » ou « plus 50 euros Vinted »</div><div class="status info compact hidden" id="voiceHint" aria-live="polite"></div><button class="btn btn-soft btn-full" id="voiceCancel" data-close="voiceModal" type="button" style="margin-top:14px">Annuler</button></div></div>
 
@@ -2935,7 +2953,8 @@ function pushCategoryEnabled(category){
   const s=state?.settings||{};
   if(!b2PushEnabledOnDevice())return false;
   if(category==='shared')return s.pushShared!==false;
-  if(category==='weekly')return s.weekly===true;
+  if(category==='weekly')return s.weekly!==false;
+  if(category==='charges')return s.chargeTracking!==false;
   if(category==='smart')return s.pushSmart===true;
   return s.essential!==false
 }
@@ -2965,12 +2984,14 @@ async function createB2NotificationChannels(){
   const channels=[
     {id:'b2_essential',name:'B² · Important',description:'Invitations, alertes importantes et échéances B²',importance:4,visibility:1},
     {id:'b2_shared',name:'B² · Budget partagé',description:'Activité des budgets partagés',importance:3,visibility:1},
+    {id:'b2_charges',name:'B² · Suivi des charges',description:'Charges attendues et prélèvements à confirmer',importance:4,visibility:1},
     {id:'b2_weekly',name:'B² · Résumés',description:'Résumé hebdomadaire du budget',importance:3,visibility:1}
   ];
   for(const ch of channels){
     try{await p?.createChannel?.(ch)}catch(e){}
     try{await l?.createChannel?.(ch)}catch(e){}
   }
+  try{await l?.registerActionTypes?.({types:[{id:'B2_FIXED_CHARGE',actions:[{id:'fixed_paid',title:'Prélevée'},{id:'fixed_defer',title:'Pas encore'}]}]})}catch(e){}
 }
 async function ensureB2NotificationPermission(ask=false){
   const p=nativePushPlugin(),l=nativeLocalNotificationsPlugin();
@@ -3002,6 +3023,19 @@ function handleB2NotificationOpen(extra={}){
     refreshB2Messages().finally(()=>{showPage('home');setTimeout(openNotificationCenter,100)})
   }else showPage('home')
 }
+async function handleB2LocalNotificationAction(event={}){
+  const note=event?.notification||{},extra=note.extra||{},action=String(event?.actionId||'');
+  if(extra?.type==='fixed_due'&&extra?.fixedId){
+    const id=String(extra.fixedId);
+    if(action==='fixed_defer'){
+      deferFixedChargeConfirmation(id,3);queueB2LocalScheduleSync();return
+    }
+    showPage('home');
+    if(action==='fixed_paid'){setTimeout(()=>openFixedChargePayment(id),120);return}
+    setTimeout(()=>{openNotificationCenter()},120);return
+  }
+  handleB2NotificationOpen(extra)
+}
 async function initB2Notifications({ask=false}={}){
   if(!b2PushEnabledOnDevice())return false;
   const p=nativePushPlugin();
@@ -3020,7 +3054,7 @@ async function initB2Notifications({ask=false}={}){
     await p.addListener('pushNotificationReceived',async()=>{await refreshB2Messages();updateNotificationBell()});
     await p.addListener('pushNotificationActionPerformed',event=>handleB2NotificationOpen(event?.notification?.data||{}));
     const l=nativeLocalNotificationsPlugin();
-    if(l)await l.addListener('localNotificationActionPerformed',event=>handleB2NotificationOpen(event?.notification?.extra||{}))
+    if(l)await l.addListener('localNotificationActionPerformed',event=>handleB2LocalNotificationAction(event))
   }
   try{await p.register()}catch(e){console.warn('B² push register native',e);return false}
   setTimeout(()=>registerPushTokenWithServer(),700);
@@ -3041,7 +3075,7 @@ async function postB2LocalNotification(title,body,category='essential',extra={})
   try{
     await l.schedule({notifications:[{
       id:Math.floor((Date.now()%1900000000)+Math.random()*10000),title,body,
-      channelId:category==='shared'?'b2_shared':category==='weekly'?'b2_weekly':'b2_essential',
+      channelId:category==='shared'?'b2_shared':category==='weekly'?'b2_weekly':category==='charges'?'b2_charges':'b2_essential',
       schedule:{at:new Date(Date.now()+500)},extra:{type:extra.type||category,...extra}
     }]})
   }catch(e){console.warn('B² local notification',e)}
@@ -3052,7 +3086,7 @@ async function cancelB2LocalSchedules(){
     const pending=await l.getPending?.();
     const ids=(pending?.notifications||[])
       .map(x=>Math.round(num(x.id)))
-      .filter(id=>id===22001||id===22002||id===22003||id===22004||(id>=23000&&id<28000));
+      .filter(id=>id===22001||id===22002||id===22003||id===22004||(id>=23000&&id<34000));
     if(ids.length)await l.cancel({notifications:ids.map(id=>({id}))})
   }catch(e){
     try{await l.cancel({notifications:[{id:22001},{id:22002},{id:22003},{id:22004}]})}catch(_){}
@@ -3076,7 +3110,25 @@ async function syncB2LocalNotificationSchedules(){
     const p=dateParts(src.nextDate),at=new Date(p.y,p.m-1,p.d,9,0,0,0);
     if(at.getTime()>Date.now()+60000)rows.push({id:22001,title:'B² · Revenu prévu aujourd’hui',body:`Ton revenu « ${src.name||'principal'} » était prévu aujourd’hui. Confirme sa réception pour préparer la nouvelle période.`,channelId:'b2_essential',schedule:{at},extra:{type:'income_due'}})
   }
-  if(state.settings.weekly===true)rows.push({id:22002,title:'B² · Ton point de la semaine',body:'Ton résumé hebdomadaire est prêt. Ouvre B² pour voir où en est ton budget.',channelId:'b2_weekly',schedule:{on:{weekday:1,hour:18,minute:0},repeats:true},extra:{type:'weekly_summary'}});
+  if(state.settings.weekly!==false)rows.push({id:22002,title:'B² · Ton point de la semaine',body:'Ton résumé hebdomadaire est prêt. Ouvre B² pour voir où en est ton budget.',channelId:'b2_weekly',schedule:{on:{weekday:1,hour:18,minute:0},repeats:true},extra:{type:'weekly_summary'}});
+
+  // Suivi des charges : même alerte dans la cloche B² et sur Android.
+  // Si l'utilisateur a choisi « Pas encore », on programme uniquement le rappel différé.
+  if(state.settings.chargeTracking!==false&&b){
+    (b.fixed||[]).filter(x=>x.dueThisCycle!==false&&x.dueDay!=null).forEach(x=>{
+      const due=fixedDueDate(b,x);if(!due)return;
+      const target=(x.confirmDeferredUntil&&x.confirmDeferredUntil>due)?x.confirmDeferredUntil:due;
+      const dp=dateParts(target),at=new Date(dp.y,dp.m-1,dp.d,9,0,0,0);
+      if(at.getTime()<=Date.now()+60000)return;
+      rows.push({
+        id:stableLocalNotificationId(`fixed:${b.id}:${b.cycleStart}:${x.id}`,28000,6000),
+        title:`B² · ${x.name}`,
+        body:`${euro(x.amount)} étaient prévus aujourd’hui. Le prélèvement a-t-il été effectué ?`,
+        channelId:'b2_charges',actionTypeId:'B2_FIXED_CHARGE',schedule:{at},
+        extra:{type:'fixed_due',fixedId:x.id,budgetId:b.id}
+      })
+    })
+  }
 
   const expiry=finitePlusExpiryInfo();
   if(state.settings.essential!==false&&expiry&&expiry.end>Date.now()+60000){
@@ -3611,7 +3663,7 @@ function fmtDateFull(iso){if(!iso)return '—';const {y,m,d}=dateParts(iso);retu
 function daysUntil(iso){const a=dateParts(todayISO()),b=dateParts(iso);return Math.max(0,Math.ceil((Date.UTC(b.y,b.m-1,b.d)-Date.UTC(a.y,a.m-1,a.d))/86400000))}
 function daysBetweenISO(from,to){const a=dateParts(from),b=dateParts(to);return Math.round((Date.UTC(b.y,b.m-1,b.d)-Date.UTC(a.y,a.m-1,a.d))/86400000)}
 function monthsUntil(from,to){const a=dateParts(from),b=dateParts(to);let n=(b.y-a.y)*12+(b.m-a.m);if(b.d>a.d)n++;return Math.max(1,n)}
-function emptyState(){return {version:10,plan:{tier:'free',plusSince:null,billingAccountId:null,freeAccountId:null,subscriptionOffer:null,subscriptionPrice:null,priceLocked:false,cancelAtPeriodEnd:false,subscriptionCanceledAt:null,subscriptionPeriodEnd:null},budgets:[],shareArchives:[],settings:{essential:true,afterExpense:true,thresholds:true,weekly:false,pushShared:true,pushSmart:false,voiceConfirm:true,language:'fr',bankAssist:null,bankSources:[]},ui:{movementFilter:'all',pilotTab:'envelopes'}}}
+function emptyState(){return {version:10,plan:{tier:'free',plusSince:null,billingAccountId:null,freeAccountId:null,subscriptionOffer:null,subscriptionPrice:null,priceLocked:false,cancelAtPeriodEnd:false,subscriptionCanceledAt:null,subscriptionPeriodEnd:null},budgets:[],shareArchives:[],settings:{essential:true,afterExpense:true,thresholds:true,weekly:true,chargeTracking:true,pushShared:true,pushSmart:false,voiceConfirm:true,language:'fr',bankAssist:null,bankSources:[]},ui:{movementFilter:'all',pilotTab:'envelopes'}}}
 const PRIORITIES=[{id:'flexible',label:'↔ Flexible',hint:'B² peut réduire cette enveloppe en premier.'},{id:'important',label:'◆ Important',hint:'B² la préserve autant que possible.'},{id:'essential',label:'♥ Essentiel',hint:'B² la réduit en dernier, si nécessaire.'}];
 function priorityOf(e){return PRIORITIES.some(p=>p.id===e.priority)?e.priority:(e.important||num(e.priority)>=3?'important':'flexible')}
 function priorityRank(e){return PRIORITIES.findIndex(p=>p.id===priorityOf(e))}
@@ -3664,11 +3716,12 @@ function normalizeBudget(b){
       }
     }):[],
     fixed:Array.isArray(b.fixed)?b.fixed.map(x=>{
-      const durationMode=['unlimited','months','date'].includes(x.durationMode)?x.durationMode:(num(x.remainingPayments)>0?'months':x.endDate?'date':'unlimited');
-      const remainingPayments=durationMode==='months'?Math.max(1,Math.round(num(x.remainingPayments||x.totalPayments||1))):null;
-      const totalPayments=durationMode==='months'?Math.max(remainingPayments,Math.round(num(x.totalPayments||remainingPayments))):null;
-      return {id:x.id||uid(),name:x.name||'Charge',amount:num(x.amount),dueThisCycle:x.dueThisCycle!==false,dueDay:x.dueDay==null?null:clamp(Math.round(num(x.dueDay)),1,31),durationMode,remainingPayments,totalPayments,endDate:durationMode==='date'?(x.endDate||null):null,systemKey:x.systemKey||null,bankAliases:Array.isArray(x.bankAliases)?x.bankAliases.slice(-8):[]}
-    }):[],
+      const durationMode=['unlimited','months','date'].includes(x.durationMode)?x.durationMode:(x.remainingPayments!=null?'months':x.endDate?'date':'unlimited');
+      const rawRemaining=x.remainingPayments!=null?Math.round(num(x.remainingPayments)):(x.totalPayments!=null?Math.round(num(x.totalPayments)):1);
+      const remainingPayments=durationMode==='months'?Math.max(0,rawRemaining):null;
+      const totalPayments=durationMode==='months'?Math.max(remainingPayments,Math.round(num(x.totalPayments??remainingPayments))):null;
+      return {id:x.id||uid(),name:x.name||'Charge',amount:Math.max(0,num(x.amount)),dueThisCycle:x.dueThisCycle!==false,dueDay:x.dueDay==null?null:clamp(Math.round(num(x.dueDay)),1,31),durationMode,remainingPayments,totalPayments,endDate:durationMode==='date'?(x.endDate||null):null,systemKey:x.systemKey||null,bankAliases:Array.isArray(x.bankAliases)?x.bankAliases.slice(-8):[],confirmDeferredUntil:x.confirmDeferredUntil||null}
+    }).filter(x=>x.durationMode!=='months'||num(x.remainingPayments)>0):[],
     oneOffs:Array.isArray(b.oneOffs)?b.oneOffs.map(x=>({id:x.id||uid(),name:x.name||'Dépense prévue',amount:num(x.amount),bankAliases:Array.isArray(x.bankAliases)?x.bankAliases.slice(-8):[]})):[],
     exceptionalIncomes:Array.isArray(b.exceptionalIncomes)?b.exceptionalIncomes.map(x=>({id:x.id||uid(),name:x.name||'Revenu exceptionnel',amount:Math.max(0,num(x.amount))})):[],
     provisions:Array.isArray(b.provisions)?b.provisions.map(x=>({id:x.id||uid(),name:x.name||'À mettre de côté',targetAmount:num(x.targetAmount),dueDate:x.dueDate||addMonthsISO(todayISO(),12),savedAmount:num(x.savedAmount),manualContribution:x.manualContribution==null?null:num(x.manualContribution),recurringMonths:[2,3,6,12].includes(num(x.recurringMonths))?num(x.recurringMonths):null,status:['active','ready','kept'].includes(x.status)?x.status:'active',readyAt:x.readyAt||null,lastPaidAt:x.lastPaidAt||null,cycleReduction:Math.max(0,num(x.cycleReduction)),periodContributionDone:x.periodContributionDone===true})):[],
@@ -3992,7 +4045,7 @@ function repairLegacyOpeningIncomeV1416(s){
 
 let state=emptyState();
 state=migrate();
-let plusAfterAction=null,currentPage='home',pilotTab=state.ui.pilotTab||'envelopes',movementFilter=state.ui.movementFilter||'all',txDraft={type:'expense'},overspendCtx=null,editEnvId=null,envMode='auto',envEditDraft=null,balanceMode='auto',balanceDraft=null,balanceReserveUse=0,balancePredictivePlan=null,detailId=null,wizard=null,wizardStep=0,wizardEditId=null,wizardBalanceMode='auto',billDraft={mode:'monthly',dueThisCycle:true},savingDraft={mode:'regular'},simpleSaveHandler=null,confirmHandler=null,closingStep=0,closingFree=0,closingReview=null,closingReason='manual',wizardAccountBalance=0,wizardCashExtra=0,toastTimer=null,toastAction=null;
+let plusAfterAction=null,currentPage='home',pilotTab=state.ui.pilotTab||'envelopes',movementFilter=state.ui.movementFilter||'all',txDraft={type:'expense'},overspendCtx=null,incomeAllocationDraft=null,editEnvId=null,envMode='auto',envEditDraft=null,balanceMode='auto',balanceDraft=null,balanceReserveUse=0,balancePredictivePlan=null,detailId=null,wizard=null,wizardStep=0,wizardEditId=null,wizardBalanceMode='auto',billDraft={mode:'monthly',dueThisCycle:true},savingDraft={mode:'regular'},simpleSaveHandler=null,confirmHandler=null,closingStep=0,closingFree=0,closingReview=null,closingReason='manual',wizardAccountBalance=0,wizardCashExtra=0,toastTimer=null,toastAction=null;
 let b2OpeningIncomeRepaired=false,b2IncomeLearningRepaired=false,b2EarlySalaryAutoRepaired=false;
 try{
   b2OpeningIncomeRepaired=repairLegacyOpeningIncomeV1416(state);
@@ -4260,25 +4313,126 @@ function primaryIncomeSource(b){
   const list=Array.isArray(b.incomeSources)?b.incomeSources:[];
   return list.find(x=>x.primary)||list[0]||null
 }
+/* v14.43 — comptabilité centrale des revenus et remboursements.
+   Un remboursement qui annule une dépense restaure cette dépense/enveloppe :
+   il ne devient pas en plus de l'argent libre dans Piloter. Seule une éventuelle
+   part excédentaire (au-delà de la dépense réellement remboursable) redevient libre. */
 function plannedIncome(b){
   if(Array.isArray(b.incomeSources)&&b.incomeSources.length){
     /* Lors du premier budget, les revenus futurs servent à préparer la suite
-       mais ne sont pas ajoutés à l'argent réellement disponible aujourd'hui. */
-    return b.startMode==='now'?0:recurringIncomeTotal(b)
+       mais ne sont pas ajoutés à l'argent réellement disponible aujourd'hui.
+       Si un revenu prévu a déjà été confirmé par un mouvement, on remplace la
+       prévision par le montant réellement reçu au lieu de compter les deux. */
+    if(b.startMode==='now')return 0;
+    const settled=new Set((b.transactions||[])
+      .filter(t=>t.type==='income'&&t.kind!=='refund'&&t.plannedKind==='income'&&t.plannedId)
+      .map(t=>String(t.plannedId)));
+    return r2((b.incomeSources||[]).reduce((s,x)=>s+(settled.has(String(x.id))?0:Math.max(0,num(x.amount))),0))
   }
   if(b.type==='shared'&&b.incomeMode==='contributions'&&b.members.length)return sum(b.members,'contribution');
   return num(b.income)
 }
-function extraIncome(b){return (b.transactions||[]).filter(t=>t.type==='income'&&t.kind!=='refund').reduce((s,t)=>s+num(t.amount),0)}
-function refundIncome(b){return (b.transactions||[]).filter(t=>t.type==='income'&&t.kind==='refund').reduce((s,t)=>s+num(t.amount),0)}
+function extraIncome(b){return r2((b.transactions||[]).filter(t=>t.type==='income'&&t.kind!=='refund').reduce((s,t)=>s+num(t.amount),0))}
+function unplannedIncome(b){return r2((b.transactions||[]).filter(t=>t.type==='income'&&t.kind!=='refund'&&!['income','exceptionalIncome'].includes(t.plannedKind)).reduce((s,t)=>s+num(t.amount),0))}
+function refundIncome(b){return r2((b.transactions||[]).filter(t=>t.type==='income'&&t.kind==='refund').reduce((s,t)=>s+num(t.amount),0))}
+function effectiveRefundCategoryId(b,t){
+  if(!t||t.type!=='income'||t.kind!=='refund')return null;
+  const linked=t.linkedTxId?(b.transactions||[]).find(x=>String(x.id)===String(t.linkedTxId)&&x.type==='expense'):null;
+  return linked?.categoryId||t.categoryId||null
+}
+function refundCreditModel(b){
+  const expensesTx=(b?.transactions||[]).filter(t=>t.type==='expense'),refunds=(b?.transactions||[]).filter(t=>t.type==='income'&&t.kind==='refund');
+  const creditByCategory={},creditByExpense={};
+  let appliedOutside=0,excess=0;
+  const eventTime=t=>{
+    const c=num(t?.createdAt);if(c>0)return c;
+    const d=Date.parse(`${t?.date||todayISO()}T12:00:00`);return Number.isFinite(d)?d:0
+  };
+  const ordered=rows=>[...rows].sort((a,z)=>eventTime(a)-eventTime(z)||String(a.id||'').localeCompare(String(z.id||'')));
+  const applyToExpense=(x,wanted)=>{
+    if(!x||wanted<=.01)return 0;
+    const key=String(x.id),room=Math.max(0,num(x.amount)-num(creditByExpense[key]));
+    if(room<=.01)return 0;
+    const take=Math.min(Math.max(0,num(wanted)),room),cat=x.categoryId!=null?String(x.categoryId):'';
+    creditByExpense[key]=r2(num(creditByExpense[key])+take);
+    if(cat)creditByCategory[cat]=r2(num(creditByCategory[cat])+take);else appliedOutside=r2(appliedOutside+take);
+    return r2(take)
+  };
+
+  /* v14.43 — priorité aux liens explicites.
+     Un remboursement rattaché à une dépense est la preuve la plus forte : on lui
+     réserve d'abord la part encore remboursable de cette dépense. Ensuite seulement,
+     les remboursements génériques d'une catégorie se répartissent sur le reste.
+     Cela évite qu'une même dépense soit créditée au-delà de son montant lorsque
+     plusieurs remboursements se superposent. */
+  ordered(refunds.filter(t=>t.linkedTxId)).forEach(t=>{
+    const amount=Math.max(0,num(t.amount));if(amount<=0)return;
+    const linked=expensesTx.find(x=>String(x.id)===String(t.linkedTxId));
+    if(!linked){excess=r2(excess+amount);return}
+    const applied=applyToExpense(linked,amount);
+    excess=r2(excess+Math.max(0,amount-applied))
+  });
+
+  /* Les remboursements non liés ne peuvent, eux, compenser que des dépenses qui
+     existaient déjà au moment du remboursement. Parmi elles, on commence par les
+     plus récentes, mais on respecte les crédits déjà réservés par les liens forts. */
+  ordered(refunds.filter(t=>!t.linkedTxId)).forEach(t=>{
+    const amount=Math.max(0,num(t.amount));if(amount<=0)return;
+    const cat=effectiveRefundCategoryId(b,t);
+    if(cat==null){excess=r2(excess+amount);return}
+    const k=String(cat),at=eventTime(t),eligible=expensesTx
+      .filter(x=>String(x.categoryId)===k&&eventTime(x)<=at)
+      .sort((a,z)=>eventTime(z)-eventTime(a)||String(z.id||'').localeCompare(String(a.id||'')));
+    let left=amount;
+    for(const x of eligible){
+      if(left<=.01)break;
+      const take=applyToExpense(x,left);left=r2(Math.max(0,left-take))
+    }
+    excess=r2(excess+left)
+  });
+
+  const appliedToEnvelopes=r2(Object.values(creditByCategory).reduce((sum,x)=>sum+num(x),0));
+  const applied=r2(appliedToEnvelopes+appliedOutside);
+  return {creditByCategory,creditByExpense,appliedToEnvelopes,appliedOutside:r2(appliedOutside),applied,excess:r2(excess),total:refundIncome(b)}
+}
+function effectiveExpenseAmount(b,t,model=null){
+  if(!t||t.type!=='expense')return 0;
+  const m=model||refundCreditModel(b),credit=num(m.creditByExpense?.[String(t.id)]);
+  return r2(Math.max(0,num(t.amount)-credit))
+}
+function effectiveExpenseTransactions(b,{categoryId=null,until=todayISO()}={}){
+  const m=refundCreditModel(b);
+  return (b?.transactions||[]).filter(t=>{
+    if(t.type!=='expense')return false;
+    if(categoryId!=null&&String(t.categoryId)!==String(categoryId))return false;
+    return !until||String(t.date||todayISO())<=String(until)
+  }).map(t=>({...t,effectiveAmount:effectiveExpenseAmount(b,t,m)})).filter(t=>t.effectiveAmount>.01)
+}
+function refundAppliedToEnvelopes(b){return refundCreditModel(b).appliedToEnvelopes}
+function refundAppliedOutsideEnvelopes(b){return refundCreditModel(b).appliedOutside}
+function refundAppliedTotal(b){return refundCreditModel(b).applied}
+function refundExcessIncome(b){return refundCreditModel(b).excess}
+function allocatableCashIncome(b){return r2(extraIncome(b)+refundExcessIncome(b))}
 function cashIncome(b){return r2(extraIncome(b)+refundIncome(b))}
 function transferNet(b){return r2((b.transactions||[]).filter(t=>t.type==='transfer').reduce((s,t)=>s+(t.direction==='in'?num(t.amount):-num(t.amount)),0))}
-function plannedExceptionalIncome(b){return (b.exceptionalIncomes||[]).reduce((s,x)=>s+Math.max(0,num(x.amount)),0)}
-function expenses(b){return (b.transactions||[]).filter(t=>t.type==='expense').reduce((s,t)=>s+num(t.amount),0)}
+function plannedExceptionalIncome(b){return r2((b.exceptionalIncomes||[]).reduce((s,x)=>s+Math.max(0,num(x.amount)),0))}
+function expenses(b){return r2((b.transactions||[]).filter(t=>t.type==='expense').reduce((s,t)=>s+num(t.amount),0))}
+function netExpenses(b){return r2(Math.max(0,expenses(b)-refundAppliedTotal(b)))}
 function spentFor(b,id){
-  const out=(b.transactions||[]).filter(t=>t.type==='expense'&&String(t.categoryId)===String(id)).reduce((s,t)=>s+num(t.amount),0);
-  const back=(b.transactions||[]).filter(t=>t.type==='income'&&t.kind==='refund'&&String(t.categoryId)===String(id)).reduce((s,t)=>s+num(t.amount),0);
+  const key=String(id),out=(b.transactions||[]).filter(t=>t.type==='expense'&&String(t.categoryId)===key).reduce((s,t)=>s+num(t.amount),0);
+  const back=num(refundCreditModel(b).creditByCategory[key]);
   return r2(Math.max(0,out-back))
+}
+function envelopeNetExpenses(b){return r2((b?.envelopes||[]).reduce((s,e)=>s+Math.max(0,spentFor(b,e.id)),0))}
+function nonEnvelopeNetExpenses(b){return r2(Math.max(0,netExpenses(b)-envelopeNetExpenses(b)))}
+function netVariableExpenses(b){
+  // Le rythme variable suit les enveloppes réellement consommées. Une dépense
+  // ordinaire sans enveloppe reste toutefois visible au lieu de disparaître.
+  const model=refundCreditModel(b);
+  const uncategorized=(b?.transactions||[]).filter(t=>t.type==='expense'&&!t.plannedKind&&t.categoryId==null).reduce((s,t)=>{
+    return s+Math.max(0,num(t.amount)-num(model.creditByExpense[String(t.id)]))
+  },0);
+  return r2(Math.max(0,envelopeNetExpenses(b)+uncategorized))
 }
 function provisionBaseContribution(p,b){
   if(!p||p.status==='ready'||p.status==='kept')return 0;
@@ -4391,7 +4545,25 @@ function fixedTimingText(b,x){
   if(x.dueThisCycle===false)return 'Déjà payée';
   if(x.dueDay==null)return 'Montant protégé par B²';
   const due=fixedDueDate(b,x);
+  if(due&&due<=todayISO())return x.confirmDeferredUntil&&x.confirmDeferredUntil>todayISO()?`À confirmer · rappel le ${fmtDate(x.confirmDeferredUntil)} · montant protégé`:`À confirmer · prévu le ${fmtDate(due)} · montant protégé`;
   return due?`Prévu le ${fmtDate(due)} · montant protégé`:`Le ${x.dueDay} de chaque mois · pris en compte ensuite`
+}
+function fixedChargeNeedsConfirmation(b,x,ref=todayISO()){
+  if(!b||!x||x.dueThisCycle===false||x.dueDay==null)return false;
+  const due=fixedDueDate(b,x);if(!due||due>ref)return false;
+  return !(x.confirmDeferredUntil&&x.confirmDeferredUntil>ref)
+}
+function pendingFixedChargeConfirmations(b,ref=todayISO()){
+  return (b?.fixed||[]).filter(x=>fixedChargeNeedsConfirmation(b,x,ref)).map(x=>({charge:x,dueDate:fixedDueDate(b,x)})).sort((a,z)=>String(a.dueDate).localeCompare(String(z.dueDate)))
+}
+function deferFixedChargeConfirmation(id,days=3){
+  const b=active(),x=(b?.fixed||[]).find(y=>String(y.id)===String(id));if(!b||!x||x.dueThisCycle===false)return false;
+  x.confirmDeferredUntil=addDaysISO(todayISO(),Math.max(1,Math.round(num(days)||3)));save();queueB2LocalScheduleSync();
+  showToast(`${x.name} reste protégée · B² te le rappellera dans quelques jours.`);renderNotificationCenter();renderPilot();return true
+}
+function fixedChargeConfirmationCardHTML(b,row){
+  const x=row.charge,due=row.dueDate,late=due&&due<todayISO(),when=late?`Prévue le ${fmtDate(due)}`:'Prévue aujourd’hui';
+  return `<div class="card bank-card plan charge-confirm-card"><div class="tx-row"><div class="tx-icon">${ico('receipt')}</div><div class="tx-body"><strong>${esc(x.name)}</strong><span>− ${euro(x.amount)} prévus</span><div class="bank-match-meta"><span class="bank-confidence medium">${esc(when)}</span></div><div class="bank-reason">Est-ce que cette charge a bien été prélevée ?</div></div></div><div class="two" style="margin-top:10px"><button class="btn btn-mint" data-fixed-notif-paid="${x.id}" type="button">Oui, prélevée</button><button class="btn btn-white" data-fixed-notif-defer="${x.id}" type="button">Pas encore</button></div><div class="small muted" style="margin-top:8px">En confirmant, tu peux corriger le montant réel avant de l’enregistrer.</div></div>`
 }
 function protectedThisCycle(b){return fixedThisCycle(b)+sum(b.oneOffs)+provisionsThisCycle(b)+savingsThisCycle(b)}
 function monthEndISO(iso){
@@ -4438,11 +4610,11 @@ function forecastProtectedUntil(b,endISO){
 }
 function forecastPool(b){
   const end=incomeForecastHorizon(b);
-  return r2(num(b.startBalance)+forecastIncomeUntil(b,end)+plannedExceptionalIncome(b)+cashIncome(b)+transferNet(b)-forecastProtectedUntil(b,end)-num(b.reserve))
+  return r2(num(b.startBalance)+forecastIncomeUntil(b,end)+plannedExceptionalIncome(b)+allocatableCashIncome(b)+transferNet(b)-forecastProtectedUntil(b,end)-num(b.reserve)-nonEnvelopeNetExpenses(b))
 }
 function forecastEndBalance(b){
   const end=b.cycleEnd||incomeForecastHorizon(b);
-  return r2(num(b.startBalance)+forecastIncomeCurrentPeriod(b,end)+plannedExceptionalIncome(b)+cashIncome(b)+transferNet(b)-forecastProtectedUntil(b,end)-allocated(b))
+  return r2(num(b.startBalance)+forecastIncomeCurrentPeriod(b,end)+plannedExceptionalIncome(b)+allocatableCashIncome(b)+transferNet(b)-forecastProtectedUntil(b,end)-allocated(b)-nonEnvelopeNetExpenses(b))
 }
 function recoveryTarget(b){
   if(num(b.startBalance)>=0)return 0;
@@ -4453,9 +4625,15 @@ function recoveryTarget(b){
 function recoveryExtraMargin(b){
   return r2(Math.max(0,recoveryTarget(b)-num(b.reserve)))
 }
+function effectiveReserveTarget(b){return r2(Math.max(0,num(b?.reserveTarget),num(b?.reserve)+num(b?.reserveUsedThisCycle)))}
+function reserveReplenishmentNeed(b){return r2(Math.max(0,effectiveReserveTarget(b)-Math.max(0,num(b?.reserve))))}
+function reserveAfterRecovery(b,recovery=0){
+  const current=Math.max(0,num(b?.reserve)),need=reserveReplenishmentNeed(b),add=Math.min(need,Math.max(0,num(recovery)));
+  return r2(current+add)
+}
 function wizardPlanningPoolLegacy(b){
   const f=forecastPool(b);
-  if(!(Array.isArray(b.incomeSources)&&b.incomeSources.length))return pool(b);
+  if(!(Array.isArray(b.incomeSources)&&b.incomeSources.length))return allocationPool(b);
   return r2(f-recoveryExtraMargin(b))
 }
 function wizardUsesUpcomingIncomePlan(b){
@@ -4469,7 +4647,7 @@ function wizardPlanningPool(b){
   // disponible avant le prochain revenu. La paie suivante est montrée séparément
   // dans l'aperçu "Prochaine période".
   if(b?.startMode==='now'){
-    const current=r2(Math.max(0,pool(b)));
+    const current=r2(Math.max(0,allocationPool(b)));
     if(current>.01)return current;
   }
   if(wizardUsesUpcomingIncomePlan(b)){
@@ -4478,8 +4656,9 @@ function wizardPlanningPool(b){
   }
   return wizardPlanningPoolLegacy(b)
 }
-function pool(b){return r2(num(b.startBalance)+plannedIncome(b)+plannedExceptionalIncome(b)+cashIncome(b)+transferNet(b)-protectedThisCycle(b)-num(b.reserve))}
-function allocated(b){return b.envelopes.reduce((s,e)=>s+num(e.amount),0)} function unallocated(b){return r2(pool(b)-allocated(b))} function remaining(b){return r2(allocated(b)-expenses(b)+unallocated(b))} function envRemain(b,e){return r2(num(e.amount)-spentFor(b,e.id))}
+function pool(b){return r2(num(b.startBalance)+plannedIncome(b)+plannedExceptionalIncome(b)+allocatableCashIncome(b)+transferNet(b)-protectedThisCycle(b)-num(b.reserve))}
+function allocationPool(b){return r2(pool(b)-nonEnvelopeNetExpenses(b))}
+function allocated(b){return b.envelopes.reduce((s,e)=>s+num(e.amount),0)} function unallocated(b){return r2(allocationPool(b)-allocated(b))} function remaining(b){return r2(allocationPool(b)-envelopeNetExpenses(b))} function envRemain(b,e){return r2(num(e.amount)-spentFor(b,e.id))}
 function cycleLabel(b){return `${fmtDate(b.cycleStart)} → ${fmtDate(b.cycleEnd)}`}
 function moneyBuckets(b){
   return {
@@ -4499,14 +4678,14 @@ function median(nums){
   return a.length%2?a[m]:(a[m-1]+a[m])/2
 }
 function latestUnusualExpense(b,progress){
-  const tx=(b.transactions||[]).filter(t=>t.type==='expense').sort((a,z)=>(z.createdAt||0)-(a.createdAt||0));
+  const tx=effectiveExpenseTransactions(b,{until:todayISO()}).sort((a,z)=>(z.createdAt||0)-(a.createdAt||0));
   const latest=tx[0];if(!latest||Date.now()-num(latest.createdAt)>36*3600000)return null;
   const same=tx.slice(1).filter(t=>String(t.categoryId)===String(latest.categoryId)).slice(0,12);
-  const m=median(same.map(t=>t.amount)),env=b.envelopes.find(e=>String(e.id)===String(latest.categoryId));
-  const largeVsHistory=same.length>=3&&m>0&&num(latest.amount)>=Math.max(35,m*2.6);
-  const largeVsEnvelope=env&&num(env.amount)>0&&num(latest.amount)>=Math.max(70,num(env.amount)*.42);
+  const m=median(same.map(t=>t.effectiveAmount)),env=b.envelopes.find(e=>String(e.id)===String(latest.categoryId)),amount=num(latest.effectiveAmount);
+  const largeVsHistory=same.length>=3&&m>0&&amount>=Math.max(35,m*2.6);
+  const largeVsEnvelope=env&&num(env.amount)>0&&amount>=Math.max(70,num(env.amount)*.42);
   if(!(largeVsHistory||largeVsEnvelope))return null;
-  return {tx:latest,env,median:m,amount:num(latest.amount),progress}
+  return {tx:latest,env,median:m,amount,progress}
 }
 function roundSmartAmount(v){const n=Math.max(0,num(v));const step=n>=300?10:5;return Math.max(step,Math.round(n/step)*step)}
 function learningSuggestions(b,{internal=false}={}){
@@ -4998,10 +5177,9 @@ function b2EnvBehaviorFromArchive(h,e){
 }
 function b2CurrentEnvelopePurchaseDays(b,e){
   const byDay={};
-  (b?.transactions||[]).forEach(t=>{
-    if(t.type!=='expense'||String(t.categoryId)!==String(e.id))return;
-    const d=t.date||todayISO();if(d>todayISO())return;
-    byDay[d]=r2((byDay[d]||0)+Math.max(0,num(t.amount)))
+  effectiveExpenseTransactions(b,{categoryId:e.id,until:todayISO()}).forEach(t=>{
+    const d=t.date||todayISO();
+    byDay[d]=r2((byDay[d]||0)+Math.max(0,num(t.effectiveAmount)))
   });
   return Object.entries(byDay).map(([date,amount])=>({date,amount})).filter(x=>x.amount>.01).sort((a,z)=>a.date.localeCompare(z.date))
 }
@@ -5047,7 +5225,7 @@ function b2ExplicitCategoryLearningCount(b,e){
 function b2EnvelopeReliability(b,e,{forcePlus=null,purchaseProfile=null}={}){
   const plus=forcePlus==null?advancedIntelligenceEnabled():!!forcePlus,rows=plus?envelopeHistoryDailyRates(b,e):[];
   const historyDays=rows.reduce((s,x)=>s+Math.min(35,Math.max(1,num(x.days))),0),comparableHistoryDays=rows.reduce((s,x)=>s+Math.min(35,Math.max(1,num(x.days)))*Math.max(.18,num(x.memoryWeight)||1),0),historyPeriods=rows.length,effectiveHistoryPeriods=rows.reduce((s,x)=>s+Math.max(.18,num(x.memoryWeight)||1),0);
-  const tx=(b?.transactions||[]).filter(t=>t.type==='expense'&&String(t.categoryId)===String(e.id)),txCount=tx.length,elapsed=Math.max(0,daysBetweenISO(b?.cycleStart||todayISO(),todayISO())),profile=purchaseProfile||b2EnvelopePurchaseProfile(b,e,{includeHistory:plus});
+  const tx=effectiveExpenseTransactions(b,{categoryId:e.id,until:todayISO()}),txCount=tx.length,elapsed=Math.max(0,daysBetweenISO(b?.cycleStart||todayISO(),todayISO())),profile=purchaseProfile||b2EnvelopePurchaseProfile(b,e,{includeHistory:plus});
   const rates=rows.map(x=>num(x.rate)).filter(x=>x>=0),weights=rows.map(x=>Math.max(.18,num(x.memoryWeight)||1)),mean=rates.length?rates.reduce((s,v,i)=>s+v*weights[i],0)/(weights.reduce((a,z)=>a+z,0)||1):0,center=rates.length?b2WeightedMedian(rates,weights):0,mad=rates.length?b2WeightedMedian(rates.map(x=>Math.abs(x-center)),weights):0;
   const spendStability=plus?(mean>0?clamp(1-mad/Math.max(.01,mean),0,1):.45):(profile.enough?num(profile.regularity):.45),cadenceStability=profile.enough?clamp(1-num(profile.gapSpread),0,1):.38,amountStability=profile.typicalAmount>0?clamp(1-num(profile.amountSpread),0,1):.40,corrections=plus?b2ExplicitCategoryLearningCount(b,e):0;
   const latest=tx.slice().sort((a,z)=>String(z.date||'').localeCompare(String(a.date||'')))[0],daysSinceLast=latest?Math.max(0,daysBetweenISO(latest.date||todayISO(),todayISO())):999,recency=txCount===0?.25:daysSinceLast<=7?1:daysSinceLast<=14?.82:daysSinceLast<=30?.62:.42,evidenceScore=Math.min(1,(txCount+profile.purchaseDays+effectiveHistoryPeriods*3)/22),historyScore=Math.min(1,comparableHistoryDays/105);
@@ -5060,7 +5238,7 @@ function b2EnvelopeReliability(b,e,{forcePlus=null,purchaseProfile=null}={}){
 function b2HabitShiftModel(b,e){
   const nowExceptional=b2CurrentEventContext(b).exceptional,all=envelopeHistoryDailyRates(b,e).filter(x=>num(x.days)>=18),rows=all.filter(x=>nowExceptional||!x.context?.exceptional).filter(x=>num(x.memoryWeight)>=.24),monthDays=daysInBudgetMonth(b?.cycleStart||todayISO());
   let series=rows.map(x=>({v:r2(num(x.rate)*monthDays),w:Math.max(.18,num(x.memoryWeight)||1)}));
-  const elapsed=Math.max(0,daysBetweenISO(b?.cycleStart||todayISO(),todayISO())),txCount=(b?.transactions||[]).filter(t=>t.type==='expense'&&String(t.categoryId)===String(e.id)).length;
+  const elapsed=Math.max(0,daysBetweenISO(b?.cycleStart||todayISO(),todayISO())),txCount=effectiveExpenseTransactions(b,{categoryId:e.id,until:todayISO()}).length;
   if(rows.length>=3&&elapsed>=12&&txCount>=3)series=[...series,{v:r2(spentFor(b,e.id)/Math.max(1,elapsed)*monthDays),w:1}];
   if(series.length<4)return {sustained:false,direction:'stable',ratio:1,factor:1,score:0,periods:series.length,volatility:1};
   const older=series.slice(0,-2),recent=series.slice(-2),base=b2WeightedMedian(older.map(x=>x.v),older.map(x=>x.w)),recentMed=b2WeightedMedian(recent.map(x=>x.v),recent.map(x=>x.w));
@@ -5243,7 +5421,7 @@ function b2MetaIntelligenceModel(b,ctx=null,living=null,progress=null){
    B²+     : calibration conservée d'une période à l'autre.
    ============================================================ */
 function b2VariableExpenseTotal(b){
-  return r2((b?.transactions||[]).filter(t=>t.type==='expense'&&!t.plannedKind&&t.kind!=='refund').reduce((sum,t)=>sum+Math.max(0,num(t.amount)),0))
+  return netVariableExpenses(b)
 }
 function b2EnvelopeEpisodeModel(b,e,{forcePlus=null}={}){
   const plus=forcePlus==null?advancedIntelligenceEnabled():!!forcePlus;
@@ -5349,11 +5527,11 @@ function b2CurrentEventContext(b){
   });
   const items=oneOffs.slice(0,8).map(x=>({name:String(x.name||'Dépense ponctuelle'),amount:r2(Math.max(0,num(x.amount))),date:x?.dueDate||x?.date||null}));
   const oneOffTotal=r2(oneOffs.reduce((sum,x)=>sum+Math.max(0,num(x.amount)),0));
-  let exceptionalIncome=0;try{exceptionalIncome=Math.max(0,num(plannedExceptionalIncome(b))+num(extraIncome(b)))}catch(e){}
+  let exceptionalIncome=0;try{exceptionalIncome=Math.max(0,num(plannedExceptionalIncome(b))+num(unplannedIncome(b)))}catch(e){}
   const byKind={};
-  (b?.transactions||[]).filter(t=>t.type==='expense').forEach(t=>{
+  effectiveExpenseTransactions(b,{until:todayISO()}).forEach(t=>{
     const e=(b?.envelopes||[]).find(x=>String(x.id)===String(t.categoryId))||{name:t.category||''};
-    const kind=envelopeCategoryKind(e);byKind[kind]=r2((byKind[kind]||0)+Math.max(0,num(t.amount)))
+    const kind=envelopeCategoryKind(e);byKind[kind]=r2((byKind[kind]||0)+Math.max(0,num(t.effectiveAmount)))
   });
   const sorted=Object.entries(byKind).sort((a,z)=>z[1]-a[1]),total=sorted.reduce((sum,x)=>sum+x[1],0),dominant=sorted[0]||[null,0];
   const events=items.slice(0,4).map(x=>x.name).filter(Boolean);
@@ -5446,7 +5624,7 @@ function b2DataReliabilityModel(b){
   score=clamp(score,.35,1);return {score:r2(score),label:score>=.85?'bonne':score>=.65?'moyenne':'incertaine',issues,continuity,plus}
 }
 function b2EarlyDriftModel(b,e,{forcePlus=null}={}){
-  const plus=forcePlus==null?advancedIntelligenceEnabled():!!forcePlus,elapsed=Math.max(1,daysBetweenISO(b?.cycleStart||todayISO(),todayISO())),monthDays=daysInBudgetMonth(b?.cycleStart||todayISO()),spent=Math.max(0,spentFor(b,e.id)),txCount=(b?.transactions||[]).filter(t=>t.type==='expense'&&String(t.categoryId)===String(e.id)).length,currentMonthly=r2(spent/elapsed*monthDays),base=Math.max(1,num(e.amount));
+  const plus=forcePlus==null?advancedIntelligenceEnabled():!!forcePlus,elapsed=Math.max(1,daysBetweenISO(b?.cycleStart||todayISO(),todayISO())),monthDays=daysInBudgetMonth(b?.cycleStart||todayISO()),spent=Math.max(0,spentFor(b,e.id)),txCount=effectiveExpenseTransactions(b,{categoryId:e.id,until:todayISO()}).length,currentMonthly=r2(spent/elapsed*monthDays),base=Math.max(1,num(e.amount));
   let direction='stable',score=0,ratio=currentMonthly/base,historyEvidence=0;
   if(elapsed>=9&&txCount>=3&&ratio>1.10){direction='rising';score=clamp(34+(ratio-1)*105+Math.min(12,txCount*1.4),30,72)}
   if(plus){
@@ -5457,19 +5635,26 @@ function b2EarlyDriftModel(b,e,{forcePlus=null}={}){
 }
 function b2CounterfactualModel(b,ctx=null,living=null,plusScenarios=null){
   ctx=ctx||shortTermMoneyContext(b);const plus=advancedIntelligenceEnabled();living=living||(plus?estimatedLivingNeedUntilIncome(b,ctx):estimatedLivingNeedUntilIncomeBasic(b,ctx));
-  const central=plus&&plusScenarios?num(plusScenarios.probable.remaining):num(predictedSpendableBeforeIncome(b,living)),recent=(b?.transactions||[]).filter(t=>t.type==='expense'&&daysBetweenISO(t.date||todayISO(),todayISO())<=4).sort((a,z)=>num(z.amount)-num(a.amount)),largest=recent[0]||null;
+  const refundModel=refundCreditModel(b),central=plus&&plusScenarios?num(plusScenarios.probable.remaining):num(predictedSpendableBeforeIncome(b,living)),recent=effectiveExpenseTransactions(b,{until:todayISO()}).filter(t=>daysBetweenISO(t.date||todayISO(),todayISO())<=4).sort((a,z)=>num(z.effectiveAmount)-num(a.effectiveAmount)),largest=recent[0]||null;
   let unusual=false,impact=0,env=null,withoutRecent=central;
   if(largest){
     env=(b?.envelopes||[]).find(e=>String(e.id)===String(largest.categoryId))||null;
-    const clone=cloneJson(b),idx=(clone.transactions||[]).findIndex(t=>largest.id!=null&&String(t.id)===String(largest.id));if(idx>=0)clone.transactions.splice(idx,1);else{const j=(clone.transactions||[]).findIndex(t=>t.type==='expense'&&String(t.categoryId)===String(largest.categoryId)&&num(t.amount)===num(largest.amount)&&String(t.date||'')===String(largest.date||''));if(j>=0)clone.transactions.splice(j,1)}
-    const envWithout=env?(clone.envelopes||[]).find(e=>String(e.id)===String(env.id)):null,profile=envWithout?b2EnvelopePurchaseProfile(clone,envWithout,{includeHistory:plus}):null,normal=Math.max(25,num(profile?.typicalAmount),num(env?.amount)*.12);
-    unusual=num(largest.amount)>=Math.max(50,normal*1.55);
+    const clone=cloneJson(b),idx=(clone.transactions||[]).findIndex(t=>largest.id!=null&&String(t.id)===String(largest.id));
+    // Le contrefactuel retire seulement la charge économique encore réelle.
+    // Si l'achat a été partiellement remboursé, on garde dans le clone la part
+    // annulée par le remboursement afin que celui-ci ne devienne pas un faux revenu libre.
+    if(idx>=0){
+      const credited=Math.max(0,num(refundModel.creditByExpense?.[String(largest.id)]));
+      if(credited>.01)clone.transactions[idx].amount=r2(credited);else clone.transactions.splice(idx,1)
+    }
+    const envWithout=env?(clone.envelopes||[]).find(e=>String(e.id)===String(env.id)):null,profile=envWithout?b2EnvelopePurchaseProfile(clone,envWithout,{includeHistory:plus}):null,normal=Math.max(25,num(profile?.typicalAmount),num(env?.amount)*.12),economicAmount=num(largest.effectiveAmount);
+    unusual=economicAmount>=Math.max(50,normal*1.55);
     const ctx0=shortTermMoneyContext(clone),living0=plus?estimatedLivingNeedUntilIncome(clone,ctx0):estimatedLivingNeedUntilIncomeBasic(clone,ctx0),sc0=plus?b2PlusForecastScenarios(clone,ctx0,living0):null;
     withoutRecent=plus?num(sc0.probable.remaining):num(predictedSpendableBeforeIncome(clone,living0));impact=r2(Math.max(0,withoutRecent-central))
   }
   withoutRecent=r2(withoutRecent);
   const days=Math.max(0,Math.min(7,num(ctx.daysToIncome))),excessDaily=env?Math.max(0,num(predictiveEnvelopeForecast(b,env,days).effectiveCurrentDaily)-num(learnedEnvelopePattern(b,env).daily)):0,continued=r2(central-excessDaily*days),oneOffDominant=unusual&&central<0&&withoutRecent>=0&&impact>0,continuationRisk=central>=0&&continued<0&&excessDaily>0;
-  return {central:r2(central),largest:largest?{id:largest.id||null,amount:r2(largest.amount),categoryId:largest.categoryId,date:largest.date||todayISO()}:null,unusual,impact:r2(impact),withoutRecent,continued,oneOffDominant,continuationRisk,excessDaily:r2(excessDaily)}
+  return {central:r2(central),largest:largest?{id:largest.id||null,amount:r2(largest.effectiveAmount),categoryId:largest.categoryId,date:largest.date||todayISO()}:null,unusual,impact:r2(impact),withoutRecent,continued,oneOffDominant,continuationRisk,excessDaily:r2(excessDaily)}
 }
 function b2CausalInterpretationModel(b,ctx=null,living=null,plusScenarios=null,progress=null){
   const plus=advancedIntelligenceEnabled(),causes=plus?b2CauseMemoryModel(b,progress):{ready:false,compensationRatio:0,offsetAmount:0,explainedCompensationRatio:0,explainedOffsetAmount:0,correlations:[],sequence:{patterns:[],evidence:0}},counterfactual=b2CounterfactualModel(b,ctx,living,plusScenarios),event=b2CurrentEventContext(b);
@@ -5820,9 +6005,8 @@ function survivalEssentialityOfEnvelope(e,b){
    la fréquence observée des achats d'une enveloppe quand il y a assez de preuves. */
 function envelopePurchaseCadence(b,e){
   const today=todayISO();
-  const tx=(b.transactions||[])
-    .filter(t=>t.type==='expense'&&String(t.categoryId)===String(e.id)&&(t.date||today)<=today)
-    .map(t=>({date:t.date||today,amount:Math.max(0,num(t.amount))}))
+  const tx=effectiveExpenseTransactions(b,{categoryId:e.id,until:today})
+    .map(t=>({date:t.date||today,amount:Math.max(0,num(t.effectiveAmount))}))
     .filter(t=>t.amount>.01)
     .sort((a,z)=>String(a.date).localeCompare(String(z.date)));
 
@@ -5885,11 +6069,10 @@ function recentFutureCoverage(b,e,daily,horizonDays){
   }
   const today=todayISO(),window=Math.max(1,Math.min(14,Math.ceil(behavior.maxDays))),byDay={};
   let eligibleSpend=0;
-  (b.transactions||[]).forEach(t=>{
-    if(t.type!=='expense'||String(t.categoryId)!==String(e.id))return;
+  effectiveExpenseTransactions(b,{categoryId:e.id,until:today}).forEach(t=>{
     const d=t.date||today;
-    if(d>today||d<addDaysISO(today,-window))return;
-    const weighted=Math.max(0,num(t.amount))*behavior.factor;
+    if(d<addDaysISO(today,-window))return;
+    const weighted=Math.max(0,num(t.effectiveAmount))*behavior.factor;
     if(weighted<=0)return;
     byDay[d]=r2((byDay[d]||0)+weighted);eligibleSpend=r2(eligibleSpend+weighted)
   });
@@ -5965,7 +6148,7 @@ function estimatedLivingNeedUntilIncomeBasic(b,ctx=null){
     const budgetDaily=Math.max(0,num(e.amount))/Math.max(1,monthDays);
     const benchmark=externalBenchmarkForEnvelope(e,b);
     const externalDaily=Math.max(0,num(benchmark.daily));
-    const txCount=(b.transactions||[]).filter(t=>t.type==='expense'&&String(t.categoryId)===String(e.id)).length;
+    const txCount=effectiveExpenseTransactions(b,{categoryId:e.id,until:todayISO()}).length;
     const currentDaily=elapsed>=3&&txCount>=2?Math.max(0,spentFor(b,e.id))/elapsed:null;
     const purchaseProfile=b2EnvelopePurchaseProfile(b,e,{includeHistory:false});
 
@@ -6180,7 +6363,7 @@ function predictiveEnvelopeForecast(b,e,horizonDays=null){
   const ctx=shortTermMoneyContext(b),days=Math.max(0,horizonDays==null?ctx.daysToIncome:horizonDays);
   const elapsed=Math.max(1,daysBetweenISO(b.cycleStart||todayISO(),todayISO()));
   const spent=Math.max(0,spentFor(b,e.id)),remaining=Math.max(0,envRemain(b,e));
-  const txCount=(b.transactions||[]).filter(t=>t.type==='expense'&&String(t.categoryId)===String(e.id)).length;
+  const txCount=effectiveExpenseTransactions(b,{categoryId:e.id,until:todayISO()}).length;
   const pattern=learnedEnvelopePattern(b,e),episode=b2EnvelopeEpisodeModel(b,e);
   const currentDaily=elapsed>=3&&txCount>=2?r2(spent/elapsed):null;
   let effectiveCurrentDaily=currentDaily,daily=pattern.daily;
@@ -6381,6 +6564,24 @@ function recordIncomeArrival(source,actualDate,expectedDate=null){
   source.arrivalHistory=source.arrivalHistory.slice(-8);
   return true
 }
+function removeIncomeArrival(source,actualDate){
+  if(!source||!actualDate||!Array.isArray(source.arrivalHistory))return false;
+  const before=source.arrivalHistory.length;
+  source.arrivalHistory=source.arrivalHistory.filter(h=>String(h.actualDate)!==String(actualDate));
+  return source.arrivalHistory.length!==before
+}
+function plannedIncomeSourceForTx(b,t){
+  if(!b||!t||t.plannedKind!=='income'||!t.plannedId)return null;
+  return (b.incomeSources||[]).find(x=>String(x.id)===String(t.plannedId))||null
+}
+function removePlannedIncomeArrival(b,t){
+  const source=plannedIncomeSourceForTx(b,t);return source?removeIncomeArrival(source,t.date):false
+}
+function recordPlannedIncomeArrival(b,t){
+  const source=plannedIncomeSourceForTx(b,t);if(!source||!t?.date)return false;
+  const nominal=incomeScheduledDateForMonth(source,t.date);return recordIncomeArrival(source,t.date,nominal)
+}
+
 function incomeArrivalModel(source,nominalDate=null){
   const nominal=nominalDate||incomeScheduledDateForMonth(source,source?.nextDate||todayISO());
   const rows=(source?.arrivalHistory||[]).slice(-6).filter(h=>Number.isFinite(num(h.offsetDays)));
@@ -7732,6 +7933,104 @@ function runSquareScenarioChecks(){
     const b=mk({startBalance:260,cycleStart:addDaysISO(todayISO(),-10),cycleEnd:addDaysISO(todayISO(),7),incomeSources:salary(7),envelopes:[env('food','Courses & quotidien',360,'essential')],transactions:[expense('old',45,'food','Courses',4),expense('big',120,'food','Courses',0)]}),ctx=shortTermMoneyContext(b),living=estimatedLivingNeedUntilIncome(b,ctx),s=b2PlusForecastScenarios(b,ctx,living),c=b2CounterfactualModel(b,ctx,living,s);return c.unusual&&c.impact>=0&&c.impact<=121&&Number.isFinite(c.withoutRecent)
   });
 
+  // X7 — v14.39 : revenus ajoutés puis répartis depuis Piloter
+  add('Revenus v14.39','La répartition B² d’un revenu libre est additive et ne baisse aucune enveloppe',()=>{
+    const b=mk({startBalance:1000,envelopes:[env('food','Courses & quotidien',300,'essential'),env('fun','Loisirs & sorties',150,'flexible')]});
+    const before=Object.fromEntries(b.envelopes.map(e=>[e.id,e.amount])),p=freeMoneyDistributionPlan(b);
+    return p.total>0&&b.envelopes.every(e=>num(e.amount)>=num(before[e.id]))&&Object.values(p.additions).every(x=>x>=0)
+  });
+  add('Revenus v14.39','La proposition B² ne distribue jamais plus que l’argent non réparti',()=>{
+    const b=mk({startBalance:720,envelopes:[env('food','Courses & quotidien',300,'essential'),env('fun','Loisirs & sorties',150,'flexible')]});
+    const free=Math.max(0,unallocated(b)),p=freeMoneyDistributionPlan(b);return p.total<=free+.01&&Math.abs(Object.values(p.additions).reduce((s,x)=>s+num(x),0)-p.total)<.01
+  });
+  add('Revenus v14.39','B² respecte les enveloppes verrouillées lors d’une répartition automatique',()=>{
+    const b=mk({startBalance:800,envelopes:[env('food','Courses & quotidien',300,'essential'),env('fun','Loisirs & sorties',150,'flexible')]});b.envelopes[0].locked=true;const p=freeMoneyDistributionPlan(b);return num(p.additions[b.envelopes[0].id])===0&&num(p.additions[b.envelopes[1].id])>0
+  });
+
+  // X8 — v14.43 : confirmation des charges à leur date prévue
+  add('Finance v14.43','Une charge arrivée à sa date apparaît dans les confirmations B²',()=>{
+    const p=dateParts(todayISO()),b=mk({fixed:[{id:'due-now',name:'Électricité',amount:100,dueThisCycle:true,dueDay:p.d}]});
+    return pendingFixedChargeConfirmations(b).some(r=>String(r.charge.id)==='due-now')
+  });
+  add('Finance v14.43','Pas encore garde la charge protégée et masque seulement le rappel quelques jours',()=>{
+    const p=dateParts(todayISO()),b=mk({fixed:[{id:'later',name:'Internet',amount:40,dueThisCycle:true,dueDay:p.d,confirmDeferredUntil:addDaysISO(todayISO(),3)}]});
+    return fixedThisCycle(b)>=39.99&&pendingFixedChargeConfirmations(b).length===0&&b.fixed[0].dueThisCycle===true
+  });
+  add('Finance v14.43','Une charge différée redevient confirmable lorsque le rappel arrive',()=>{
+    const ref=addDaysISO(todayISO(),3),p=dateParts(todayISO()),b=mk({fixed:[{id:'back',name:'Assurance',amount:70,dueThisCycle:true,dueDay:p.d,confirmDeferredUntil:ref}]});
+    return pendingFixedChargeConfirmations(b,ref).some(r=>String(r.charge.id)==='back')
+  });
+  add('Finance v14.43','Confirmer une charge efface son rappel différé et comptabilise le réel',()=>{
+    const p=dateParts(todayISO()),b=mk({startBalance:500,fixed:[{id:'paid42',name:'Énergie',amount:100,dueThisCycle:true,dueDay:p.d,confirmDeferredUntil:addDaysISO(todayISO(),3)}]});
+    const tx=recordFixedChargePayment(b,'paid42',135,todayISO(),null);
+    return !!tx&&tx.amount===135&&b.fixed[0].dueThisCycle===false&&b.fixed[0].confirmDeferredUntil==null&&pendingFixedChargeConfirmations(b).length===0
+  });
+
+  // X9 — v14.43 : audit du moteur financier complet
+  add('Finance v14.43','Un remboursement rattaché à une enveloppe restaure la dépense sans devenir aussi argent libre',()=>{
+    const b=mk({startBalance:150,reserve:0,reserveTarget:0,envelopes:[env('food','Courses & quotidien',150,'essential')],transactions:[expense('e',20,'food','Courses',1),{id:'r',type:'income',kind:'refund',amount:10,label:'Remboursement',categoryId:'food',category:'Courses & quotidien',date:todayISO(),createdAt:Date.now()}]});
+    return Math.abs(spentFor(b,'food')-10)<.01&&Math.abs(envRemain(b,b.envelopes[0])-140)<.01&&Math.abs(unallocated(b))<.01&&Math.abs(remaining(b)-140)<.01
+  });
+  add('Finance v14.43','Seul l’excédent d’un remboursement supérieur à la dépense devient libre',()=>{
+    const b=mk({startBalance:150,reserve:0,reserveTarget:0,envelopes:[env('food','Courses & quotidien',150,'essential')],transactions:[expense('e',20,'food','Courses',1),{id:'r',type:'income',kind:'refund',amount:30,label:'Remboursement',categoryId:'food',category:'Courses & quotidien',date:todayISO(),createdAt:Date.now()}]});
+    return Math.abs(spentFor(b,'food'))<.01&&Math.abs(refundExcessIncome(b)-10)<.01&&Math.abs(unallocated(b)-10)<.01&&Math.abs(remaining(b)-160)<.01
+  });
+  add('Finance v14.43','Une charge prévue à 100 € peut être confirmée à 150 € sans double comptage',()=>{
+    const b=mk({startBalance:1000,reserve:0,reserveTarget:0,envelopes:[],fixed:[{id:'f-real',name:'Électricité',amount:100,dueThisCycle:true,dueDay:null}],transactions:[]});
+    const tx=recordFixedChargePayment(b,'f-real',150,todayISO(),null);
+    return !!tx&&tx.amount===150&&tx.plannedKind==='fixed'&&tx.plannedId==='f-real'&&b.fixed[0].dueThisCycle===false&&Math.abs(expenses(b)-150)<.01&&Math.abs(remaining(b)-850)<.01
+  });
+  add('Finance v14.43','Confirmer une charge au montant prévu remplace bien la prévision',()=>{
+    const b=mk({startBalance:1000,reserve:0,reserveTarget:0,envelopes:[],fixed:[{id:'f-same',name:'Internet',amount:40,dueThisCycle:true,dueDay:null}],transactions:[]});
+    recordFixedChargePayment(b,'f-same',40,todayISO(),null);
+    return b.fixed[0].dueThisCycle===false&&Math.abs(expenses(b)-40)<.01&&Math.abs(remaining(b)-960)<.01
+  });
+  add('Finance v14.43','Une charge fixe payée ne libère pas artificiellement son montant dans Piloter',()=>{
+    const base={startBalance:1000,reserve:0,reserveTarget:0,envelopes:[env('food','Courses & quotidien',150,'essential')]};
+    const before=mk({...base,fixed:[{id:'f',name:'Électricité',amount:100,dueThisCycle:true,dueDay:null}]});
+    const after=mk({...base,fixed:[{id:'f',name:'Électricité',amount:100,dueThisCycle:false,dueDay:null}],transactions:[{id:'pf',type:'expense',kind:'normal',amount:100,label:'Électricité',categoryId:null,category:'Charge · Électricité',date:todayISO(),createdAt:Date.now(),plannedKind:'fixed',plannedId:'f'}]});
+    return Math.abs(unallocated(before)-750)<.01&&Math.abs(unallocated(after)-750)<.01&&Math.abs(remaining(before)-900)<.01&&Math.abs(remaining(after)-900)<.01
+  });
+  add('Finance v14.43','Le remboursement d’une charge hors enveloppe réduit bien la dépense nette globale',()=>{
+    const b=mk({startBalance:1000,reserve:0,reserveTarget:0,envelopes:[env('food','Courses & quotidien',150,'essential')],fixed:[{id:'f',name:'Électricité',amount:100,dueThisCycle:false,dueDay:null}],transactions:[{id:'pf',type:'expense',kind:'normal',amount:100,label:'Électricité',categoryId:null,category:'Charge · Électricité',date:todayISO(),createdAt:Date.now(),plannedKind:'fixed',plannedId:'f'},{id:'rf',type:'income',kind:'refund',amount:100,label:'Remboursement électricité',categoryId:null,category:'',linkedTxId:'pf',date:todayISO(),createdAt:Date.now()}]});
+    return Math.abs(refundAppliedOutsideEnvelopes(b)-100)<.01&&Math.abs(netExpenses(b))<.01&&Math.abs(remaining(b)-1000)<.01&&Math.abs(unallocated(b)-850)<.01
+  });
+  add('Finance v14.43','Un remboursement ancien ne se réaffecte jamais à une dépense créée après lui',()=>{
+    const now=Date.now(),b=mk({startBalance:150,reserve:0,reserveTarget:0,envelopes:[env('food','Courses & quotidien',150,'essential')],transactions:[{id:'e1',type:'expense',kind:'normal',amount:20,label:'Courses',categoryId:'food',category:'Courses & quotidien',date:todayISO(),createdAt:now-2000},{id:'r',type:'income',kind:'refund',amount:30,label:'Remboursement',categoryId:'food',category:'Courses & quotidien',date:todayISO(),createdAt:now-1000},{id:'e2',type:'expense',kind:'normal',amount:5,label:'Courses après remboursement',categoryId:'food',category:'Courses & quotidien',date:todayISO(),createdAt:now}]});
+    return Math.abs(refundExcessIncome(b)-10)<.01&&Math.abs(spentFor(b,'food')-5)<.01&&Math.abs(unallocated(b)-10)<.01
+  });
+  add('Finance v14.43','Un remboursement lié garde la priorité même après un remboursement générique',()=>{
+    const now=Date.now(),b=mk({startBalance:300,reserve:0,reserveTarget:0,envelopes:[env('food','Courses & quotidien',300,'essential')],transactions:[{id:'a',type:'expense',amount:127,categoryId:'food',category:'Courses & quotidien',date:addDaysISO(todayISO(),-1),createdAt:now-4000},{id:'b',type:'expense',amount:112,categoryId:'food',category:'Courses & quotidien',date:todayISO(),createdAt:now-3000},{id:'generic',type:'income',kind:'refund',amount:165,categoryId:'food',category:'Courses & quotidien',date:todayISO(),createdAt:now-2000},{id:'linked',type:'income',kind:'refund',amount:59,categoryId:'food',category:'Courses & quotidien',linkedTxId:'b',date:todayISO(),createdAt:now-1000}]});
+    const m=refundCreditModel(b),sumCredits=Object.values(m.creditByExpense).reduce((s,x)=>s+num(x),0);return num(m.creditByExpense.b)<=112.01&&Math.abs(sumCredits-m.applied)<.01&&Math.abs(m.applied-224)<.01&&Math.abs(spentFor(b,'food')-15)<.01
+  });
+  add('Finance v14.43','Un achat entièrement remboursé ne couvre plus artificiellement les besoins futurs',()=>{
+    const now=Date.now(),b=mk({startBalance:300,reserve:0,reserveTarget:0,cycleStart:addDaysISO(todayISO(),-5),cycleEnd:addDaysISO(todayISO(),7),incomeSources:salary(7),envelopes:[env('food','Courses & quotidien',300,'essential')],transactions:[{id:'buy',type:'expense',kind:'normal',amount:80,label:'Courses',categoryId:'food',category:'Courses & quotidien',date:todayISO(),createdAt:now-1000},{id:'back',type:'income',kind:'refund',amount:80,label:'Remboursement courses',categoryId:'food',category:'Courses & quotidien',date:todayISO(),createdAt:now}]});
+    const e=b.envelopes[0],cad=envelopePurchaseCadence(b,e),cov=recentFutureCoverage(b,e,10,5);return cad.purchaseDays===0&&cov.eligibleSpend===0&&cov.credit===0
+  });
+  add('Finance v14.43','La mémoire comportementale B²+ apprend la dépense nette après remboursement',()=>{
+    const now=Date.now(),b=mk({startBalance:500,reserve:0,reserveTarget:0,envelopes:[env('food','Courses & quotidien',300,'essential')],transactions:[{id:'buy',type:'expense',kind:'normal',amount:80,label:'Courses',categoryId:'food',category:'Courses & quotidien',date:todayISO(),createdAt:now-1000},{id:'back',type:'income',kind:'refund',amount:30,label:'Remboursement courses',categoryId:'food',category:'Courses & quotidien',date:todayISO(),createdAt:now}]});
+    const snap=b2PeriodBehaviorSnapshot(b),row=snap.envelopes.find(x=>String(x.id)==='food');return Math.abs(snap.total-50)<.01&&row&&Math.abs(row.total-50)<.01&&Math.abs(row.ticketMedian-50)<.01
+  });
+  add('Finance v14.43','Un achat totalement remboursé ne devient pas une dépense inhabituelle du Carré',()=>{
+    const now=Date.now(),b=mk({startBalance:500,reserve:0,reserveTarget:0,envelopes:[env('food','Courses & quotidien',150,'essential')],transactions:[{id:'old1',type:'expense',amount:20,categoryId:'food',category:'Courses & quotidien',date:addDaysISO(todayISO(),-4),createdAt:now-4000},{id:'old2',type:'expense',amount:22,categoryId:'food',category:'Courses & quotidien',date:addDaysISO(todayISO(),-3),createdAt:now-3000},{id:'old3',type:'expense',amount:18,categoryId:'food',category:'Courses & quotidien',date:addDaysISO(todayISO(),-2),createdAt:now-2000},{id:'big',type:'expense',amount:120,categoryId:'food',category:'Courses & quotidien',date:todayISO(),createdAt:now-1000},{id:'back',type:'income',kind:'refund',amount:120,categoryId:'food',category:'Courses & quotidien',date:todayISO(),createdAt:now}]});
+    return latestUnusualExpense(b,.5)===null
+  });
+  add('Finance v14.43','Un revenu prévu confirmé est remplacé par son montant réel et non additionné',()=>{
+    const d=addDaysISO(todayISO(),10),b=mk({startMode:'next',startBalance:0,reserve:0,reserveTarget:0,cycleEnd:d,nextIncomeDate:d,incomeSources:[{id:'salary',name:'Salaire',amount:1700,nextDate:d,primary:true}],envelopes:[],transactions:[{id:'sal-real',type:'income',kind:'normal',amount:1650,label:'Salaire',categoryId:null,category:'',date:todayISO(),createdAt:Date.now(),plannedKind:'income',plannedId:'salary'}]});
+    return Math.abs(plannedIncome(b))<.01&&Math.abs(extraIncome(b)-1650)<.01&&Math.abs(pool(b)-1650)<.01
+  });
+  add('Finance v14.43','La réserve utilisée reste utilisée tant que l’utilisateur ne la reconstitue pas',()=>{
+    const b=mk({reserve:80,reserveTarget:100,reserveUsedThisCycle:20});
+    return effectiveReserveTarget(b)===100&&reserveAfterRecovery(b,0)===80&&reserveAfterRecovery(b,20)===100&&reserveAfterRecovery(b,200)===100
+  });
+  add('Finance v14.43','Une charge temporaire arrivée à zéro mensualité ne ressuscite pas au chargement',()=>{
+    const b=mk({fixed:[{id:'tmp',name:'Crédit temporaire',amount:50,dueThisCycle:false,durationMode:'months',remainingPayments:0,totalPayments:3}]});return b.fixed.length===0
+  });
+  add('Finance v14.43','Supprimer puis restaurer un salaire confirmé synchronise aussi sa mémoire de date',()=>{
+    const d=addDaysISO(todayISO(),-1),b=mk({incomeSources:[{id:'salary',name:'Salaire',amount:1700,nextDate:addDaysISO(todayISO(),29),primary:true,arrivalHistory:[{expectedDate:d,actualDate:d,offsetDays:0}]}]}),t={type:'income',kind:'normal',plannedKind:'income',plannedId:'salary',date:d};
+    removePlannedIncomeArrival(b,t);const removed=b.incomeSources[0].arrivalHistory.length===0;recordPlannedIncomeArrival(b,t);return removed&&b.incomeSources[0].arrivalHistory.some(x=>x.actualDate===d)
+  });
+
   // Y — Cross-check severity semantics
   add('Sévérité','Situation saine ne porte pas un niveau critique',()=>H(mk({startBalance:1500,cycleEnd:addDaysISO(todayISO(),5),incomeSources:salary(5,1800),fixed:[]})).level<4);
   add('Sévérité','Impasse sans revenu reste critique même avec peu de jours',()=>H(mk({startBalance:-20,cycleEnd:addDaysISO(todayISO(),2),incomeSources:[],envelopes:[env('food','Courses & quotidien',200,'essential')]})).level===4);
@@ -7927,7 +8226,7 @@ function b2EnvelopeAdjustmentOpportunity(b){
 function budgetHealth(b){
   const advanced=advancedIntelligenceEnabled();
   const rem=remaining(b),u=unallocated(b),totalDays=Math.max(1,daysBetweenISO(b.cycleStart,b.cycleEnd)),elapsedDays=clamp(daysBetweenISO(b.cycleStart,todayISO()),0,totalDays),progress=clamp(elapsedDays/totalDays,0,1);
-  const alloc=Math.max(0,allocated(b)),spent=expenses(b),spentPct=alloc>0?spent/alloc:0,timePct=Math.round(progress*100),overallPct=Math.round(spentPct*100),txExpenses=(b.transactions||[]).filter(t=>t.type==='expense'),signals=[];
+  const alloc=Math.max(0,allocated(b)),spent=netVariableExpenses(b),spentPct=alloc>0?spent/alloc:0,timePct=Math.round(progress*100),overallPct=Math.round(spentPct*100),txExpenses=(b.transactions||[]).filter(t=>t.type==='expense'&&!t.plannedKind),signals=[];
   const envSignals=b.envelopes.map(e=>{
     const used=spentFor(b,e.id),pct=e.amount>0?used/e.amount:0,txCount=txExpenses.filter(t=>String(t.categoryId)===String(e.id)).length,hist=envelopeHistoryStats(b,e);
     return {env:e,used,pct,txCount,remain:envRemain(b,e),hist}
@@ -7938,7 +8237,7 @@ function budgetHealth(b){
   const historicalDriftCandidate=advanced?envSignals.find(x=>x.txCount>=2&&x.hist?.count>=2&&x.hist.medianSpent>0&&x.used>x.hist.medianSpent*1.22&&progress<.88):null;
   const touchedEnvelopes=new Set(txExpenses.map(t=>String(t.categoryId||''))).size;
   const paceReliable=elapsedDays>=3&&alloc>0&&spent>=Math.min(40,alloc*.15)&&(txExpenses.length>=3||touchedEnvelopes>=2);
-  const projected=paceReliable&&progress>.08?spent/progress:spent,projectedGap=r2(pool(b)-projected),paceRisk=paceReliable&&progress<.92&&projected>alloc*1.12&&spentPct>progress+.16;
+  const projected=paceReliable&&progress>.08?spent/progress:spent,projectedGap=r2(allocationPool(b)-projected),paceRisk=paceReliable&&progress<.92&&projected>alloc*1.12&&spentPct>progress+.16;
   const unusual=advanced?latestUnusualExpense(b,progress):null,reserveTarget=Math.max(num(b.reserveTarget),num(b.reserve)+num(b.reserveUsedThisCycle)),reserveRatio=reserveTarget>0?num(b.reserve)/reserveTarget:1;
   const ctx=shortTermMoneyContext(b),living=advanced?estimatedLivingNeedUntilIncome(b,ctx):estimatedLivingNeedUntilIncomeBasic(b,ctx),recovery=advanced?nextCycleRecoveryPlan(b,ctx,living):nextCycleRecoveryPlanBasic(b,ctx,living),trajectory=trajectoryRiskAssessment(b,ctx,living,recovery),projectionDate=ctx.nextIncome?.nextDate||b.cycleEnd||incomeForecastHorizon(b),projectedEnd=r2(ctx.nextIncome?living.predictedBeforeIncome:forecastEndBalance(b)),overdueIncome=overdueIncomeSource(b),overdueFixed=overdueFixedCharge(b);
   const nextEvent=nextFinancialEvent(b,ctx,overdueIncome,overdueFixed);
@@ -8683,6 +8982,8 @@ function oneOffBankCandidate(b,x,n){
 }
 function incomeBankCandidate(b,x,n){
   if(n.type!=='income')return null;
+  const already=(b.transactions||[]).some(t=>t.type==='income'&&t.kind!=='refund'&&t.plannedKind==='income'&&String(t.plannedId)===String(x.id));
+  if(already)return null;
   const a=bankAmountScore(x.amount,n.amount);if(a<3)return null;
   const name=bankNameScore(x,n.merchant);
   let date=0;if(x.nextDate){const d=Math.abs(daysBetweenISO(x.nextDate,bankISO(n.createdAt)));date=d===0?4:d<=1?3:d<=3?2:d<=5?1:0}
@@ -8690,12 +8991,23 @@ function incomeBankCandidate(b,x,n){
   if(name>=3)reasons.push('libellé cohérent');if(date>=3)reasons.push('date attendue');
   return {kind:'income',item:x,score,reason:reasons.join(' + ')}
 }
+function exceptionalIncomeBankCandidate(b,x,n){
+  if(n.type!=='income')return null;
+  const a=bankAmountScore(x.amount,n.amount);if(a<3)return null;
+  const name=bankNameScore(x,n.merchant),score=a+name,reasons=[];
+  if(a>=7)reasons.push('montant identique');else reasons.push('montant proche');
+  if(name>=3)reasons.push('libellé cohérent');
+  return {kind:'exceptionalIncome',item:x,score,reason:reasons.join(' + ')}
+}
 function findPlannedBankMatch(b,n){
   let rows=[];
   if(n.type==='expense'){
     rows.push(...(b.fixed||[]).map(x=>fixedBankCandidate(b,x,n)).filter(Boolean));
     rows.push(...(b.oneOffs||[]).map(x=>oneOffBankCandidate(b,x,n)).filter(Boolean))
-  }else rows.push(...(b.incomeSources||[]).map(x=>incomeBankCandidate(b,x,n)).filter(Boolean));
+  }else{
+    rows.push(...(b.incomeSources||[]).map(x=>incomeBankCandidate(b,x,n)).filter(Boolean));
+    rows.push(...(b.exceptionalIncomes||[]).map(x=>exceptionalIncomeBankCandidate(b,x,n)).filter(Boolean))
+  }
   rows.sort((a,z)=>z.score-a.score);if(!rows.length)return null;
   const top=rows[0],second=rows[1];
   return {...top,ambiguous:!!second&&second.score>=top.score-2,confidence:bankConfidence(top.score)}
@@ -9014,11 +9326,31 @@ function settlePlannedOnExistingTx(b,n,tx){
   if(!b||!n||!tx||!n.plannedKind||!n.plannedId)return;
   if(n.plannedKind==='fixed'){
     const x=(b.fixed||[]).find(y=>String(y.id)===String(n.plannedId));
-    if(x){x.dueThisCycle=false;learnBankAlias(x,n.merchant);tx.plannedKind='fixed';tx.plannedId=x.id}
+    if(x){
+      x.dueThisCycle=false;learnBankAlias(x,n.merchant);tx.plannedKind='fixed';tx.plannedId=x.id;
+      // Une charge fixe confirmée ne doit plus consommer une enveloppe variable.
+      tx.categoryId=null;tx.category=`Charge · ${x.name}`
+    }
   }
   if(n.plannedKind==='oneoff'){
     const i=(b.oneOffs||[]).findIndex(y=>String(y.id)===String(n.plannedId));
-    if(i>=0){const snap={...b.oneOffs[i]};b.oneOffs.splice(i,1);learnBankAlias(snap,n.merchant);tx.plannedKind='oneoff';tx.plannedId=snap.id;tx.plannedSnapshot=snap}
+    if(i>=0){
+      const snap={...b.oneOffs[i]};b.oneOffs.splice(i,1);learnBankAlias(snap,n.merchant);tx.plannedKind='oneoff';tx.plannedId=snap.id;tx.plannedSnapshot=snap;
+      tx.categoryId=null;tx.category=`Dépense prévue · ${snap.name}`
+    }
+  }
+  if(n.plannedKind==='income'){
+    const x=(b.incomeSources||[]).find(y=>String(y.id)===String(n.plannedId));
+    if(x&&tx.type==='income'&&tx.kind!=='refund'){
+      tx.plannedKind='income';tx.plannedId=x.id;learnBankAlias(x,n.merchant);
+      recordPlannedIncomeArrival(b,tx)
+    }
+  }
+  if(n.plannedKind==='exceptionalIncome'){
+    const i=(b.exceptionalIncomes||[]).findIndex(y=>String(y.id)===String(n.plannedId));
+    if(i>=0&&tx.type==='income'&&tx.kind!=='refund'){
+      const snap={...b.exceptionalIncomes[i]};b.exceptionalIncomes.splice(i,1);tx.plannedKind='exceptionalIncome';tx.plannedId=snap.id;tx.plannedSnapshot=snap
+    }
   }
 }
 
@@ -9123,6 +9455,7 @@ function bankPlannedEntity(b,n){
   if(n.plannedKind==='fixed')return (b.fixed||[]).find(x=>String(x.id)===String(n.plannedId))||null;
   if(n.plannedKind==='oneoff')return (b.oneOffs||[]).find(x=>String(x.id)===String(n.plannedId))||null;
   if(n.plannedKind==='income')return (b.incomeSources||[]).find(x=>String(x.id)===String(n.plannedId))||null;
+  if(n.plannedKind==='exceptionalIncome')return (b.exceptionalIncomes||[]).find(x=>String(x.id)===String(n.plannedId))||null;
   return null
 }
 function ignoreBankNotification(id){
@@ -9167,11 +9500,17 @@ function confirmPlannedBankMatch(id){
   if(n.plannedKind==='income'){
     learnBankAlias(item,n.merchant);
     const actualIncomeDate=bankISO(n.createdAt);
-    const nominalExpected=incomeScheduledDateForMonth(item,item.nextDate||actualIncomeDate);
+    const nominalExpected=incomeScheduledDateForMonth(item,actualIncomeDate);
     recordIncomeArrival(item,actualIncomeDate,nominalExpected);
-    const tx={id:uid(),type:'income',amount:r2(n.amount),label:n.merchant||item.name,categoryId:null,category:'',date:actualIncomeDate,createdAt:n.createdAt,memberId,source:'bank',bankVerified:true,bankNotificationId:n.id,plannedKind:'income',plannedId:item.id,plannedSnapshot:null};
+    const tx={id:uid(),type:'income',kind:'normal',amount:r2(n.amount),label:n.merchant||item.name,categoryId:null,category:'',date:actualIncomeDate,createdAt:n.createdAt,memberId,source:'bank',bankVerified:true,bankNotificationId:n.id,plannedKind:'income',plannedId:item.id,plannedSnapshot:null};
     b.transactions.push(tx);linkBankNotification(b,n,tx);rememberBankSourceFromNotification(n,{confirmed:true});save();renderMovements();
     showToast(`${item.name} reconnu.`,item.primary?'Faire le point':null,item.primary?()=>startClosing('income'):null);return
+  }
+  if(n.plannedKind==='exceptionalIncome'){
+    const actualIncomeDate=bankISO(n.createdAt),snapshot={...item};
+    b.exceptionalIncomes=b.exceptionalIncomes.filter(x=>String(x.id)!==String(item.id));
+    const tx={id:uid(),type:'income',kind:'normal',amount:r2(n.amount),label:n.merchant||item.name,categoryId:null,category:'',date:actualIncomeDate,createdAt:n.createdAt,memberId,source:'bank',bankVerified:true,bankNotificationId:n.id,plannedKind:'exceptionalIncome',plannedId:item.id,plannedSnapshot:snapshot};
+    b.transactions.push(tx);linkBankNotification(b,n,tx);rememberBankSourceFromNotification(n,{confirmed:true});save();renderMovements();showToast(`${item.name} reçu : la prévision a été remplacée par le montant réel.`);return
   }
 }
 let bankReviewId=null;
@@ -9217,16 +9556,20 @@ function askPossibleDuplicate(dup,tx,onDifferent){
 function restorePlannedAfterDelete(b,t){
   if(t.plannedKind==='fixed'&&t.plannedId){const x=(b.fixed||[]).find(y=>String(y.id)===String(t.plannedId));if(x)x.dueThisCycle=true}
   if(t.plannedKind==='oneoff'&&t.plannedSnapshot&&!b.oneOffs.some(x=>String(x.id)===String(t.plannedSnapshot.id)))b.oneOffs.push({...t.plannedSnapshot})
+  if(t.plannedKind==='income'&&t.plannedId)removePlannedIncomeArrival(b,t);
+  if(t.plannedKind==='exceptionalIncome'&&t.plannedSnapshot&&!b.exceptionalIncomes.some(x=>String(x.id)===String(t.plannedSnapshot.id)))b.exceptionalIncomes.push({...t.plannedSnapshot})
   if(t.bankNotificationId){const n=(b.bankNotifications||[]).find(x=>String(x.id)===String(t.bankNotificationId));if(n){n.status='pending';n.matchedTxId=null;n.candidateId=null}}
 }
 function reapplyPlannedAfterUndo(b,t){
   if(t.plannedKind==='fixed'&&t.plannedId){const x=(b.fixed||[]).find(y=>String(y.id)===String(t.plannedId));if(x)x.dueThisCycle=false}
   if(t.plannedKind==='oneoff'&&t.plannedId)b.oneOffs=b.oneOffs.filter(x=>String(x.id)!==String(t.plannedId));
+  if(t.plannedKind==='income'&&t.plannedId)recordPlannedIncomeArrival(b,t);
+  if(t.plannedKind==='exceptionalIncome'&&t.plannedId)b.exceptionalIncomes=b.exceptionalIncomes.filter(x=>String(x.id)!==String(t.plannedId));
   if(t.bankNotificationId){const n=(b.bankNotifications||[]).find(x=>String(x.id)===String(t.bankNotificationId));if(n){n.status='matched';n.matchedTxId=t.id}}
 }
 function notificationCount(){
-  const b=active(),bank=b?pendingBank(b).length:0;
-  return bank+b2PendingSharedInvites.length+remoteNotificationVisibleItems().length
+  const b=active(),bank=b?pendingBank(b).length:0,fixed=b&&state.settings.chargeTracking!==false?pendingFixedChargeConfirmations(b).length:0;
+  return bank+fixed+b2PendingSharedInvites.length+remoteNotificationVisibleItems().length
 }
 function updateNotificationBell(){
   const btn=$('#homeNotificationBell'),badge=$('#homeNotificationBadge');if(!btn||!badge)return;
@@ -9239,17 +9582,20 @@ function openNotificationCenter(){
 }
 function renderNotificationCenter(){
   const c=$('#notificationCenterContent');if(!c)return;
-  const b=active(),bank=b?pendingBank(b):[];
+  const b=active(),bank=b?pendingBank(b):[],fixed=b&&state.settings.chargeTracking!==false?pendingFixedChargeConfirmations(b):[];
   const invites=sharedInvitesInboxHTML(),remote=remoteInboxHTML();
+  const fixedHTML=fixed.length?`<div class="inbox-summary"><span class="ui-ico" aria-hidden="true">${ico('receipt')}</span><div><strong>${fixed.length} charge${fixed.length>1?'s':''} à confirmer</strong><span>Le montant prévu reste protégé tant que tu n’as pas confirmé le prélèvement.</span></div></div>${fixed.map(row=>fixedChargeConfirmationCardHTML(b,row)).join('')}`:'';
   const bankHTML=bank.length?`<div class="inbox-summary"><span class="ui-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6.5 9.5a5.5 5.5 0 0 1 11 0c0 6 2.3 6.4 2.3 7.8H4.2c0-1.4 2.3-1.8 2.3-7.8Z"/><path d="M9.8 20h4.4"/></svg></span><div><strong>${bank.length} mouvement${bank.length>1?'s':''} bancaire${bank.length>1?'s':''} à vérifier</strong><span>Confirme seulement ce qui vient réellement d’une banque.</span></div></div>${bank.map(n=>bankNotificationCardHTML(b,n)).join('')}`:'';
-  if(!invites&&!remote&&!bankHTML){
+  if(!invites&&!remote&&!fixedHTML&&!bankHTML){
     c.innerHTML=`<div class="inbox-empty"><span class="ui-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6.5 9.5a5.5 5.5 0 0 1 11 0c0 6 2.3 6.4 2.3 7.8H4.2c0-1.4 2.3-1.8 2.3-7.8Z"/><path d="M9.8 20h4.4"/></svg></span><strong>Tout est à jour</strong><span>Aucun message B² n’attend ton attention.</span></div>`;
     updateNotificationBell();return
   }
-  c.innerHTML=`${invites}${remote}${bankHTML}`;
+  c.innerHTML=`${invites}${remote}${fixedHTML}${bankHTML}`;
   wireB2RemoteInbox(c);if(b)wireNotificationActions(c,true);updateNotificationBell()
 }
 function wireNotificationActions(root,fromInbox=false){
+  $$('[data-fixed-notif-paid]',root).forEach(x=>x.addEventListener('click',()=>openFixedChargePayment(x.dataset.fixedNotifPaid)));
+  $$('[data-fixed-notif-defer]',root).forEach(x=>x.addEventListener('click',()=>deferFixedChargeConfirmation(x.dataset.fixedNotifDefer,3)));
   $$('[data-bank-link]',root).forEach(x=>x.addEventListener('click',()=>{attachBankCandidate(x.dataset.bankLink);if(fromInbox)setTimeout(renderNotificationCenter,0)}));
   $$('[data-bank-plan]',root).forEach(x=>x.addEventListener('click',()=>{confirmPlannedBankMatch(x.dataset.bankPlan);if(fromInbox)setTimeout(renderNotificationCenter,0)}));
   $$('[data-bank-reject-plan]',root).forEach(x=>x.addEventListener('click',()=>{rejectBankPlannedMatch(x.dataset.bankRejectPlan);if(fromInbox)setTimeout(renderNotificationCenter,0)}));
@@ -9708,7 +10054,7 @@ function renderHome(){
   }
 
   sw.disabled=false;if(swLabel)swLabel.textContent=g.name;
-  const future=b.startMode==='next'&&String(b.cycleStart)>todayISO(),rem=remaining(b),days=daysUntil(b.cycleEnd),homeCtx=shortTermMoneyContext(b),repereDays=homeCtx.nextIncome?homeCtx.daysToIncome:days,perDay=repereDays&&rem>0?rem/Math.max(1,repereDays):null,spent=expenses(b),setAside=provisionsThisCycle(b),sav=savingsThisCycle(b);
+  const future=b.startMode==='next'&&String(b.cycleStart)>todayISO(),rem=remaining(b),days=daysUntil(b.cycleEnd),homeCtx=shortTermMoneyContext(b),repereDays=homeCtx.nextIncome?homeCtx.daysToIncome:days,perDay=repereDays&&rem>0?rem/Math.max(1,repereDays):null,spent=netExpenses(b),setAside=provisionsThisCycle(b),sav=savingsThisCycle(b);
   if(future){
     const adjusted=expenses(b)>0||extraIncome(b)>0;
     const futureTitle=rem<0?'Prévision à rééquilibrer':(adjusted?'Prévision ajustée':'Prévision de ce compte');
@@ -9721,7 +10067,7 @@ function renderHome(){
 
   const health=future?futurePreparedHealth(b):budgetHealth(b),statusClass=homeHealthClass(health.level),watch=future?[]:homeWatchList(b,health),recent=[...b.transactions].sort((a,c)=>(c.createdAt||0)-(a.createdAt||0)).slice(0,3);
   const protectedTotal=protectedThisCycle(b)+num(b.reserve),fixedTotal=fixedThisCycle(b)+sum(b.oneOffs),buckets=moneyBuckets(b);
-  const essential=`<div class="home-essential"><div class="home-essential-main"><div class="home-essential-item"><span>Dépensé cette période</span><strong>${euro(spent)}</strong><small>ce qui est déjà sorti</small></div><div class="home-essential-item"><span>Argent protégé</span><strong>${euro(protectedTotal)}</strong><small>non disponible pour les dépenses courantes</small></div></div><details><summary>Comprendre où est mon argent</summary><div class="money-buckets"><div class="money-bucket">${ico('money')}<div class="money-bucket-copy"><strong>Solde du compte</strong><span>L’argent réellement présent, avant protections B².</span></div><b>${euro(buckets.accountBalance)}</b></div><div class="money-bucket">${ico('wallet')}<div class="money-bucket-copy"><strong>Disponible à utiliser</strong><span>Après charges, réserve et argent mis de côté.</span></div><b class="${buckets.spendable<0?'bad':''}">${euro(buckets.spendable)}</b></div><div class="money-bucket">${ico('shield')}<div class="money-bucket-copy"><strong>Réserve de sécurité</strong><span>Protégée pour les vrais imprévus.</span></div><b>${euro(buckets.reserve)}</b></div><div class="money-bucket">${ico('calendar')}<div class="money-bucket-copy"><strong>Déjà mis de côté pour des factures</strong><span>Cagnottes et charges irrégulières en préparation.</span></div><b>${euro(buckets.futureBills)}</b></div><div class="money-bucket">${ico('target')}<div class="money-bucket-copy"><strong>Épargne déjà constituée</strong><span>Suivie séparément du budget courant.</span></div><b>${euro(buckets.savings)}</b></div>${buckets.heldAside>0?`<div class="money-bucket">${ico('money')}<div class="money-bucket-copy"><strong>Mis de côté hors budget</strong><span>Conservé, mais pas réutilisé dans la période.</span></div><b>${euro(buckets.heldAside)}</b></div>`:''}</div><div class="home-detail-grid"><div class="home-detail-row"><span>Charges prévues cette période</span><b>${euro(fixedTotal)}</b></div><div class="home-detail-row"><span>À mettre de côté cette période</span><b>${euro(setAside)}</b></div><div class="home-detail-row"><span>Épargne prévue cette période</span><b>${euro(sav)}</b></div>${plannedExceptionalIncome(b)>0?`<div class="home-detail-row"><span>Revenu exceptionnel prévu</span><b>＋ ${euro(plannedExceptionalIncome(b))}</b></div>`:''}</div></details></div>`;
+  const essential=`<div class="home-essential"><div class="home-essential-main"><div class="home-essential-item"><span>Dépensé cette période</span><strong>${euro(spent)}</strong><small>${refundAppliedTotal(b)>.01?'net après remboursements':'ce qui est déjà sorti'}</small></div><div class="home-essential-item"><span>Argent protégé</span><strong>${euro(protectedTotal)}</strong><small>non disponible pour les dépenses courantes</small></div></div><details><summary>Comprendre où est mon argent</summary><div class="money-buckets"><div class="money-bucket">${ico('money')}<div class="money-bucket-copy"><strong>Solde du compte</strong><span>L’argent réellement présent, avant protections B².</span></div><b>${euro(buckets.accountBalance)}</b></div><div class="money-bucket">${ico('wallet')}<div class="money-bucket-copy"><strong>Disponible à utiliser</strong><span>Après charges, réserve et argent mis de côté.</span></div><b class="${buckets.spendable<0?'bad':''}">${euro(buckets.spendable)}</b></div><div class="money-bucket">${ico('shield')}<div class="money-bucket-copy"><strong>Réserve de sécurité</strong><span>Protégée pour les vrais imprévus.</span></div><b>${euro(buckets.reserve)}</b></div><div class="money-bucket">${ico('calendar')}<div class="money-bucket-copy"><strong>Déjà mis de côté pour des factures</strong><span>Cagnottes et charges irrégulières en préparation.</span></div><b>${euro(buckets.futureBills)}</b></div><div class="money-bucket">${ico('target')}<div class="money-bucket-copy"><strong>Épargne déjà constituée</strong><span>Suivie séparément du budget courant.</span></div><b>${euro(buckets.savings)}</b></div>${buckets.heldAside>0?`<div class="money-bucket">${ico('money')}<div class="money-bucket-copy"><strong>Mis de côté hors budget</strong><span>Conservé, mais pas réutilisé dans la période.</span></div><b>${euro(buckets.heldAside)}</b></div>`:''}</div><div class="home-detail-grid"><div class="home-detail-row"><span>Charges prévues cette période</span><b>${euro(fixedTotal)}</b></div><div class="home-detail-row"><span>À mettre de côté cette période</span><b>${euro(setAside)}</b></div><div class="home-detail-row"><span>Épargne prévue cette période</span><b>${euro(sav)}</b></div>${plannedExceptionalIncome(b)>0?`<div class="home-detail-row"><span>Revenu exceptionnel prévu</span><b>＋ ${euro(plannedExceptionalIncome(b))}</b></div>`:''}</div></details></div>`;
   const watchBlock=watch.length?`<div class="section-title"><h3>À regarder</h3><button class="btn-link" data-home-go="pilot" type="button">Piloter</button></div><div class="card"><div class="env-preview">${watch.map(e=>envMini(b,e)).join('')}</div></div>`:'';
   const readyFunds=readyProvisions(b),readyFundsCard=readyFunds.length?`<button class="card status-action" id="readyProvisionCard" type="button"><div class="status-icon-row"><div class="status-icon">${ico('gift')}</div><div class="square-copy"><strong>${esc(readyFunds[0].name)} est prêt${readyFunds.length>1?` · +${readyFunds.length-1}`:''}</strong><span>${euro(readyFunds[0].savedAmount)} sont prêts à être utilisés.</span><span class="status-cta">Choisir quoi en faire →</span></div></div></button>`:'';
 
@@ -9809,9 +10155,9 @@ function nextPeriodForecast(b,review=null){
 
   // Ce qui sera réellement encore actif après la clôture actuelle.
   sim.fixed.forEach(x=>{
-    if(fixedDurationMode(x)==='months'&&x.dueThisCycle!==false){
-      x.remainingPayments=Math.max(0,Math.round(num(x.remainingPayments))-1)
-    }
+    // Une période clôturée consomme une mensualité temporaire, qu'elle ait été
+    // rapprochée par la banque (dueThisCycle=false) ou déclarée déjà payée.
+    if(fixedDurationMode(x)==='months')x.remainingPayments=Math.max(0,Math.round(num(x.remainingPayments))-1);
     x.dueThisCycle=true
   });
   sim.fixed=sim.fixed.filter(x=>{
@@ -9831,8 +10177,8 @@ function nextPeriodForecast(b,review=null){
   });
   sim.savings.forEach(g=>{g.dueThisCycle=true;g.cycleReduction=0});
 
-  sim.reserveTarget=r2(num(sim.reserveTarget||sim.reserve));
-  sim.reserve=r2(sim.reserveTarget+Math.max(0,num(r.reserveRecovery)));
+  sim.reserveTarget=effectiveReserveTarget(sim);
+  sim.reserve=reserveAfterRecovery(sim,r.reserveRecovery);
   sim.reserveUsedThisCycle=0;
 
   Object.entries(r.envelopeUpdates||{}).forEach(([id,value])=>{
@@ -9920,21 +10266,19 @@ function renderPilot(){
 
   let allocationNotice='';
   if(pilotTab==='envelopes'&&free>.01){
-    if(mode==='full'){
-      allocationNotice=`<div class="card b2-allocation-notice urgent">
+    if(mode==='full'||surplus>2){
+      const marginNote=mode==='full'
+        ?'Cet argent est disponible mais n’est encore dans aucune enveloppe.'
+        :`Cet argent est disponible. Ta marge habituelle est d’environ ${euro(targetMargin)} ; tu restes libre d’en répartir tout ou seulement une partie.`;
+      allocationNotice=`<div class="card b2-allocation-notice income-ready">
         <div class="status-icon-row"><div class="status-icon">${ico('money')}</div><div class="square-copy">
-          <strong>${euro(free)} à répartir</strong>
-          <span>Tu as choisi d’utiliser tout ton disponible : cette somme ne doit pas rester sans enveloppe.</span>
+          <strong class="b2-allocation-amount">${euro(free)}</strong>
+          <span><b>Disponibles à répartir</b><br>${marginNote}</span>
         </div></div>
-        <button class="btn btn-primary btn-full" id="pilotUseAll" type="button">Répartir maintenant</button>
-      </div>`
-    }else if(surplus>2){
-      allocationNotice=`<div class="card b2-allocation-notice">
-        <div class="status-icon-row"><div class="status-icon">${ico('shield')}</div><div class="square-copy">
-          <strong>${euro(free)} non répartis</strong>
-          <span>Ta ${mode==='safe'?'marge confortable':'petite marge'} prévue est d’environ ${euro(targetMargin)}. Il reste donc ${euro(surplus)} de plus à répartir.</span>
-        </div></div>
-        <button class="btn btn-white btn-full" id="pilotRestoreMargin" type="button">Répartir le surplus</button>
+        <div class="b2-allocation-actions">
+          <button class="btn btn-primary" id="pilotB2Allocate" type="button">✨ Laisser B² répartir</button>
+          <button class="btn btn-white" id="pilotManualAllocate" type="button">Je répartis moi-même</button>
+        </div>
       </div>`
     }else{
       allocationNotice=`<div class="card b2-allocation-notice calm">
@@ -9942,7 +10286,7 @@ function renderPilot(){
           <strong>${euro(free)} de marge volontaire</strong>
           <span>Tu as choisi de garder ${mode==='safe'?'une marge confortable':'une petite marge'} hors de tes enveloppes.</span>
         </div></div>
-        <button class="btn btn-soft btn-full" id="pilotUseMargin" type="button">Utiliser aussi cette marge</button>
+        <button class="btn btn-soft btn-full" id="pilotUseMargin" type="button">Répartir aussi cette marge</button>
       </div>`
     }
   }
@@ -9959,7 +10303,7 @@ function renderPilot(){
   let body='';
   if(pilotTab==='envelopes')body=`<div class="pilot-section-head"><div><strong>Mes enveloppes</strong><span>Verrouille celles auxquelles B² ne doit pas toucher automatiquement.</span></div></div>${b.envelopes.map(e=>envelopeCard(b,e)).join('')||'<div class="card"><div class="empty">Aucune enveloppe pour l’instant.</div></div>'}`;
 
-  if(pilotTab==='charges')body=`<div class="card"><div class="card-title"><h3>Mes charges</h3><button class="btn-link" id="pilotEditExpenses" type="button">Modifier</button></div>${[...b.fixed.map(x=>({...x,_fixed:true})),...b.oneOffs].map(x=>`<div class="fund-row"><div class="fund-top"><strong>${ico(billIconForName(x.name))} ${esc(x.name)}</strong><b>${euro(x.amount)}</b></div><div class="fund-sub">${x._fixed?`${fixedTimingText(b,x)} · ${fixedDurationShort(x)}`:'Paiement prévu et protégé par B²'}</div></div>`).join('')||'<div class="empty">Aucune charge prévue.</div>'}</div>`;
+  if(pilotTab==='charges')body=`<div class="card"><div class="card-title"><h3>Mes charges</h3><button class="btn-link" id="pilotEditExpenses" type="button">Modifier</button></div>${[...b.fixed.map(x=>({...x,_fixed:true})),...b.oneOffs].map(x=>`<div class="fund-row"><div class="fund-top"><strong>${ico(billIconForName(x.name))} ${esc(x.name)}</strong><b>${euro(x.amount)}</b></div><div class="fund-sub">${x._fixed?`${fixedTimingText(b,x)} · ${fixedDurationShort(x)}`:'Paiement prévu et protégé par B²'}</div>${x._fixed&&x.dueThisCycle!==false?`<div class="fund-actions"><button class="btn-link" data-fixed-payment="${x.id}" type="button">Marquer payée</button></div>`:''}</div>`).join('')||'<div class="empty">Aucune charge prévue.</div>'}</div>`;
 
   if(pilotTab==='aside')body=`<div class="card"><div class="card-title"><h3>À préparer pour plus tard</h3><button class="btn-link" id="pilotEditBudgetAside" type="button">Modifier</button></div>${b.provisions.length?b.provisions.map(p=>fundProvision(b,p)).join(''):'<div class="empty">Rien à préparer pour l’instant.</div>'}</div><div class="card flat"><div class="status-icon-row"><div class="status-icon">${ico('shield')}</div><div class="square-copy"><strong>${euro(provisionsThisCycle(b))} protégés pour cette période</strong><span>Cet argent est déjà réservé pour ces dépenses futures.</span></div></div></div>`;
 
@@ -9987,6 +10331,7 @@ function renderPilot(){
   $$('[data-toggle-env-lock]',c).forEach(x=>x.addEventListener('click',ev=>{ev.stopPropagation();const e=b.envelopes.find(v=>String(v.id)===String(x.dataset.toggleEnvLock));if(!e)return;e.locked=!e.locked;save();showToast(e.locked?`${e.name} : protection activée.`:`${e.name} : B² peut de nouveau l’ajuster.`);renderPilot()}));
   $$('[data-edit-env]',c).forEach(x=>x.addEventListener('click',()=>openEnvEditor(x.dataset.editEnv)));
   $('#pilotEditExpenses')?.addEventListener('click',()=>startWizard(b.id,3));
+  $$('[data-fixed-payment]',c).forEach(x=>x.addEventListener('click',()=>openFixedChargePayment(x.dataset.fixedPayment)));
   $$('[data-provision-use]',c).forEach(x=>x.addEventListener('click',()=>useProvision(x.dataset.provisionUse)));
   $$('[data-provision-keep]',c).forEach(x=>x.addEventListener('click',()=>keepProvision(x.dataset.provisionKeep)));
   $$('[data-provision-postpone]',c).forEach(x=>x.addEventListener('click',()=>postponeProvision(x.dataset.provisionPostpone)));
@@ -9997,9 +10342,9 @@ $('#pilotNowBalance')?.addEventListener('click',()=>openBalanceAssistant('auto')
   $('#pilotNowMovements')?.addEventListener('click',()=>showPage('movements'));
   $('#pilotNextPeriod')?.addEventListener('click',()=>openNextPeriodPreview(b));
   $('#pilotManualClose')?.addEventListener('click',()=>startClosing('manual'));
-  $('#pilotUseAll')?.addEventListener('click',()=>{autoBalance(b,1);renderPilot()});
-  $('#pilotUseMargin')?.addEventListener('click',()=>{autoBalance(b,1);renderPilot()});
-  $('#pilotRestoreMargin')?.addEventListener('click',()=>{autoBalance(b,profileAllocationShare(b));renderPilot()});
+  $('#pilotB2Allocate')?.addEventListener('click',()=>{distributeFreeMoneyWithB2(b);renderPilot()});
+  $('#pilotManualAllocate')?.addEventListener('click',()=>openIncomeAllocationManual(b));
+  $('#pilotUseMargin')?.addEventListener('click',()=>{distributeFreeMoneyWithB2(b);renderPilot()});
   $$('[data-pilot-focus]',c).forEach(x=>x.addEventListener('click',()=>{
     const target=c.querySelector(`[data-env-card="${CSS.escape(String(x.dataset.pilotFocus))}"]`);
     target?.scrollIntoView({behavior:'smooth',block:'center'});
@@ -10159,12 +10504,13 @@ function renderSettings(){
       ${switchHTML('essential','Alertes essentielles','Dépassement, budget à rééquilibrer, fin de période.',s.essential)}
       ${switchHTML('afterExpense','Après chaque dépense','Afficher ce qu’il reste dans l’enveloppe.',s.afterExpense)}
       ${switchHTML('thresholds','Seuils d’enveloppe','Signaler 75 %, 90 % et 100 %.',s.thresholds)}
-      ${switchHTML('weekly','Résumé hebdomadaire','Un point simple sur le budget.',s.weekly)}
+      ${switchHTML('chargeTracking','Suivi des charges','Charges à confirmer et prélèvements attendus.',s.chargeTracking!==false)}
+      ${switchHTML('weekly','Résumé hebdomadaire','Un point simple sur le budget.',s.weekly!==false)}
       ${switchHTML('pushShared','Budget partagé','Invitations, membres et activité importante du budget commun.',s.pushShared!==false)}
     </div>
     <div class="card"><div class="card-title"><h3>Notifications sur ton téléphone</h3><span class="badge">ANDROID</span></div>
       ${switchHTML('pushEnabled','Recevoir les notifications B²','Affiche les alertes autorisées même lorsque B² n’est pas ouvert.',b2PushEnabledOnDevice())}
-      <div class="small muted" style="margin-top:8px">Les choix « Alertes essentielles », « Seuils », « Résumé hebdomadaire » et « Budget partagé » restent sous ton contrôle. Si tu refuses l’autorisation Android, les messages restent accessibles dans B².</div>
+      <div class="small muted" style="margin-top:8px">Les choix « Alertes essentielles », « Seuils », « Suivi des charges », « Résumé hebdomadaire » et « Budget partagé » restent sous ton contrôle. Si tu refuses l’autorisation Android, les messages restent accessibles dans B².</div>
     </div>
     <div class="card"><div class="card-title"><h3>Saisie vocale</h3></div>
       ${switchHTML('voiceConfirm','Confirmer avant d’enregistrer','Recommandé tant que B² apprend tes habitudes.',s.voiceConfirm)}
@@ -10198,7 +10544,7 @@ function renderSettings(){
       }else showToast(on?'Notifications bancaires activées.':'Notifications bancaires désactivées.');
       renderSettings();return
     }
-    if(['essential','thresholds','weekly','pushShared'].includes(k)&&b2PushEnabledOnDevice()){
+    if(['essential','thresholds','chargeTracking','weekly','pushShared'].includes(k)&&b2PushEnabledOnDevice()){
       await registerPushTokenWithServer();queueB2LocalScheduleSync()
     }
     renderSettings();showToast('Préférence enregistrée.')
@@ -10380,8 +10726,8 @@ function renderReferral(){
   })
 }
 function analysisSnapshot(b){
-  const tx=(b.transactions||[]), envs=(b.envelopes||[]).map(e=>({name:e.name,icon:e.icon||'💶',budget:num(e.amount),spent:e.spent!=null?num(e.spent):tx.filter(t=>t.type==='expense'&&String(t.categoryId)===String(e.id)).reduce((s,t)=>s+num(t.amount),0)}));
-  return {cycleStart:b.cycleStart,cycleEnd:b.cycleEnd,expenses:b.expenses!=null?num(b.expenses):tx.filter(t=>t.type==='expense').reduce((s,t)=>s+num(t.amount),0),income:b.income!=null?num(b.income):plannedIncome(b)+extraIncome(b),provisions:b.provisionsTotal!=null?num(b.provisionsTotal):provisionsThisCycle(b),savings:b.savingsTotal!=null?num(b.savingsTotal):savingsThisCycle(b),reserve:num(b.reserve),envelopes:envs};
+  const live=Array.isArray(b.transactions),envs=(b.envelopes||[]).map(e=>({name:e.name,icon:e.icon||'💶',budget:num(e.amount),spent:e.spent!=null?num(e.spent):(live?spentFor(b,e.id):0)}));
+  return {cycleStart:b.cycleStart,cycleEnd:b.cycleEnd,expenses:b.expenses!=null?num(b.expenses):(live?netExpenses(b):0),income:b.income!=null?num(b.income):(live?r2(plannedIncome(b)+plannedExceptionalIncome(b)+extraIncome(b)):0),provisions:b.provisionsTotal!=null?num(b.provisionsTotal):provisionsThisCycle(b),savings:b.savingsTotal!=null?num(b.savingsTotal):savingsThisCycle(b),reserve:num(b.reserve),envelopes:envs};
 }
 function donutHTML(items){
   const rows=items.filter(x=>x.spent>0).sort((a,z)=>z.spent-a.spent).slice(0,6),total=rows.reduce((s,x)=>s+x.spent,0);if(!total)return '<div class="empty">Pas encore de dépenses à analyser.</div>';
@@ -10411,12 +10757,16 @@ function renderAnalysis(){
 function openQuick(){if(!active()){showToast('Crée d’abord un budget actif.');return}openModal('quickModal')}
 function renderTxFields(){
   const b=active();if(!b)return;
-  const isIncome=txDraft.type==='income',isRefund=isIncome&&txDraft.kind==='refund',isTransfer=txDraft.type==='transfer';
+  const isIncome=txDraft.type==='income',isRefund=isIncome&&txDraft.kind==='refund',isTransfer=txDraft.type==='transfer',plannedProtectedExpense=txDraft.type==='expense'&&['fixed','oneoff'].includes(txDraft.plannedKind);
   $('#txIncomeKindWrap').classList.toggle('hidden',!isIncome);
   $$('[data-tx-income-kind]',$('#txIncomeKindWrap')).forEach(x=>x.classList.toggle('on',x.dataset.txIncomeKind===(txDraft.kind||'normal')));
-  $('#txCategoryWrap').classList.toggle('hidden',!(txDraft.type==='expense'||isRefund));
+  $('#txCategoryWrap').classList.toggle('hidden',!((txDraft.type==='expense'&&!plannedProtectedExpense)||isRefund));
+  $('#txCategory').disabled=isIncome&&!isRefund;
   $('#txCategoryLabel').textContent=isRefund?'Enveloppe à recréditer':'Enveloppe';
   $('#txRefundExpenseWrap').classList.toggle('hidden',!isRefund);
+  if(isIncome&&!isRefund)$('#txLead').textContent=`${b.type==='shared'?'Budget partagé · ':''}${b.name} · L’argent sera ajouté à Piloter pour être réparti ensuite.`;
+  else if(isRefund)$('#txLead').textContent=`${b.type==='shared'?'Budget partagé · ':''}${b.name} · Le remboursement recrédite l’enveloppe concernée.`;
+  else if(plannedProtectedExpense&&txDraft.plannedKind==='fixed')$('#txLead').textContent=`${b.type==='shared'?'Budget partagé · ':''}${b.name} · Montant prévu prérempli. Modifie-le si le montant réellement prélevé est différent.`;
   $('#txTransferWrap').classList.toggle('hidden',!isTransfer);
   const showPayer=b.type==='shared'&&(txDraft.type==='expense'||isRefund);
   $('#txMemberWrap').classList.toggle('hidden',!showPayer);
@@ -10427,7 +10777,7 @@ function openTx(type,prefill={}){
   const existing=prefill.editId?b.transactions.find(t=>String(t.id)===String(prefill.editId)):null;
   const realType=existing?.type||type;
   if(realType==='transfer'&&!existing&&accountsForBudget(b.budgetGroupId).filter(a=>String(a.id)!==String(b.id)).length===0){showToast('Ajoute un autre compte à ce budget pour faire un transfert.');return}
-  txDraft={type:realType,kind:existing?.kind||prefill.kind||'normal',memberId:existing?.memberId||(b.type==='shared'?(b.members.find(m=>m.current)?.id||b.members.find(m=>m.status==='joined')?.id||null):null),pendingBankId:prefill.pendingBankId||null,editId:existing?.id||null,linkedTxId:existing?.linkedTxId||null,transferAccountId:existing?.transferAccountId||null,voiceOrigin:prefill.voiceOrigin||null,voiceConceptId:prefill.voiceConceptId||null,voiceMerchantKey:prefill.voiceMerchantKey||null,voiceSuggestedCategoryId:prefill.voiceSuggestedCategoryId||null};
+  txDraft={type:realType,kind:existing?.kind||prefill.kind||'normal',memberId:existing?.memberId||(b.type==='shared'?(b.members.find(m=>m.current)?.id||b.members.find(m=>m.status==='joined')?.id||null):null),pendingBankId:prefill.pendingBankId||null,editId:existing?.id||null,linkedTxId:existing?.linkedTxId||null,transferAccountId:existing?.transferAccountId||null,plannedKind:existing?.plannedKind||prefill.plannedKind||null,plannedId:existing?.plannedId||prefill.plannedId||null,plannedSnapshot:existing?.plannedSnapshot||prefill.plannedSnapshot||null,voiceOrigin:prefill.voiceOrigin||null,voiceConceptId:prefill.voiceConceptId||null,voiceMerchantKey:prefill.voiceMerchantKey||null,voiceSuggestedCategoryId:prefill.voiceSuggestedCategoryId||null};
   $('#txTitle').textContent=existing?(realType==='income'?'Modifier le mouvement':realType==='transfer'?'Transfert':'Modifier la dépense'):(realType==='income'?'Ajouter un revenu':realType==='transfer'?'Faire un transfert':'Ajouter une dépense');
   $('#txLead').textContent=(b.type==='shared'?'Budget partagé · ':'')+b.name;
   $('#txAmount').value=existing?.amount??prefill.amount??'';
@@ -10445,7 +10795,52 @@ function openTx(type,prefill={}){
   const transferSel=$('#txTransferAccount');transferSel.innerHTML=accountsForBudget(b.budgetGroupId).filter(a=>String(a.id)!==String(b.id)).map(a=>`<option value="${a.id}">${esc(a.name)}</option>`).join('');
   if(existing?.transferAccountId)transferSel.value=existing.transferAccountId;
   $('#saveTxBtn').textContent=existing?'Enregistrer les modifications':realType==='transfer'?'Faire le transfert':'Enregistrer';
+  if(!existing&&realType==='expense'&&txDraft.plannedKind==='fixed'){
+    $('#txTitle').textContent='Confirmer le prélèvement';
+    $('#saveTxBtn').textContent='Confirmer le montant';
+  }
   renderTxFields();openModal('transactionModal')
+}
+function manualIncomePlanCandidate(b,amount,label,date){
+  const createdAt=Date.parse(`${date||todayISO()}T12:00:00`)||Date.now(),n={type:'income',amount:r2(amount),merchant:label||'',createdAt};
+  const found=findPlannedBankMatch(b,n);
+  if(found&&!found.ambiguous&&found.score>=9)return found;
+  // Un revenu exceptionnel unique au centime près est suffisamment explicite,
+  // même si l'utilisateur n'a pas retapé son libellé exact.
+  const exact=(b.exceptionalIncomes||[]).filter(x=>Math.abs(num(x.amount)-num(amount))<=.01);
+  if(exact.length===1)return {kind:'exceptionalIncome',item:exact[0],score:7,ambiguous:false,confidence:'medium',reason:'montant prévu identique'};
+  return null
+}
+function applyIncomePlanMatch(b,tx,match){
+  if(!b||!tx||!match||tx.kind==='refund')return false;
+  if(match.kind==='income'){
+    const x=(b.incomeSources||[]).find(y=>String(y.id)===String(match.item?.id));if(!x)return false;
+    tx.plannedKind='income';tx.plannedId=x.id;tx.plannedSnapshot=null;
+    recordPlannedIncomeArrival(b,tx);return true
+  }
+  if(match.kind==='exceptionalIncome'){
+    const i=(b.exceptionalIncomes||[]).findIndex(y=>String(y.id)===String(match.item?.id));if(i<0)return false;
+    const snap={...b.exceptionalIncomes[i]};b.exceptionalIncomes.splice(i,1);tx.plannedKind='exceptionalIncome';tx.plannedId=snap.id;tx.plannedSnapshot=snap;return true
+  }
+  return false
+}
+function restoreExceptionalIncomePlan(b,t){
+  if(!b||!t||t.plannedKind!=='exceptionalIncome'||!t.plannedSnapshot)return;
+  if(!(b.exceptionalIncomes||[]).some(x=>String(x.id)===String(t.plannedSnapshot.id)))b.exceptionalIncomes.push({...t.plannedSnapshot})
+}
+function recordFixedChargePayment(b,fixedId,amount,date=todayISO(),memberId=null){
+  if(!b||num(amount)<=0)return null;
+  const x=(b.fixed||[]).find(y=>String(y.id)===String(fixedId));
+  if(!x||x.dueThisCycle===false)return null;
+  const tx={id:uid(),type:'expense',kind:'normal',direction:null,amount:r2(amount),label:x.name,categoryId:null,category:`Charge · ${x.name}`,date:date||todayISO(),createdAt:Date.now(),memberId:memberId||null,source:'manual',bankVerified:false,bankNotificationId:null,plannedKind:'fixed',plannedId:x.id,plannedSnapshot:null,linkedTxId:null,transferId:null,transferAccountId:null};
+  x.dueThisCycle=false;x.confirmDeferredUntil=null;
+  b.transactions.push(tx);
+  return tx
+}
+function openFixedChargePayment(id){
+  const b=active(),x=(b?.fixed||[]).find(y=>String(y.id)===String(id));
+  if(!b||!x||x.dueThisCycle===false)return;
+  openTx('expense',{amount:r2(x.amount),label:x.name,date:todayISO(),plannedKind:'fixed',plannedId:x.id})
 }
 function saveTx(){
   const b=active(),amount=num($('#txAmount').value),label=$('#txLabel').value.trim(),date=$('#txDate').value||todayISO();
@@ -10463,10 +10858,40 @@ function saveTx(){
   if(txDraft.type==='income'){
     const isRefund=txDraft.kind==='refund';let e=null,linked=null;
     if(isRefund){e=b.envelopes.find(x=>String(x.id)===String($('#txCategory').value));if(!e){showToast('Choisis l’enveloppe à recréditer.');return}linked=$('#txRefundExpense').value||null}
-    if(existing){const before={...existing};existing.amount=r2(amount);existing.label=label||(isRefund?'Remboursement':'Revenu');existing.date=date;existing.kind=isRefund?'refund':'normal';existing.categoryId=isRefund?e.id:null;existing.category=isRefund?e.name:'';existing.linkedTxId=isRefund?linked:null;existing.memberId=isRefund?chosenMember:null;closeModal('transactionModal');save();showToast(isRefund?'Remboursement modifié.':'Revenu modifié.','Annuler',()=>{Object.assign(existing,before);save();showToast('Modification annulée.')});return}
+    if(existing){
+      const before={...existing},wasExceptional=existing.plannedKind==='exceptionalIncome'?existing.plannedSnapshot:null;
+      // Si un salaire prévu est modifié/supprimé comme tel, son apprentissage de date
+      // doit suivre le mouvement réel et ne pas conserver l'ancienne date en mémoire.
+      removePlannedIncomeArrival(b,before);
+      if(isRefund)restoreExceptionalIncomePlan(b,existing);
+      existing.amount=r2(amount);existing.label=label||(isRefund?'Remboursement':'Revenu');existing.date=date;existing.kind=isRefund?'refund':'normal';existing.categoryId=isRefund?e.id:null;existing.category=isRefund?e.name:'';existing.linkedTxId=isRefund?linked:null;existing.memberId=isRefund?chosenMember:null;
+      if(isRefund){existing.plannedKind=null;existing.plannedId=null;existing.plannedSnapshot=null}
+      else if(!existing.plannedKind){applyIncomePlanMatch(b,existing,manualIncomePlanCandidate(b,amount,label,date))}
+      else if(existing.plannedKind==='income')recordPlannedIncomeArrival(b,existing);
+      closeModal('transactionModal');save();showToast(isRefund?'Remboursement modifié.':'Revenu modifié.','Annuler',()=>{
+        removePlannedIncomeArrival(b,existing);
+        if(existing.plannedKind==='exceptionalIncome'&&existing.plannedSnapshot&&(!wasExceptional||String(existing.plannedSnapshot.id)!==String(wasExceptional.id)))b.exceptionalIncomes=b.exceptionalIncomes.filter(x=>String(x.id)!==String(existing.plannedSnapshot.id));
+        Object.assign(existing,before);if(wasExceptional)b.exceptionalIncomes=b.exceptionalIncomes.filter(x=>String(x.id)!==String(wasExceptional.id));recordPlannedIncomeArrival(b,existing);save();showToast('Modification annulée.')
+      });return
+    }
     const tx={id:uid(),type:'income',kind:isRefund?'refund':'normal',direction:null,amount:r2(amount),label:label||(isRefund?'Remboursement':'Revenu'),categoryId:isRefund?e.id:null,category:isRefund?e.name:'',date,createdAt:Date.now(),memberId:isRefund?chosenMember:txDraft.memberId,source:'manual',bankVerified:false,bankNotificationId:null,plannedKind:null,plannedId:null,plannedSnapshot:null,linkedTxId:isRefund?linked:null,transferId:null,transferAccountId:null};
-    const finishIncome=()=>{b.transactions.push(tx);if(txDraft.pendingBankId){const n=(b.bankNotifications||[]).find(x=>x.id===txDraft.pendingBankId);if(n){linkBankNotification(b,n,tx);rememberBankSourceFromNotification(n,{confirmed:true})}}else if(!isRefund)matchPendingBankToTransaction(b,tx);closeModal('transactionModal');save();showToast(isRefund?`${euro(amount)} remboursés · ${e.name} recréditée.`:`${euro(amount)} ajoutés. Ils restent à répartir tant que tu ne décides pas autrement.`)};
+    if(!isRefund)applyIncomePlanMatch(b,tx,manualIncomePlanCandidate(b,amount,label,date));
+    const finishIncome=()=>{b.transactions.push(tx);if(txDraft.pendingBankId){const n=(b.bankNotifications||[]).find(x=>x.id===txDraft.pendingBankId);if(n){linkBankNotification(b,n,tx);rememberBankSourceFromNotification(n,{confirmed:true})}}else if(!isRefund)matchPendingBankToTransaction(b,tx);closeModal('transactionModal');save();if(isRefund)showToast(`${euro(amount)} remboursés · ${e.name} recréditée.`);else showToast(`${euro(amount)} ajoutés · à répartir dans Piloter.`,'Voir Piloter',()=>openPilotAllocation())};
     const dup=findRecordedBankDuplicate(b,tx);if(dup&&!isRefund){askPossibleDuplicate(dup,tx,finishIncome);return}finishIncome();return
+  }
+  if(!existing&&txDraft.plannedKind==='fixed'&&txDraft.plannedId){
+    const x=(b.fixed||[]).find(y=>String(y.id)===String(txDraft.plannedId));
+    if(!x||x.dueThisCycle===false){showToast('Cette charge est déjà enregistrée comme payée.');return}
+    const tx=recordFixedChargePayment(b,x.id,amount,date,chosenMember);
+    if(!tx){showToast('Impossible de confirmer cette charge.');return}
+    closeModal('transactionModal');save();queueB2LocalScheduleSync();showToast(`${x.name} · ${euro(amount)} réellement prélevés.`);renderPilot();return
+  }
+  const plannedProtected=existing&&['fixed','oneoff'].includes(existing.plannedKind);
+  if(plannedProtected){
+    const before={...existing};existing.amount=r2(amount);existing.label=label||existing.label;existing.date=date;existing.memberId=chosenMember;existing.categoryId=null;
+    if(existing.plannedKind==='fixed'){const x=(b.fixed||[]).find(y=>String(y.id)===String(existing.plannedId));existing.category=x?`Charge · ${x.name}`:(existing.category||'Charge')}
+    if(existing.plannedKind==='oneoff'){existing.category=`Dépense prévue · ${existing.plannedSnapshot?.name||existing.label||'Dépense prévue'}`}
+    closeModal('transactionModal');save();showToast('Mouvement prévu modifié.','Annuler',()=>{Object.assign(existing,before);save();showToast('Modification annulée.')});return
   }
   const e=b.envelopes.find(x=>String(x.id)===String($('#txCategory').value));if(!e){showToast('Choisis une enveloppe.');return}
   if(existing){
@@ -11006,16 +11431,17 @@ function parseVoicePhrase(text){
   const low=normalizeSpeechText(text).replace(',','.');
   const amount=extractVoiceAmount(text);if(!(amount>0))return null;
   const income=/^\s*\+|\bplus\s+(?:\d|un|une|deux|trois|quatre|cinq|six|sept|huit|neuf|dix)|\bj ai recu\b|\brecu\b|\bencaisse\b|\brevenu\b|\bsalaire\b|\bprime\b|\bremboursement\b|\bvente\b|\bvendu\b|\bpaypal recu\b|\b(?:vinted|leboncoin)\b.*\b(?:vente|vendu|recu|encaisse)\b/.test(low);
+  const refund=income&&/\bremboursement\b|\brembourse\b|\bremboursee\b|\bremboursement\b/.test(low);
   let label=cleanVoiceLabel(text);
-  if(!label)label=income?'Revenu':'Dépense';
+  if(!label)label=refund?'Remboursement':income?'Revenu':'Dépense';
   let inf,concept=null;
-  if(income){
+  if(income&&!refund){
     inf={env:null,confidence:true,level:'high',score:10,alternatives:[]};
   }else{
     concept=detectVoiceConcept(`${label} ${low}`)||detectVoiceConcept(label);
     inf=inferVoiceEnvelope(low,label,b,concept);
   }
-  return {type:income?'income':'expense',amount,label,categoryId:inf.env?.id||null,categoryName:inf.env?.name||'',confidence:inf.confidence,confidenceLevel:inf.level,alternatives:inf.alternatives||[],conceptId:concept?.id||null,merchantKey:voiceMerchantKey(label),reason:inf.reasons||[]}
+  return {type:income?'income':'expense',kind:refund?'refund':'normal',amount,label,categoryId:inf.env?.id||null,categoryName:inf.env?.name||'',confidence:inf.confidence,confidenceLevel:inf.level,alternatives:inf.alternatives||[],conceptId:concept?.id||null,merchantKey:voiceMerchantKey(label),reason:inf.reasons||[]}
 }
 function analyseVoice(text){
   const spoken=String(text||'').trim(),r=parseVoicePhrase(spoken);
@@ -11026,8 +11452,8 @@ function analyseVoice(text){
     return;
   }
   closeModal('voiceModal');
-  if(!state.settings.voiceConfirm && (r.type==='income' || (r.type==='expense' && r.categoryId && r.confidence))){saveVoiceDirect(r,r.label);return}
-  openTx(r.type,{amount:r.amount,label:r.label,categoryId:r.categoryId,voiceOrigin:spoken,voiceConceptId:r.conceptId,voiceMerchantKey:r.merchantKey,voiceSuggestedCategoryId:r.categoryId});
+  if(!state.settings.voiceConfirm && ((r.type==='income'&&r.kind!=='refund') || (r.type==='expense' && r.categoryId && r.confidence))){saveVoiceDirect(r,r.label);return}
+  openTx(r.type,{amount:r.amount,label:r.label,kind:r.kind||'normal',categoryId:r.categoryId,voiceOrigin:spoken,voiceConceptId:r.conceptId,voiceMerchantKey:r.merchantKey,voiceSuggestedCategoryId:r.categoryId});
   if(r.type==='expense'&&!r.categoryId)showToast('Choisis simplement la catégorie avant d’enregistrer.');
   else if(r.type==='expense'&&r.confidenceLevel==='low')showToast('Vérifie la catégorie, B² n’est pas totalement sûr.');
 }
@@ -11036,7 +11462,9 @@ function saveVoiceDirect(r,text){
   const memberId=b.type==='shared'?(b.members.find(m=>m.current)?.id||b.members[0]?.id||null):null;
   const cleanLabel=String(r.label||text||'').trim();
   if(r.type==='income'){
-    const tx={id:uid(),type:'income',amount:r2(r.amount),label:cleanLabel||'Revenu',categoryId:null,category:'',date:todayISO(),createdAt:Date.now(),memberId,source:'voice',bankVerified:false,bankNotificationId:null,plannedKind:null,plannedId:null,plannedSnapshot:null};
+    if(r.kind==='refund'){openTx('income',{amount:r.amount,label:cleanLabel||'Remboursement',kind:'refund',categoryId:r.categoryId});showToast('Choisis l’enveloppe à recréditer.');return}
+    const tx={id:uid(),type:'income',kind:'normal',amount:r2(r.amount),label:cleanLabel||'Revenu',categoryId:null,category:'',date:todayISO(),createdAt:Date.now(),memberId,source:'voice',bankVerified:false,bankNotificationId:null,plannedKind:null,plannedId:null,plannedSnapshot:null};
+    applyIncomePlanMatch(b,tx,manualIncomePlanCandidate(b,tx.amount,tx.label,tx.date));
     const finish=()=>{b.transactions.push(tx);matchPendingBankToTransaction(b,tx);save();showToast(tx.bankVerified?`${euro(r.amount)} reconnu aussi par la banque. Aucun doublon.`:`${euro(r.amount)} ajoutés. À répartir quand tu veux.`)};
     const dup=findRecordedBankDuplicate(b,tx);if(dup){askPossibleDuplicate(dup,tx,finish);return}finish();return;
   }
@@ -11214,7 +11642,7 @@ function sumAmountMap(m){return Object.values(m||{}).reduce((a,v)=>a+num(v),0)}
 function makeTargetProposal(b,focusId,target){
   const amounts=amountMap(b),focus=b.envelopes.find(e=>e.id===focusId);if(!focus)return {amounts,gap:0,changes:[]};
   amounts[focusId]=Math.max(spentFor(b,focusId),r2(target));
-  const targetPool=Math.max(0,pool(b));
+  const targetPool=Math.max(0,allocationPool(b));
   let gap=r2(targetPool-sumAmountMap(amounts));
   if(gap<-.01){
     let need=Math.abs(gap);
@@ -11242,7 +11670,7 @@ function openEnvEditor(id,mode='auto'){
   $('#envModalTitle').textContent=e.name;$('#envLock').classList.toggle('on',e.locked);$('#envLock').dataset.on=e.locked?'1':'0';$('#envSpentHint').textContent=`${euro(spentFor(b,e.id))} déjà dépensés : B² ne descendra jamais en dessous.`;renderEnvEditor();openModal('envelopeModal')
 }
 function refreshEnvManualStatus(){
-  const b=active(),box=$('#envBalanceState'),btn=$('#saveEnvBtn');if(!b||!box)return;const gap=r2(pool(b)-sumAmountMap(envEditDraft.amounts));
+  const b=active(),box=$('#envBalanceState'),btn=$('#saveEnvBtn');if(!b||!box)return;const gap=r2(allocationPool(b)-sumAmountMap(envEditDraft.amounts));
   if(gap<-.01){box.className='balance-box bad';box.innerHTML=`<strong>Il reste ${euro(Math.abs(gap))} à trouver</strong>Réduis une autre enveloppe ouverte ou laisse B² terminer.`;btn.disabled=true}
   else if(gap>.01){box.className='balance-box warn';box.innerHTML=`<strong>${euro(gap)} resteront libres</strong>Tu peux les garder non répartis.`;btn.disabled=false}
   else{box.className='balance-box good';box.innerHTML=`<strong>${ico('check')} Budget équilibré</strong>Les montants correspondent à l’argent disponible.`;btn.disabled=false}
@@ -11267,11 +11695,11 @@ function renderEnvPriorityPicker(){
 }
 function saveEnv(){
   const b=active(),e=b?.envelopes.find(x=>x.id===editEnvId);if(!b||!e)return;
-  let amounts;if(envMode==='auto'){const p=envEditDraft.proposal||makeTargetProposal(b,e.id,num($('#envAutoTarget')?.value));if(p.gap<-.01){showToast('Il reste encore de l’argent à trouver.');return}amounts=p.amounts}else{const gap=r2(pool(b)-sumAmountMap(envEditDraft.amounts));if(gap<-.01){showToast('Le budget doit être équilibré avant d’appliquer.');return}amounts=envEditDraft.amounts}
+  let amounts;if(envMode==='auto'){const p=envEditDraft.proposal||makeTargetProposal(b,e.id,num($('#envAutoTarget')?.value));if(p.gap<-.01){showToast('Il reste encore de l’argent à trouver.');return}amounts=p.amounts}else{const gap=r2(allocationPool(b)-sumAmountMap(envEditDraft.amounts));if(gap<-.01){showToast('Le budget doit être équilibré avant d’appliquer.');return}amounts=envEditDraft.amounts}
   setPriority(e,envEditDraft.priority);e.locked=$('#envLock').dataset.on==='1';b.envelopes.forEach(x=>x.amount=r2(Math.max(spentFor(b,x.id),num(amounts[x.id]))));closeModal('envelopeModal');save();showToast('Budget ajusté.')
 }
 function makeBalanceProposal(b,reserveUse=0){
-  const amounts=amountMap(b);b.envelopes.forEach(e=>{amounts[e.id]=Math.max(amounts[e.id],spentFor(b,e.id))});const targetPool=Math.max(0,pool(b)+reserveUse);let gap=r2(targetPool-sumAmountMap(amounts));
+  const amounts=amountMap(b);b.envelopes.forEach(e=>{amounts[e.id]=Math.max(amounts[e.id],spentFor(b,e.id))});const targetPool=Math.max(0,allocationPool(b)+reserveUse);let gap=r2(targetPool-sumAmountMap(amounts));
   if(gap<-.01){let need=Math.abs(gap);const donors=b.envelopes.filter(e=>!e.locked&&amounts[e.id]>spentFor(b,e.id)+.01).sort((a,c)=>priorityRank(a)-priorityRank(c)||(amounts[c.id]-spentFor(b,c.id))-(amounts[a.id]-spentFor(b,a.id)));for(const d of donors){if(need<=.01)break;const can=Math.max(0,amounts[d.id]-spentFor(b,d.id)),take=Math.min(can,need);amounts[d.id]=r2(amounts[d.id]-take);need=r2(need-take)}}
   if(gap>.01){const free=b.envelopes.filter(e=>!e.locked),total=free.reduce((v,e)=>v+allocationWeight(e,b),0)||1,cents=Math.round(gap*100);let used=0;free.forEach((e,i)=>{const add=i===free.length-1?cents-used:Math.floor(cents*allocationWeight(e,b)/total);amounts[e.id]=r2(amounts[e.id]+add/100);used+=add})}
   gap=r2(targetPool-sumAmountMap(amounts));const changes=b.envelopes.map(e=>({id:e.id,name:e.name,icon:e.icon,from:e.amount,to:amounts[e.id],delta:r2(amounts[e.id]-e.amount)})).filter(x=>Math.abs(x.delta)>.009);return {amounts,gap,changes}
@@ -11298,7 +11726,7 @@ function openBalanceAssistant(mode='auto'){
   renderBalanceAssistant();openModal('balanceModal')
 }
 function refreshBalanceManual(){
-  const b=active(),box=$('#balanceManualState'),btn=$('#applyBalanceBtn');if(!b||!box)return;const gap=r2(pool(b)+balanceReserveUse-sumAmountMap(balanceDraft.amounts));
+  const b=active(),box=$('#balanceManualState'),btn=$('#applyBalanceBtn');if(!b||!box)return;const gap=r2(allocationPool(b)+balanceReserveUse-sumAmountMap(balanceDraft.amounts));
   if(gap<-.01){box.className='balance-box bad';box.innerHTML=`<strong>Il reste ${euro(Math.abs(gap))} à trouver</strong>B² refait le calcul à chaque modification.`;btn.disabled=true}else if(gap>.01){box.className='balance-box warn';box.innerHTML=`<strong>${euro(gap)} resteront libres</strong>Le budget n’est plus en rouge.`;btn.disabled=false}else{box.className='balance-box good';box.innerHTML=`<strong>${ico('check')} Budget équilibré</strong>Tu peux appliquer ces montants.`;btn.disabled=false}
   const reserveBtn=$('#balanceReserveBtn');if(reserveBtn){reserveBtn.disabled=gap>=-.01||b.reserve-balanceReserveUse<Math.abs(gap)-.01;reserveBtn.textContent=gap<-.01?`${ico('shield')} Utiliser ${euro(Math.min(Math.abs(gap),Math.max(0,b.reserve-balanceReserveUse)))} de ma réserve`:'Réserve non nécessaire'}
 }
@@ -11476,7 +11904,7 @@ function renderBalanceAssistant(){
     }));
     $('#balanceLetB2').addEventListener('click',()=>{balanceMode='auto';renderBalanceAssistant()});
     $('#balanceReserveBtn').addEventListener('click',()=>{
-      const gap=r2(pool(b)+balanceReserveUse-sumAmountMap(balanceDraft.amounts)),need=Math.max(0,-gap),available=Math.max(0,b.reserve-balanceReserveUse);
+      const gap=r2(allocationPool(b)+balanceReserveUse-sumAmountMap(balanceDraft.amounts)),need=Math.max(0,-gap),available=Math.max(0,b.reserve-balanceReserveUse);
       if(need<=.01||available+.01<need)return;
       balanceReserveUse=r2(balanceReserveUse+need);
       refreshBalanceManual()
@@ -11508,7 +11936,7 @@ function applyBalance(){
     if(predictive.usesProvisions>.01)b.advisorPrefs.provisionReliefAccepted=Math.max(0,num(b.advisorPrefs.provisionReliefAccepted))+1;
     if(reserveUse>.01)b.advisorPrefs.reserveReliefAccepted=Math.max(0,num(b.advisorPrefs.reserveReliefAccepted))+1
   }else{
-    const gap=r2(pool(b)+balanceReserveUse-sumAmountMap(amounts));if(gap<-.01){showToast('Il reste encore de l’argent à trouver.');return}
+    const gap=r2(allocationPool(b)+balanceReserveUse-sumAmountMap(amounts));if(gap<-.01){showToast('Il reste encore de l’argent à trouver.');return}
     b.reserve=r2(Math.max(0,b.reserve-balanceReserveUse));b.reserveUsedThisCycle=r2(num(b.reserveUsedThisCycle)+balanceReserveUse)
   }
 
@@ -11557,7 +11985,7 @@ function profileMarginLabel(b){
   return mode==='full'?'Tout le disponible est réparti':mode==='safe'?'Marge confortable':'Petite marge'
 }
 function intentionalMarginTarget(b){
-  return r2(Math.max(0,pool(b)*(1-profileAllocationShare(b))))
+  return r2(Math.max(0,allocationPool(b)*(1-profileAllocationShare(b))))
 }
 function profileRecommendedCategories(b){
   const p=budgetProfileOf(b),h=b.household||{adults:1,children:0},out=[];
@@ -11673,10 +12101,74 @@ function allocationWeight(e,b){
 
   return Math.max(.35,w)*[1,1.65,2.3][priorityRank(e)]
 }
+/* v14.39 — un revenu normal reste non affecté jusqu'à Piloter.
+   La répartition d'un nouvel argent est additive : elle augmente les enveloppes
+   choisies sans recalculer ni diminuer les montants déjà décidés. */
+function openPilotAllocation(){
+  pilotTab='envelopes';state.ui.pilotTab='envelopes';showPage('pilot')
+}
+function freeMoneyDistributionPlan(b,amount=null){
+  const available=r2(Math.max(0,unallocated(b)));
+  const target=r2(Math.min(available,amount==null?available:Math.max(0,num(amount))));
+  const recipients=(b?.envelopes||[]).filter(e=>!e.locked);
+  const additions={};
+  if(target<=.01||!recipients.length)return {available,target:0,additions,total:0,recipients:recipients.length};
+  const totalWeight=recipients.reduce((s,e)=>s+Math.max(.05,allocationWeight(e,b)),0)||recipients.length;
+  const cents=Math.round(target*100);let used=0;
+  recipients.forEach((e,i)=>{
+    const add=i===recipients.length-1?cents-used:Math.floor(cents*Math.max(.05,allocationWeight(e,b))/totalWeight);
+    additions[e.id]=r2(add/100);used+=add
+  });
+  return {available,target:r2(used/100),additions,total:r2(used/100),recipients:recipients.length}
+}
+function distributeFreeMoneyWithB2(b,amount=null){
+  if(!b)return false;
+  const plan=freeMoneyDistributionPlan(b,amount);
+  if(plan.available<=.01){showToast('Il n’y a rien à répartir.');return false}
+  if(!plan.recipients){showToast('Toutes tes enveloppes sont protégées. Déverrouille-en une ou répartis manuellement.');return false}
+  const before=amountMap(b);
+  Object.entries(plan.additions).forEach(([id,add])=>{const e=b.envelopes.find(x=>String(x.id)===String(id));if(e)e.amount=r2(num(e.amount)+num(add))});
+  save();
+  showToast(`${euro(plan.total)} répartis par B², sans modifier tes montants existants.`,'Annuler',()=>{b.envelopes.forEach(e=>e.amount=before[e.id]??e.amount);save();showToast('Répartition annulée.')});
+  return true
+}
+function openIncomeAllocationManual(b=active()){
+  if(!b)return;
+  const available=r2(Math.max(0,unallocated(b)));
+  if(available<=.01){showToast('Il n’y a rien à répartir.');return}
+  incomeAllocationDraft={budgetId:b.id,available,amounts:Object.fromEntries((b.envelopes||[]).map(e=>[e.id,0]))};
+  renderIncomeAllocationManual();openModal('incomeAllocationModal')
+}
+function incomeAllocationSelected(){
+  return r2(Object.values(incomeAllocationDraft?.amounts||{}).reduce((s,v)=>s+Math.max(0,num(v)),0))
+}
+function refreshIncomeAllocationSummary(){
+  const b=byId(incomeAllocationDraft?.budgetId)||active(),summary=$('#incomeAllocationSummary'),btn=$('#applyIncomeAllocation');if(!b||!summary||!btn||!incomeAllocationDraft)return;
+  const liveAvailable=r2(Math.max(0,unallocated(b))),available=r2(Math.min(incomeAllocationDraft.available,liveAvailable)),selected=incomeAllocationSelected(),left=r2(available-selected),over=left<-.01;
+  $('#incomeAllocationLead').textContent=`Tu as ${euro(available)} disponibles. Ajoute ce que tu veux dans une ou plusieurs enveloppes.`;
+  summary.innerHTML=`<div class="income-allocation-summary"><div><span>Sélectionné</span><strong>${euro(selected)}</strong></div><div><span>Restera disponible</span><strong class="${over?'bad':''}">${euro(Math.max(0,left))}</strong></div></div>${over?`<div class="balance-box bad"><strong>${euro(Math.abs(left))} de trop</strong>Réduis un ou plusieurs montants.</div>`:''}`;
+  btn.disabled=over||selected<=.01;btn.textContent=selected>.01?`Ajouter ${euro(selected)}`:'Appliquer'
+}
+function renderIncomeAllocationManual(){
+  const b=byId(incomeAllocationDraft?.budgetId)||active(),body=$('#incomeAllocationBody');if(!b||!body||!incomeAllocationDraft)return;
+  const liveAvailable=r2(Math.max(0,unallocated(b))),available=r2(Math.min(incomeAllocationDraft.available,liveAvailable));
+  body.innerHTML=(b.envelopes||[]).map(e=>`<div class="income-allocation-row"><div class="income-allocation-name"><strong>${ico(e.icon)} ${esc(e.name)}</strong><span>${euro(e.amount)} prévus actuellement${e.locked?' · 🔒 protégée':''}</span></div><input data-income-alloc="${e.id}" type="number" inputmode="decimal" min="0" step="0.01" max="${available}" value="${incomeAllocationDraft.amounts[e.id]||''}" placeholder="+ 0,00"></div>`).join('')||'<div class="empty">Aucune enveloppe disponible.</div>';
+  $$('[data-income-alloc]',body).forEach(inp=>inp.addEventListener('input',()=>{incomeAllocationDraft.amounts[inp.dataset.incomeAlloc]=Math.max(0,num(inp.value));refreshIncomeAllocationSummary()}));
+  refreshIncomeAllocationSummary()
+}
+function applyIncomeAllocationManual(){
+  const b=byId(incomeAllocationDraft?.budgetId)||active();if(!b||!incomeAllocationDraft)return;
+  const available=r2(Math.max(0,unallocated(b))),selected=incomeAllocationSelected();
+  if(selected<=.01){showToast('Choisis au moins un montant à répartir.');return}
+  if(selected>available+.01){renderIncomeAllocationManual();showToast('Le montant choisi dépasse ce qui est disponible.');return}
+  Object.entries(incomeAllocationDraft.amounts).forEach(([id,add])=>{if(num(add)<=0)return;const e=b.envelopes.find(x=>String(x.id)===String(id));if(e)e.amount=r2(num(e.amount)+num(add))});
+  incomeAllocationDraft=null;closeModal('incomeAllocationModal');save();renderPilot();showToast(`${euro(selected)} ajoutés à tes enveloppes.`)
+}
+
 function autoBalance(b,shareOverride=null){
   const before=amountMap(b);
   const share=shareOverride==null?profileAllocationShare(b):clamp(num(shareOverride),0,1);
-  const target=Math.max(0,pool(b)*share),
+  const target=Math.max(0,allocationPool(b)*share),
     locked=b.envelopes.filter(e=>e.locked),free=b.envelopes.filter(e=>!e.locked);
   let lockedTotal=locked.reduce((s,e)=>s+Math.max(e.amount,spentFor(b,e.id)),0);
   if(lockedTotal>target+.01){showToast('Les enveloppes protégées dépassent déjà l’argent disponible.');return}
@@ -12537,7 +13029,7 @@ function nextWizard(){
     }
   }
   saveWizardDraft();if(wizardStep<STEPS-1){wizardStep=wizardStep===4?6:wizardStep+1;renderWizard();wizardTop();return}
-  const rawPool=pool(wizard);
+  const rawPool=allocationPool(wizard);
   if(rawPool<-.01){
     showToast(`Impossible de valider : tes charges, ta réserve et l’argent mis de côté dépassent les ressources de la période d’environ ${euro(Math.abs(rawPool))}.`);
     return
@@ -12873,13 +13365,13 @@ function renderClosing(){
 }
 function prepareNextCycle(carry,held){
   const b=active();if(!b)return;
-  const used=r2(num(b.reserveUsedThisCycle));
-  if(used<=.01){openEndPeriodReview(carry,held,0);return}
+  const used=r2(num(b.reserveUsedThisCycle)),need=reserveReplenishmentNeed(b);
+  if(need<=.01){openEndPeriodReview(carry,held,0);return}
   const c=$('#closingContent');
-  c.innerHTML=`<div class="card"><div class="card-title"><h3>Ta réserve</h3></div><div class="small muted" style="line-height:1.55">Tu as utilisé <strong>${euro(used)}</strong> de ta réserve le mois dernier.</div></div><div class="card flat"><strong style="display:block;margin-bottom:10px">Tu veux les remettre de côté ce mois-ci ?</strong><div class="choice-stack"><button class="choice" id="recoverReserveAll" type="button"><div><strong>Oui, les ${euro(used)}</strong></div></button><button class="choice" id="recoverReservePart" type="button"><div><strong>Oui, mais moins</strong></div></button><button class="choice" id="recoverReserveNo" type="button"><div><strong>Non</strong></div></button></div><div id="recoverReserveBox" style="margin-top:10px"></div></div>`;
-  $('#recoverReserveAll').addEventListener('click',()=>openEndPeriodReview(carry,held,used));
+  c.innerHTML=`<div class="card"><div class="card-title"><h3>Ta réserve</h3></div><div class="small muted" style="line-height:1.55">${used>.01?`Tu as utilisé <strong>${euro(used)}</strong> de ta réserve. `:''}Il manque actuellement <strong>${euro(need)}</strong> pour revenir à ton niveau de réserve habituel.</div></div><div class="card flat"><strong style="display:block;margin-bottom:10px">Tu veux remettre cette somme de côté pour la nouvelle période ?</strong><div class="choice-stack"><button class="choice" id="recoverReserveAll" type="button"><div><strong>Oui, les ${euro(need)}</strong></div></button><button class="choice" id="recoverReservePart" type="button"><div><strong>Oui, mais moins</strong></div></button><button class="choice" id="recoverReserveNo" type="button"><div><strong>Non</strong></div></button></div><div id="recoverReserveBox" style="margin-top:10px"></div></div>`;
+  $('#recoverReserveAll').addEventListener('click',()=>openEndPeriodReview(carry,held,need));
   $('#recoverReserveNo').addEventListener('click',()=>openEndPeriodReview(carry,held,0));
-  $('#recoverReservePart').addEventListener('click',()=>{$('#recoverReserveBox').innerHTML=`<div class="field"><label for="recoverReserveValue">Combien veux-tu remettre en réserve ?</label><input id="recoverReserveValue" type="number" min="0" max="${used}" step="0.01" inputmode="decimal" value="${r2(used/2)}"></div><button class="btn btn-primary btn-full" id="recoverReserveConfirm" type="button">Continuer</button>`;$('#recoverReserveConfirm').addEventListener('click',()=>openEndPeriodReview(carry,held,clamp(num($('#recoverReserveValue').value),0,used)))})
+  $('#recoverReservePart').addEventListener('click',()=>{$('#recoverReserveBox').innerHTML=`<div class="field"><label for="recoverReserveValue">Combien veux-tu remettre en réserve ?</label><input id="recoverReserveValue" type="number" min="0" max="${need}" step="0.01" inputmode="decimal" value="${r2(need/2)}"></div><button class="btn btn-primary btn-full" id="recoverReserveConfirm" type="button">Continuer</button>`;$('#recoverReserveConfirm').addEventListener('click',()=>openEndPeriodReview(carry,held,clamp(num($('#recoverReserveValue').value),0,need)))})
 }
 function openEndPeriodReview(carry,held,reserveRecovery=0){
   closingReview={carry:r2(carry),held:r2(held),reserveRecovery:r2(reserveRecovery),oneOffs:[],incomes:[],editBudget:false,envelopeUpdates:{},incomeReceivedNow:closingReason==='income'};
@@ -12933,11 +13425,11 @@ function renderEndPeriodReview(){
 }
 
 function b2PeriodBehaviorSnapshot(b){
-  const tx=(b?.transactions||[]).filter(t=>t.type==='expense').sort((a,z)=>String(a.date||'').localeCompare(String(z.date||''))||(a.createdAt||0)-(z.createdAt||0));
+  const tx=effectiveExpenseTransactions(b,{until:todayISO()}).sort((a,z)=>String(a.date||'').localeCompare(String(z.date||''))||(a.createdAt||0)-(z.createdAt||0));
   const weekday=[0,0,0,0,0,0,0],categories={},envMap={},dayKinds={},transitions={};
   tx.forEach(t=>{
     let w=1,d=1;try{const dt=new Date((t.date||todayISO())+'T12:00:00');w=dt.getDay();d=dt.getDate()}catch(e){}
-    const amount=Math.max(0,num(t.amount)),env=(b.envelopes||[]).find(e=>String(e.id)===String(t.categoryId))||{id:t.categoryId,name:t.category||''};
+    const amount=Math.max(0,num(t.effectiveAmount)),env=(b.envelopes||[]).find(e=>String(e.id)===String(t.categoryId))||{id:t.categoryId,name:t.category||''};
     const k=envelopeCategoryKind(env),phase=d<=10?0:d<=20?1:2,date=t.date||todayISO(),cyclePhase=b2CyclePhaseIndex(b,date);
     weekday[w]=r2(weekday[w]+amount);
     categories[k]=categories[k]||{total:0,weekend:0,count:0,weekday:[0,0,0,0,0,0,0],phase:[0,0,0],cyclePhase:[0,0,0]};
@@ -12961,7 +13453,7 @@ function b2PeriodBehaviorSnapshot(b){
     if(ka&&kz&&ka!==kz&&gap<=3){const key=`${ka}>${kz}`;transitions[key]=(transitions[key]||0)+1}
   }
   const currentContext=b2CurrentEventContext(b),context={exceptional:!!currentContext.exceptional,oneOffTotal:r2(currentContext.oneOffTotal),exceptionalIncome:r2(currentContext.exceptionalIncome),events:(currentContext.events||[]).slice(0,4),dominantKind:currentContext.dominantKind||null,dominantShare:r2(currentContext.dominantShare)};
-  return {weekday,categories,envelopes,transitions,context,txCount:tx.length,total:r2(tx.reduce((s,t)=>s+num(t.amount),0))}
+  return {weekday,categories,envelopes,transitions,context,txCount:tx.length,total:r2(tx.reduce((s,t)=>s+num(t.effectiveAmount),0))}
 }
 function b2HistoricalWeekendPattern(b,kind){
   if(!advancedIntelligenceEnabled())return null;
@@ -12975,7 +13467,7 @@ function b2HistoricalWeekendPattern(b,kind){
 function finishCycle(carry,held,reserveRecovery=0,nextOneOffs=[],nextIncomes=[],editAfter=false,envelopeUpdates={}){
   const b=active();
   if(!b)return;
-  const archive={cycleStart:b.cycleStart,cycleEnd:b.cycleEnd,closedAt:Date.now(),income:r2(plannedIncome(b)+plannedExceptionalIncome(b)+extraIncome(b)),expenses:r2(expenses(b)),provisionsTotal:r2(provisionsThisCycle(b)),savingsTotal:r2(savingsThisCycle(b)),reserve:r2(b.reserve),reserveUsed:r2(num(b.reserveUsedThisCycle)),envelopes:b.envelopes.map(e=>({id:e.id,name:e.name,icon:e.icon,amount:r2(e.amount),spent:r2(spentFor(b,e.id))})),behavior:b2PeriodBehaviorSnapshot(b)};
+  const archive={cycleStart:b.cycleStart,cycleEnd:b.cycleEnd,closedAt:Date.now(),income:r2(plannedIncome(b)+plannedExceptionalIncome(b)+extraIncome(b)),expenses:r2(netExpenses(b)),grossExpenses:r2(expenses(b)),refunds:r2(refundIncome(b)),refundsApplied:r2(refundAppliedTotal(b)),refundExcess:r2(refundExcessIncome(b)),provisionsTotal:r2(provisionsThisCycle(b)),savingsTotal:r2(savingsThisCycle(b)),reserve:r2(b.reserve),reserveUsed:r2(num(b.reserveUsedThisCycle)),envelopes:b.envelopes.map(e=>({id:e.id,name:e.name,icon:e.icon,amount:r2(e.amount),spent:r2(spentFor(b,e.id))})),behavior:b2PeriodBehaviorSnapshot(b)};
   b.history.push(archive);
   Object.entries(envelopeUpdates||{}).forEach(([id,value])=>{const e=b.envelopes.find(x=>String(x.id)===String(id));if(e)e.amount=r2(Math.max(0,num(value)))});
   b.provisions.forEach(p=>{
@@ -12985,8 +13477,8 @@ function finishCycle(carry,held,reserveRecovery=0,nextOneOffs=[],nextIncomes=[],
     p.periodContributionDone=false
   });
   b.savings.forEach(g=>{if(g.dueThisCycle!==false)g.currentSaved=r2(g.currentSaved+savingContribution(g));g.dueThisCycle=true;g.cycleReduction=0});
-  b.reserveTarget=r2(num(b.reserveTarget||b.reserve));
-  b.reserve=r2(b.reserveTarget+Math.max(0,num(reserveRecovery)));
+  b.reserveTarget=effectiveReserveTarget(b);
+  b.reserve=reserveAfterRecovery(b,reserveRecovery);
   b.reserveUsedThisCycle=0;
 
   const incomeReceivedNow=closingReason==='income';
@@ -13037,7 +13529,7 @@ function finishCycle(carry,held,reserveRecovery=0,nextOneOffs=[],nextIncomes=[],
 
   // Une charge mensuelle temporaire avance d'un versement à chaque période clôturée.
   b.fixed.forEach(x=>{
-    if(fixedDurationMode(x)==='months'&&x.dueThisCycle!==false)x.remainingPayments=Math.max(0,Math.round(num(x.remainingPayments))-1);
+    if(fixedDurationMode(x)==='months')x.remainingPayments=Math.max(0,Math.round(num(x.remainingPayments))-1);
     x.dueThisCycle=true
   });
   b.fixed=b.fixed.filter(x=>{
@@ -13415,7 +13907,7 @@ $('#authRemember')?.addEventListener('click',e=>renderRememberChoice(!e.currentT
 $('#accountRemember')?.addEventListener('click',e=>setRememberDevice(!e.currentTarget.classList.contains('on')));
 $('#authSubmit')?.addEventListener('click',submitAuth);[$('#authEmail'),$('#authPassword'),$('#authName')].filter(Boolean).forEach(el=>el.addEventListener('keydown',e=>{if(e.key==='Enter')submitAuth()}));$('#bankReviewAdd')?.addEventListener('click',confirmBankReview);$('#bankReviewAlready')?.addEventListener('click',markBankAlreadyAdded);$('#saveAccountInfo')?.addEventListener('click',saveAccountInfo);$('#changeAccountPassword')?.addEventListener('click',changeAccountPassword);$('#forgotPasswordAccount')?.addEventListener('click',forgotPasswordPrototype);$('#accountLogout')?.addEventListener('click',()=>{closeModal('accountModal');logoutAuth()});$('#deleteAccount')?.addEventListener('click',deleteAccountLocal);$('#affordCheck')?.addEventListener('click',runAffordTest);
 $('#squareIntroContinue')?.addEventListener('click',finishSquareLearningIntro);$('#squareIntroPlus')?.addEventListener('click',()=>{if(squareLearningOverlay)closeSquareLearningOverlay();openPlus('Intelligence du carré')});
-$('#mainPlus').addEventListener('click',openQuick);$('#homeNotificationBell')?.addEventListener('click',openNotificationCenter);$('#homeBudgetSwitch').addEventListener('click',renderBudgetSwitch);$$('[data-quick]').forEach(x=>x.addEventListener('click',()=>{closeModal('quickModal');if(x.dataset.quick==='expense')openTx('expense');if(x.dataset.quick==='income')openTx('income');if(x.dataset.quick==='transfer')openTx('transfer');if(x.dataset.quick==='voice'){resetVoiceModal();openModal('voiceModal');setTimeout(startVoice,180)}}));$$('[data-tx-income-kind]',$('#txIncomeKindWrap')).forEach(x=>x.addEventListener('click',()=>{txDraft.kind=x.dataset.txIncomeKind;renderTxFields()}));$('#txRefundExpense')?.addEventListener('change',e=>{const b=active(),t=b?.transactions.find(x=>String(x.id)===String(e.target.value));if(t){$('#txCategory').value=t.categoryId||$('#txCategory').value;if(!$('#txLabel').value.trim())$('#txLabel').value=`Remboursement ${t.label||t.category||''}`}});$('#saveTxBtn').addEventListener('click',saveTx);$('#voiceOrb').addEventListener('click',startVoice);$('#overspendRebalance').addEventListener('click',rebalanceOverspend);$('#overspendReserve').addEventListener('click',useReserve);$('#overspendKeep').addEventListener('click',()=>{closeModal('overspendModal');showToast('Dépassement conservé.')});$$('[data-envmode]',$('#envModeTabs')).forEach(x=>x.addEventListener('click',()=>{envMode=x.dataset.envmode;renderEnvEditor()}));$('#envLock').addEventListener('click',e=>{const b=e.currentTarget,on=b.dataset.on!=='1';b.dataset.on=on?'1':'0';b.classList.toggle('on',on)});$('#saveEnvBtn').addEventListener('click',saveEnv);$$('[data-balancemode]',$('#balanceModeTabs')).forEach(x=>x.addEventListener('click',()=>{balanceMode=x.dataset.balancemode;renderBalanceAssistant()}));$('#applyBalanceBtn').addEventListener('click',applyBalance);$('#movementFilters').addEventListener('click',e=>{const x=e.target.closest('[data-filter]');if(!x)return;movementFilter=x.dataset.filter;state.ui.movementFilter=movementFilter;renderMovements()});$('#newBudgetBtn').addEventListener('click',()=>startWizard());$('#closeCycleCard').addEventListener('click',startClosing);$('#economiesCard').addEventListener('click',()=>showPage('economies'));$('#accountCard').addEventListener('click',openAccountModal);$('#settingsCard').addEventListener('click',()=>showPage('settings'));$('#referralCard').addEventListener('click',()=>showPage('referral'));$('#plusCard').addEventListener('click',()=>openPlus('B²+'));$('#analysisCard').addEventListener('click',()=>showPage('analysis'));$('#wizardPrev').addEventListener('click',prevWizard);$('#wizardNext').addEventListener('click',nextWizard);$('#wizardClose').addEventListener('click',closeWizard);$('#closingBack').addEventListener('click',()=>{if(closingStep>0){closingStep--;renderClosing()}else showPage('more')});
+$('#mainPlus').addEventListener('click',openQuick);$('#homeNotificationBell')?.addEventListener('click',openNotificationCenter);$('#homeBudgetSwitch').addEventListener('click',renderBudgetSwitch);$$('[data-quick]').forEach(x=>x.addEventListener('click',()=>{closeModal('quickModal');if(x.dataset.quick==='expense')openTx('expense');if(x.dataset.quick==='income')openTx('income');if(x.dataset.quick==='transfer')openTx('transfer');if(x.dataset.quick==='voice'){resetVoiceModal();openModal('voiceModal');setTimeout(startVoice,180)}}));$$('[data-tx-income-kind]',$('#txIncomeKindWrap')).forEach(x=>x.addEventListener('click',()=>{txDraft.kind=x.dataset.txIncomeKind;renderTxFields()}));$('#txRefundExpense')?.addEventListener('change',e=>{const b=active(),t=b?.transactions.find(x=>String(x.id)===String(e.target.value));if(t){$('#txCategory').value=t.categoryId||$('#txCategory').value;if(!$('#txLabel').value.trim())$('#txLabel').value=`Remboursement ${t.label||t.category||''}`}});$('#saveTxBtn').addEventListener('click',saveTx);$('#applyIncomeAllocation')?.addEventListener('click',applyIncomeAllocationManual);$('#voiceOrb').addEventListener('click',startVoice);$('#overspendRebalance').addEventListener('click',rebalanceOverspend);$('#overspendReserve').addEventListener('click',useReserve);$('#overspendKeep').addEventListener('click',()=>{closeModal('overspendModal');showToast('Dépassement conservé.')});$$('[data-envmode]',$('#envModeTabs')).forEach(x=>x.addEventListener('click',()=>{envMode=x.dataset.envmode;renderEnvEditor()}));$('#envLock').addEventListener('click',e=>{const b=e.currentTarget,on=b.dataset.on!=='1';b.dataset.on=on?'1':'0';b.classList.toggle('on',on)});$('#saveEnvBtn').addEventListener('click',saveEnv);$$('[data-balancemode]',$('#balanceModeTabs')).forEach(x=>x.addEventListener('click',()=>{balanceMode=x.dataset.balancemode;renderBalanceAssistant()}));$('#applyBalanceBtn').addEventListener('click',applyBalance);$('#movementFilters').addEventListener('click',e=>{const x=e.target.closest('[data-filter]');if(!x)return;movementFilter=x.dataset.filter;state.ui.movementFilter=movementFilter;renderMovements()});$('#newBudgetBtn').addEventListener('click',()=>startWizard());$('#closeCycleCard').addEventListener('click',startClosing);$('#economiesCard').addEventListener('click',()=>showPage('economies'));$('#accountCard').addEventListener('click',openAccountModal);$('#settingsCard').addEventListener('click',()=>showPage('settings'));$('#referralCard').addEventListener('click',()=>showPage('referral'));$('#plusCard').addEventListener('click',()=>openPlus('B²+'));$('#analysisCard').addEventListener('click',()=>showPage('analysis'));$('#wizardPrev').addEventListener('click',prevWizard);$('#wizardNext').addEventListener('click',nextWizard);$('#wizardClose').addEventListener('click',closeWizard);$('#closingBack').addEventListener('click',()=>{if(closingStep>0){closingStep--;renderClosing()}else showPage('more')});
 $$('[data-billmode]',$('#billModes')).forEach(x=>x.addEventListener('click',()=>{
   billDraft.amount=num($('#billAmount')?.value)||billDraft.amount;
   billDraft.targetAmount=num($('#billTarget')?.value)||billDraft.targetAmount;
