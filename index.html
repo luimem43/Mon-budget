@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#075a4d">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<title>B² v14.43 — audit financier & cohérence des flux</title>
+<title>B² v14.44 — ajustements de budget expliqués</title>
 <style>
 :root{
   --brand:#075a4d;--brand2:#0a7965;--brand3:#0f8f72;--lime:#b9ef68;
@@ -4045,7 +4045,7 @@ function repairLegacyOpeningIncomeV1416(s){
 
 let state=emptyState();
 state=migrate();
-let plusAfterAction=null,currentPage='home',pilotTab=state.ui.pilotTab||'envelopes',movementFilter=state.ui.movementFilter||'all',txDraft={type:'expense'},overspendCtx=null,incomeAllocationDraft=null,editEnvId=null,envMode='auto',envEditDraft=null,balanceMode='auto',balanceDraft=null,balanceReserveUse=0,balancePredictivePlan=null,detailId=null,wizard=null,wizardStep=0,wizardEditId=null,wizardBalanceMode='auto',billDraft={mode:'monthly',dueThisCycle:true},savingDraft={mode:'regular'},simpleSaveHandler=null,confirmHandler=null,closingStep=0,closingFree=0,closingReview=null,closingReason='manual',wizardAccountBalance=0,wizardCashExtra=0,toastTimer=null,toastAction=null;
+let plusAfterAction=null,currentPage='home',pilotTab=state.ui.pilotTab||'envelopes',movementFilter=state.ui.movementFilter||'all',txDraft={type:'expense'},overspendCtx=null,incomeAllocationDraft=null,editEnvId=null,envMode='auto',envEditDraft=null,balanceMode='auto',balanceContext='overspend',balanceDraft=null,balanceReserveUse=0,balancePredictivePlan=null,detailId=null,wizard=null,wizardStep=0,wizardEditId=null,wizardBalanceMode='auto',billDraft={mode:'monthly',dueThisCycle:true},savingDraft={mode:'regular'},simpleSaveHandler=null,confirmHandler=null,closingStep=0,closingFree=0,closingReview=null,closingReason='manual',wizardAccountBalance=0,wizardCashExtra=0,toastTimer=null,toastAction=null;
 let b2OpeningIncomeRepaired=false,b2IncomeLearningRepaired=false,b2EarlySalaryAutoRepaired=false;
 try{
   b2OpeningIncomeRepaired=repairLegacyOpeningIncomeV1416(state);
@@ -4659,6 +4659,57 @@ function wizardPlanningPool(b){
 function pool(b){return r2(num(b.startBalance)+plannedIncome(b)+plannedExceptionalIncome(b)+allocatableCashIncome(b)+transferNet(b)-protectedThisCycle(b)-num(b.reserve))}
 function allocationPool(b){return r2(pool(b)-nonEnvelopeNetExpenses(b))}
 function allocated(b){return b.envelopes.reduce((s,e)=>s+num(e.amount),0)} function unallocated(b){return r2(allocationPool(b)-allocated(b))} function remaining(b){return r2(allocationPool(b)-envelopeNetExpenses(b))} function envRemain(b,e){return r2(num(e.amount)-spentFor(b,e.id))}
+
+// v14.44 — une baisse de capacité globale n'est pas un dépassement d'enveloppe.
+// B² cherche d'abord une cause comptable concrète (charge réelle > prévision),
+// puis utilise un message générique seulement si plusieurs changements se combinent.
+function allocationPressureInsight(b){
+  if(!b)return null;
+  const amount=r2(Math.max(0,-unallocated(b)));
+  if(amount<=.01)return null;
+  const from=String(b.cycleStart||'');
+  const causes=(b.transactions||[]).filter(t=>t.type==='expense'&&['fixed','oneoff'].includes(t.plannedKind)&&(!from||String(t.date||'')>=from)).map(t=>{
+    let planned=0,name=t.label||'une dépense prévue';
+    if(t.plannedKind==='fixed'){
+      const x=(b.fixed||[]).find(y=>String(y.id)===String(t.plannedId));
+      planned=Math.max(0,num(t.plannedSnapshot?.amount??x?.amount));
+      name=t.plannedSnapshot?.name||x?.name||name
+    }else{
+      planned=Math.max(0,num(t.plannedSnapshot?.amount));
+      name=t.plannedSnapshot?.name||name
+    }
+    const actual=Math.max(0,num(t.amount)),delta=r2(actual-planned);
+    return {kind:t.plannedKind,name,planned,actual,delta,createdAt:num(t.createdAt)}
+  }).filter(x=>x.planned>0&&x.delta>.01).sort((a,z)=>z.createdAt-a.createdAt);
+
+  const exact=causes.find(x=>Math.abs(x.delta-amount)<=.02);
+  if(exact){
+    const noun=exact.kind==='fixed'?'La charge':'La dépense prévue';
+    return {
+      amount,kind:exact.kind,name:exact.name,planned:exact.planned,actual:exact.actual,delta:exact.delta,
+      title:'Ton budget a besoin d’un petit ajustement',
+      text:`${noun} « ${exact.name} » a finalement été de ${euro(exact.actual)} au lieu des ${euro(exact.planned)} prévus. Il faut donc réajuster ${euro(amount)} dans tes enveloppes.`
+    }
+  }
+
+  const explained=r2(causes.reduce((sum,x)=>sum+x.delta,0));
+  if(causes.length&&explained>.01){
+    const latest=causes[0];
+    return {
+      amount,kind:'multiple',name:latest.name,delta:explained,
+      title:'Ton budget a besoin d’un petit ajustement',
+      text:causes.length===1
+        ?`« ${latest.name} » a coûté ${euro(latest.delta)} de plus que prévu. Avec les derniers changements de la période, il faut maintenant réajuster ${euro(amount)} dans tes enveloppes.`
+        :`Certaines dépenses prévues ont été plus élevées que prévu. Avec les derniers changements de la période, il faut maintenant réajuster ${euro(amount)} dans tes enveloppes.`
+    }
+  }
+
+  return {
+    amount,kind:'budget-change',name:null,delta:amount,
+    title:'Ton budget a besoin d’un petit ajustement',
+    text:`À la suite de tes derniers ajustements de budget, ${euro(amount)} sont maintenant affectés en trop dans les enveloppes. B² peut adapter leur répartition à la nouvelle situation.`
+  }
+}
 function cycleLabel(b){return `${fmtDate(b.cycleStart)} → ${fmtDate(b.cycleEnd)}`}
 function moneyBuckets(b){
   return {
@@ -8031,6 +8082,27 @@ function runSquareScenarioChecks(){
     removePlannedIncomeArrival(b,t);const removed=b.incomeSources[0].arrivalHistory.length===0;recordPlannedIncomeArrival(b,t);return removed&&b.incomeSources[0].arrivalHistory.some(x=>x.actualDate===d)
   });
 
+  // X10 — v14.44 : baisse de capacité expliquée et réajustée sans faux dépassement
+  add('Finance v14.44','Une charge réelle supérieure de 9,50 € crée exactement 9,50 € à réajuster',()=>{
+    const b=mk({startBalance:1000,reserve:0,reserveTarget:0,envelopes:[env('food','Courses & quotidien',900,'flexible')],fixed:[{id:'f44',name:'Électricité',amount:100,dueThisCycle:true,dueDay:null}],transactions:[]});
+    recordFixedChargePayment(b,'f44',109.50,todayISO(),null);
+    const insight=allocationPressureInsight(b);
+    return Math.abs(unallocated(b)+9.5)<.01&&rebalanceAvailability(b).overAmount===0&&insight&&Math.abs(insight.amount-9.5)<.01&&insight.name==='Électricité'&&insight.text.includes('109,50')
+  });
+  add('Finance v14.44','Le réajustement global absorbe l’écart sans toucher aux dépenses déjà réalisées',()=>{
+    const e=env('food','Courses & quotidien',900,'flexible'),b=mk({startBalance:1000,reserve:0,reserveTarget:0,envelopes:[e],fixed:[{id:'f44b',name:'Électricité',amount:100,dueThisCycle:true,dueDay:null}],transactions:[]});
+    recordFixedChargePayment(b,'f44b',109.50,todayISO(),null);
+    const p=makeBalanceProposal(b,0);
+    return Math.abs(p.gap)<.01&&Math.abs(p.amounts.food-890.5)<.01&&spentFor(b,'food')===0
+  });
+  add('Finance v14.44','Une enveloppe verrouillée n’est jamais réduite pour absorber un réajustement global',()=>{
+    const e=env('food','Courses & quotidien',900,'essential');e.locked=true;
+    const b=mk({startBalance:1000,reserve:0,reserveTarget:0,envelopes:[e],fixed:[{id:'f44c',name:'Électricité',amount:100,dueThisCycle:true,dueDay:null}],transactions:[]});
+    recordFixedChargePayment(b,'f44c',109.50,todayISO(),null);
+    const p=makeBalanceProposal(b,0);
+    return Math.abs(p.amounts.food-900)<.01&&Math.abs(p.gap+9.5)<.01
+  });
+
   // Y — Cross-check severity semantics
   add('Sévérité','Situation saine ne porte pas un niveau critique',()=>H(mk({startBalance:1500,cycleEnd:addDaysISO(todayISO(),5),incomeSources:salary(5,1800),fixed:[]})).level<4);
   add('Sévérité','Impasse sans revenu reste critique même avec peu de jours',()=>H(mk({startBalance:-20,cycleEnd:addDaysISO(todayISO(),2),incomeSources:[],envelopes:[env('food','Courses & quotidien',200,'essential')]})).level===4);
@@ -9327,7 +9399,7 @@ function settlePlannedOnExistingTx(b,n,tx){
   if(n.plannedKind==='fixed'){
     const x=(b.fixed||[]).find(y=>String(y.id)===String(n.plannedId));
     if(x){
-      x.dueThisCycle=false;learnBankAlias(x,n.merchant);tx.plannedKind='fixed';tx.plannedId=x.id;
+      x.dueThisCycle=false;learnBankAlias(x,n.merchant);tx.plannedKind='fixed';tx.plannedId=x.id;tx.plannedSnapshot={id:x.id,name:x.name,amount:r2(x.amount)};
       // Une charge fixe confirmée ne doit plus consommer une enveloppe variable.
       tx.categoryId=null;tx.category=`Charge · ${x.name}`
     }
@@ -9489,7 +9561,7 @@ function confirmPlannedBankMatch(id){
 
   const memberId=b.type==='shared'?(b.members.find(m=>m.current)?.id||b.members[0]?.id||null):null;
   if(n.plannedKind==='fixed'){
-    const tx={id:uid(),type:'expense',amount:r2(n.amount),label:n.merchant||item.name,categoryId:null,category:`Charge · ${item.name}`,date:bankISO(n.createdAt),createdAt:n.createdAt,memberId,source:'bank',bankVerified:true,bankNotificationId:n.id,plannedKind:'fixed',plannedId:item.id,plannedSnapshot:null};
+    const tx={id:uid(),type:'expense',amount:r2(n.amount),label:n.merchant||item.name,categoryId:null,category:`Charge · ${item.name}`,date:bankISO(n.createdAt),createdAt:n.createdAt,memberId,source:'bank',bankVerified:true,bankNotificationId:n.id,plannedKind:'fixed',plannedId:item.id,plannedSnapshot:{id:item.id,name:item.name,amount:r2(item.amount)}};
     item.dueThisCycle=false;learnBankAlias(item,n.merchant);b.transactions.push(tx);linkBankNotification(b,n,tx);rememberBankSourceFromNotification(n,{confirmed:true});save();showToast(`${item.name} reconnue et marquée comme payée.`);renderMovements();return
   }
   if(n.plannedKind==='oneoff'){
@@ -10291,12 +10363,13 @@ function renderPilot(){
     }
   }
   if(pilotTab==='envelopes'&&free<-.01){
+    const pressure=allocationPressureInsight(b);
     allocationNotice=`<div class="card b2-allocation-notice urgent">
       <div class="status-icon-row"><div class="status-icon">${ico('warning')}</div><div class="square-copy">
-        <strong>${euro(-free)} à récupérer</strong>
-        <span>Les enveloppes dépassent le montant réellement disponible.</span>
+        <strong>${esc(pressure?.title||'Ton budget a besoin d’un petit ajustement')}</strong>
+        <span>${esc(pressure?.text||`${euro(-free)} sont à réajuster dans tes enveloppes.`)}</span>
       </div></div>
-      <button class="btn btn-primary btn-full" id="pilotBalance" type="button">Rééquilibrer</button>
+      <button class="btn btn-primary btn-full" id="pilotBalance" type="button">Réajuster mon budget</button>
     </div>`
   }
 
@@ -10349,7 +10422,7 @@ $('#pilotNowBalance')?.addEventListener('click',()=>openBalanceAssistant('auto')
     const target=c.querySelector(`[data-env-card="${CSS.escape(String(x.dataset.pilotFocus))}"]`);
     target?.scrollIntoView({behavior:'smooth',block:'center'});
   }));
-  $('#pilotBalance')?.addEventListener('click',()=>openBalanceAssistant('auto'));
+  $('#pilotBalance')?.addEventListener('click',()=>openBalanceAssistant('auto','allocation'));
   $('#pilotEditBudgetAside')?.addEventListener('click',()=>startWizard(b.id,3));
   $('#pilotEditReserve')?.addEventListener('click',()=>startWizard(b.id,4));
   $('#pilotEditBudgetSaving')?.addEventListener('click',()=>startWizard(b.id,4));
@@ -10832,7 +10905,7 @@ function recordFixedChargePayment(b,fixedId,amount,date=todayISO(),memberId=null
   if(!b||num(amount)<=0)return null;
   const x=(b.fixed||[]).find(y=>String(y.id)===String(fixedId));
   if(!x||x.dueThisCycle===false)return null;
-  const tx={id:uid(),type:'expense',kind:'normal',direction:null,amount:r2(amount),label:x.name,categoryId:null,category:`Charge · ${x.name}`,date:date||todayISO(),createdAt:Date.now(),memberId:memberId||null,source:'manual',bankVerified:false,bankNotificationId:null,plannedKind:'fixed',plannedId:x.id,plannedSnapshot:null,linkedTxId:null,transferId:null,transferAccountId:null};
+  const tx={id:uid(),type:'expense',kind:'normal',direction:null,amount:r2(amount),label:x.name,categoryId:null,category:`Charge · ${x.name}`,date:date||todayISO(),createdAt:Date.now(),memberId:memberId||null,source:'manual',bankVerified:false,bankNotificationId:null,plannedKind:'fixed',plannedId:x.id,plannedSnapshot:{id:x.id,name:x.name,amount:r2(x.amount)},linkedTxId:null,transferId:null,transferAccountId:null};
   x.dueThisCycle=false;x.confirmDeferredUntil=null;
   b.transactions.push(tx);
   return tx
@@ -11704,25 +11777,40 @@ function makeBalanceProposal(b,reserveUse=0){
   if(gap>.01){const free=b.envelopes.filter(e=>!e.locked),total=free.reduce((v,e)=>v+allocationWeight(e,b),0)||1,cents=Math.round(gap*100);let used=0;free.forEach((e,i)=>{const add=i===free.length-1?cents-used:Math.floor(cents*allocationWeight(e,b)/total);amounts[e.id]=r2(amounts[e.id]+add/100);used+=add})}
   gap=r2(targetPool-sumAmountMap(amounts));const changes=b.envelopes.map(e=>({id:e.id,name:e.name,icon:e.icon,from:e.amount,to:amounts[e.id],delta:r2(amounts[e.id]-e.amount)})).filter(x=>Math.abs(x.delta)>.009);return {amounts,gap,changes}
 }
-function openBalanceAssistant(mode='auto'){
+function openBalanceAssistant(mode='auto',requestedContext='overspend'){
   const b=active();if(!b)return;
-  const reb=rebalanceAvailability(b);
-  if(!reb.overAmount){
-    showToast('Rééquilibrage indisponible : aucune enveloppe n’est dépassée.');
+  const reb=rebalanceAvailability(b),allocationGap=r2(Math.max(0,-unallocated(b)));
+  const allocationMode=requestedContext==='allocation'&&allocationGap>.01;
+
+  if(!allocationMode&&!reb.overAmount){
+    showToast('Aucun réajustement n’est nécessaire pour le moment.');
     return
   }
-  if(!reb.possible){
+  if(!allocationMode&&!reb.possible){
     showToast('Rééquilibrage impossible : il n’y a pas assez de marge dans les autres enveloppes.');
     return
   }
-  balanceMode=mode;balanceReserveUse=0;balancePredictivePlan=predictiveCyclePlan(b,0);balanceDraft={amounts:amountMap(b)};
+
+  balanceContext=allocationMode?'allocation':'overspend';
+  balanceMode=mode;balanceReserveUse=0;
+  const balanceTitle=$('#balanceModal h3'),balanceApply=$('#applyBalanceBtn');
+  if(balanceTitle)balanceTitle.textContent=allocationMode?'Réajuster mon budget':'Retrouver l’équilibre';
+  if(balanceApply)balanceApply.textContent=allocationMode?'Appliquer les ajustements':'Appliquer la proposition';
+  balancePredictivePlan=allocationMode?null:predictiveCyclePlan(b,0);
+  balanceDraft={amounts:amountMap(b)};
   b.envelopes.forEach(e=>balanceDraft.amounts[e.id]=Math.max(balanceDraft.amounts[e.id],spentFor(b,e.id)));
-  const over=b.envelopes.filter(e=>envRemain(b,e)<-.01);
-  $('#balanceLead').textContent=balancePredictivePlan.actionable
-    ?`B² anticipe environ ${euro(balancePredictivePlan.totalRisk)} à rééquilibrer avant le prochain revenu. Rien ne change sans ton accord.`
-    :remaining(b)<-.01
-      ?`Il manque ${euro(Math.abs(remaining(b)))} sur le budget global.`
-      :over.length?`${over.length} enveloppe${over.length>1?'s ont':' a'} dépassé le montant prévu.`:'Aucune enveloppe n’est dépassée.';
+
+  if(allocationMode){
+    const pressure=allocationPressureInsight(b);
+    $('#balanceLead').textContent=pressure?.text||`${euro(allocationGap)} doivent être réajustés pour que les enveloppes correspondent à l’argent réellement disponible.`;
+  }else{
+    const over=b.envelopes.filter(e=>envRemain(b,e)<-.01);
+    $('#balanceLead').textContent=balancePredictivePlan.actionable
+      ?`B² anticipe environ ${euro(balancePredictivePlan.totalRisk)} à rééquilibrer avant le prochain revenu. Rien ne change sans ton accord.`
+      :remaining(b)<-.01
+        ?`Il manque ${euro(Math.abs(remaining(b)))} sur le budget global.`
+        :over.length?`${over.length} enveloppe${over.length>1?'s ont':' a'} dépassé le montant prévu.`:'Aucune enveloppe n’est dépassée.'
+  }
   renderBalanceAssistant();openModal('balanceModal')
 }
 function refreshBalanceManual(){
@@ -11735,9 +11823,9 @@ function renderBalanceAssistant(){
   $$('[data-balancemode]',$('#balanceModeTabs')).forEach(x=>x.classList.toggle('on',x.dataset.balancemode===balanceMode));
 
   if(balanceMode==='auto'){
-    balancePredictivePlan=predictiveCyclePlan(b,balanceReserveUse);
+    balancePredictivePlan=balanceContext==='allocation'?null:predictiveCyclePlan(b,balanceReserveUse);
 
-    if(balancePredictivePlan.actionable){
+    if(balancePredictivePlan?.actionable){
       const p=balancePredictivePlan;
       balanceDraft={amounts:p.amounts,proposal:p,predictive:true};
 
@@ -11865,9 +11953,12 @@ function renderBalanceAssistant(){
       const p=makeBalanceProposal(b,balanceReserveUse);
       balanceDraft={amounts:p.amounts,proposal:p,predictive:false};
 
+      const pressure=balanceContext==='allocation'?allocationPressureInsight(b):null;
       const stateBox=p.gap<-.01
-        ?`<div class="balance-box bad"><strong>Il manque encore ${euro(Math.abs(p.gap))}</strong>B² a respecté toutes les enveloppes protégées.</div>`
-        :`<div class="balance-box good"><strong>✓ Équilibre retrouvé</strong>B² ne changera rien sans ton accord.</div>`;
+        ?`<div class="balance-box bad"><strong>Il manque encore ${euro(Math.abs(p.gap))}</strong>B² a respecté les montants déjà dépensés et toutes les enveloppes protégées.</div>`
+        :balanceContext==='allocation'
+          ?`<div class="balance-box good"><strong>✓ B² a trouvé comment absorber ${euro(pressure?.amount||Math.max(0,-unallocated(b)))}</strong>Les montants déjà dépensés restent intacts. Rien ne change sans ton accord.</div>`
+          :`<div class="balance-box good"><strong>✓ Équilibre retrouvé</strong>B² ne changera rien sans ton accord.</div>`;
 
       const changeCards=p.changes.map(x=>{
         const currentRemain=r2(num(x.from)-spentFor(b,x.id));
@@ -11884,7 +11975,8 @@ function renderBalanceAssistant(){
       }).join('');
 
       body.innerHTML=`${stateBox}
-        ${changeCards?`<div class="section-title"><h3>Comment B² te propose de rééquilibrer</h3></div><div class="balance-explain-list">${changeCards}</div>`:'<div class="empty">Aucun déplacement nécessaire.</div>'}
+        ${balanceContext==='allocation'&&pressure?`<div class="status info"><strong>Pourquoi ?</strong><br>${esc(pressure.text)}</div>`:''}
+        ${changeCards?`<div class="section-title"><h3>${balanceContext==='allocation'?'Ajustements proposés':'Comment B² te propose de rééquilibrer'}</h3></div><div class="balance-explain-list">${changeCards}</div>`:'<div class="empty">Aucun déplacement nécessaire.</div>'}
         ${p.gap<-.01?`<button class="btn btn-white btn-full" id="balanceReserveBtn" type="button" ${b.reserve-balanceReserveUse<Math.abs(p.gap)-.01?'disabled':''}>${ico('shield')} Utiliser ma réserve</button>`:''}`;
 
       $('#applyBalanceBtn').disabled=p.gap<-.01;
@@ -11941,8 +12033,9 @@ function applyBalance(){
   }
 
   b.envelopes.forEach(e=>e.amount=r2(Math.max(spentFor(b,e.id),num(amounts[e.id]))));
+  const appliedContext=balanceContext;
   closeModal('balanceModal');save();
-  showToast(predictive?'Proposition B² appliquée.':'Budget rééquilibré.','Annuler',()=>{
+  showToast(predictive?'Proposition B² appliquée.':appliedContext==='allocation'?'Budget réajusté.':'Budget rééquilibré.','Annuler',()=>{
     b.reserve=before.reserve;b.reserveUsedThisCycle=before.reserveUsedThisCycle;
     b.envelopes.forEach(e=>e.amount=before.amounts[e.id]??e.amount);
     (b.savings||[]).forEach(g=>g.cycleReduction=before.savings[g.id]||0);
