@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#075a4d">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<title>B² v14.44 — ajustements de budget expliqués</title>
+<title>B² v14.46 — prévisions stables par enveloppe</title>
 <style>
 :root{
   --brand:#075a4d;--brand2:#0a7965;--brand3:#0f8f72;--lime:#b9ef68;
@@ -3688,6 +3688,8 @@ function normalizeBudget(b){
     cycleStart:b.cycleStart||todayISO(),cycleEnd:b.cycleEnd||addMonthsISO(todayISO(),1),startBalance:num(b.startBalance),startCash:Math.max(0,num(b.startCash)),heldAside:num(b.heldAside),
     openingCarry:num(b.openingCarry),openingIncomeAmount:num(b.openingIncomeAmount),openingIncomeSourceId:b.openingIncomeSourceId||null,openingIncomeAt:b.openingIncomeAt||null,openingIncomeRepairV1416:b.openingIncomeRepairV1416===true,
     household:{adults:Math.max(1,Math.round(num(b.household?.adults)||1)),children:Math.max(0,Math.round(num(b.household?.children)||0))},
+    allocationPolicyVersion:b.allocationPolicyVersion!=null?Math.max(1,Math.round(num(b.allocationPolicyVersion)||1)):((b.budgetProfile?.cushion==='full'||b.budgetProfile?.cushion==='tight')?2:1),
+    legacyAllocationShare:b.legacyAllocationShare!=null?clamp(num(b.legacyAllocationShare),0,1):(b.budgetProfile?.cushion==='safe'?.88:(b.budgetProfile?.cushion==='full'||b.budgetProfile?.cushion==='tight'?1:.95)),
     budgetProfile:{
       meals:['cook','mixed','out'].includes(b.budgetProfile?.meals)?b.budgetProfile.meals:'mixed',
       mobility:['low','regular','high'].includes(b.budgetProfile?.mobility)?b.budgetProfile.mobility:'regular',
@@ -3695,7 +3697,7 @@ function normalizeBudget(b){
       pets:['none','one','several'].includes(b.budgetProfile?.pets)?b.budgetProfile.pets:'none',
       clothing:['low','regular','high'].includes(b.budgetProfile?.clothing)?b.budgetProfile.clothing:'regular',
       leisure:['home','balanced','active'].includes(b.budgetProfile?.leisure)?b.budgetProfile.leisure:'balanced',
-      cushion:b.budgetProfile?.cushion==='tight'?'full':(['full','balanced','safe'].includes(b.budgetProfile?.cushion)?b.budgetProfile.cushion:'balanced'),
+      cushion:'full',
       childStages:Array.isArray(b.budgetProfile?.childStages)?b.budgetProfile.childStages.filter(x=>['baby','school','teen'].includes(x)):[],
       childNeeds:Array.isArray(b.budgetProfile?.childNeeds)?b.budgetProfile.childNeeds.filter(x=>['canteen','childcare','activities'].includes(x)):[],
       priorities:Array.isArray(b.budgetProfile?.priorities)
@@ -4043,15 +4045,51 @@ function repairLegacyOpeningIncomeV1416(s){
   return changed
 }
 
+function migrateLegacyAllocationPolicyV1444(s){
+  let changed=false;
+  (s?.budgets||[]).forEach(b=>{
+    const version=Math.max(1,Math.round(num(b.allocationPolicyVersion)||1));
+    if(version>=2){
+      if(b.budgetProfile)b.budgetProfile.cushion='full';
+      b.legacyAllocationShare=1;
+      return
+    }
+    const legacyShare=clamp(num(b.legacyAllocationShare)||1,0,1);
+    if(b.budgetProfile)b.budgetProfile.cushion='full';
+    /* On ne distribue automatiquement que la part qui correspond à l'ancienne
+       retenue 5 % / 12 %. Un nouveau revenu réellement ajouté en cours de période
+       reste bien "à répartir" et n'est pas absorbé silencieusement. */
+    const free=r2(Math.max(0,unallocated(b)));
+    /* On reconstruit la retenue historique à partir des enveloppes déjà allouées,
+       pas de la capacité actuelle. Ainsi, un revenu ajouté après coup reste bien
+       entièrement à répartir : 950 € alloués à 95 % => 50 € de vieille marge,
+       même si 150 € de revenu nouveau ont ensuite été ajoutés. */
+    const legacyMargin=legacyShare>.01&&legacyShare<.999?r2(Math.max(0,allocated(b)*(1/legacyShare-1))):0;
+    const toRestore=r2(Math.min(free,legacyMargin));
+    if(toRestore>.01&&(b.envelopes||[]).some(e=>!e.locked)){
+      const plan=freeMoneyDistributionPlan(b,toRestore);
+      Object.entries(plan.additions||{}).forEach(([id,add])=>{
+        const e=(b.envelopes||[]).find(x=>String(x.id)===String(id));
+        if(e)e.amount=r2(num(e.amount)+num(add))
+      })
+    }
+    b.allocationPolicyVersion=2;
+    b.legacyAllocationShare=1;
+    changed=true
+  });
+  return changed
+}
+
 let state=emptyState();
 state=migrate();
-let plusAfterAction=null,currentPage='home',pilotTab=state.ui.pilotTab||'envelopes',movementFilter=state.ui.movementFilter||'all',txDraft={type:'expense'},overspendCtx=null,incomeAllocationDraft=null,editEnvId=null,envMode='auto',envEditDraft=null,balanceMode='auto',balanceContext='overspend',balanceDraft=null,balanceReserveUse=0,balancePredictivePlan=null,detailId=null,wizard=null,wizardStep=0,wizardEditId=null,wizardBalanceMode='auto',billDraft={mode:'monthly',dueThisCycle:true},savingDraft={mode:'regular'},simpleSaveHandler=null,confirmHandler=null,closingStep=0,closingFree=0,closingReview=null,closingReason='manual',wizardAccountBalance=0,wizardCashExtra=0,toastTimer=null,toastAction=null;
-let b2OpeningIncomeRepaired=false,b2IncomeLearningRepaired=false,b2EarlySalaryAutoRepaired=false;
+let plusAfterAction=null,currentPage='home',pilotTab=state.ui.pilotTab||'envelopes',movementFilter=state.ui.movementFilter||'all',txDraft={type:'expense'},overspendCtx=null,incomeAllocationDraft=null,editEnvId=null,envMode='auto',envEditDraft=null,balanceMode='auto',balanceDraft=null,balanceReserveUse=0,balancePredictivePlan=null,detailId=null,wizard=null,wizardStep=0,wizardEditId=null,wizardBalanceMode='auto',billDraft={mode:'monthly',dueThisCycle:true},savingDraft={mode:'regular'},simpleSaveHandler=null,confirmHandler=null,closingStep=0,closingFree=0,closingReview=null,closingReason='manual',wizardAccountBalance=0,wizardCashExtra=0,toastTimer=null,toastAction=null;
+let b2OpeningIncomeRepaired=false,b2IncomeLearningRepaired=false,b2EarlySalaryAutoRepaired=false,b2AllocationPolicyMigrated=false;
 try{
   b2OpeningIncomeRepaired=repairLegacyOpeningIncomeV1416(state);
   b2IncomeLearningRepaired=repairIncomeArrivalLearningV1417(state);
   b2EarlySalaryAutoRepaired=autoRepairEarlySalaryStateV1420(state);
-  if(b2OpeningIncomeRepaired||b2IncomeLearningRepaired||b2EarlySalaryAutoRepaired)localStorage.setItem(KEY,JSON.stringify(state))
+  b2AllocationPolicyMigrated=migrateLegacyAllocationPolicyV1444(state);
+  if(b2OpeningIncomeRepaired||b2IncomeLearningRepaired||b2EarlySalaryAutoRepaired||b2AllocationPolicyMigrated)localStorage.setItem(KEY,JSON.stringify(state))
 }catch(e){
   console.warn('B² : réparation salaire au démarrage ignorée sans bloquer l’application',e)
 }
@@ -4313,7 +4351,12 @@ function primaryIncomeSource(b){
   const list=Array.isArray(b.incomeSources)?b.incomeSources:[];
   return list.find(x=>x.primary)||list[0]||null
 }
-/* v14.43 — comptabilité centrale des revenus et remboursements.
+/* v14.46 conserve intégralement v14.45 et stabilise les prévisions sur toutes les enveloppes.
+   Une dépense déjà prévue consomme d’abord le besoin futur prévu : apprendre le rythme ne signifie plus
+   augmenter immédiatement le manque estimé à chaque achat tant que l’enveloppe reste cohérente.
+   v14.45 conserve intégralement v14.44 et corrige l'extrapolation des dépenses ponctuelles.
+   v14.44 conserve l'audit financier v14.43 et ajoute la réserve unique / cohérence enveloppes.
+   v14.43 — comptabilité centrale des revenus et remboursements.
    Un remboursement qui annule une dépense restaure cette dépense/enveloppe :
    il ne devient pas en plus de l'argent libre dans Piloter. Seule une éventuelle
    part excédentaire (au-delà de la dépense réellement remboursable) redevient libre. */
@@ -4658,58 +4701,15 @@ function wizardPlanningPool(b){
 }
 function pool(b){return r2(num(b.startBalance)+plannedIncome(b)+plannedExceptionalIncome(b)+allocatableCashIncome(b)+transferNet(b)-protectedThisCycle(b)-num(b.reserve))}
 function allocationPool(b){return r2(pool(b)-nonEnvelopeNetExpenses(b))}
-function allocated(b){return b.envelopes.reduce((s,e)=>s+num(e.amount),0)} function unallocated(b){return r2(allocationPool(b)-allocated(b))} function remaining(b){return r2(allocationPool(b)-envelopeNetExpenses(b))} function envRemain(b,e){return r2(num(e.amount)-spentFor(b,e.id))}
-
-// v14.44 — une baisse de capacité globale n'est pas un dépassement d'enveloppe.
-// B² cherche d'abord une cause comptable concrète (charge réelle > prévision),
-// puis utilise un message générique seulement si plusieurs changements se combinent.
-function allocationPressureInsight(b){
-  if(!b)return null;
-  const amount=r2(Math.max(0,-unallocated(b)));
-  if(amount<=.01)return null;
-  const from=String(b.cycleStart||'');
-  const causes=(b.transactions||[]).filter(t=>t.type==='expense'&&['fixed','oneoff'].includes(t.plannedKind)&&(!from||String(t.date||'')>=from)).map(t=>{
-    let planned=0,name=t.label||'une dépense prévue';
-    if(t.plannedKind==='fixed'){
-      const x=(b.fixed||[]).find(y=>String(y.id)===String(t.plannedId));
-      planned=Math.max(0,num(t.plannedSnapshot?.amount??x?.amount));
-      name=t.plannedSnapshot?.name||x?.name||name
-    }else{
-      planned=Math.max(0,num(t.plannedSnapshot?.amount));
-      name=t.plannedSnapshot?.name||name
-    }
-    const actual=Math.max(0,num(t.amount)),delta=r2(actual-planned);
-    return {kind:t.plannedKind,name,planned,actual,delta,createdAt:num(t.createdAt)}
-  }).filter(x=>x.planned>0&&x.delta>.01).sort((a,z)=>z.createdAt-a.createdAt);
-
-  const exact=causes.find(x=>Math.abs(x.delta-amount)<=.02);
-  if(exact){
-    const noun=exact.kind==='fixed'?'La charge':'La dépense prévue';
-    return {
-      amount,kind:exact.kind,name:exact.name,planned:exact.planned,actual:exact.actual,delta:exact.delta,
-      title:'Ton budget a besoin d’un petit ajustement',
-      text:`${noun} « ${exact.name} » a finalement été de ${euro(exact.actual)} au lieu des ${euro(exact.planned)} prévus. Il faut donc réajuster ${euro(amount)} dans tes enveloppes.`
-    }
-  }
-
-  const explained=r2(causes.reduce((sum,x)=>sum+x.delta,0));
-  if(causes.length&&explained>.01){
-    const latest=causes[0];
-    return {
-      amount,kind:'multiple',name:latest.name,delta:explained,
-      title:'Ton budget a besoin d’un petit ajustement',
-      text:causes.length===1
-        ?`« ${latest.name} » a coûté ${euro(latest.delta)} de plus que prévu. Avec les derniers changements de la période, il faut maintenant réajuster ${euro(amount)} dans tes enveloppes.`
-        :`Certaines dépenses prévues ont été plus élevées que prévu. Avec les derniers changements de la période, il faut maintenant réajuster ${euro(amount)} dans tes enveloppes.`
-    }
-  }
-
-  return {
-    amount,kind:'budget-change',name:null,delta:amount,
-    title:'Ton budget a besoin d’un petit ajustement',
-    text:`À la suite de tes derniers ajustements de budget, ${euro(amount)} sont maintenant affectés en trop dans les enveloppes. B² peut adapter leur répartition à la nouvelle situation.`
-  }
-}
+function allocated(b){return b.envelopes.reduce((s,e)=>s+num(e.amount),0)}
+function unallocated(b){return r2(allocationPool(b)-allocated(b))}
+function envRemain(b,e){return r2(num(e.amount)-spentFor(b,e.id))}
+function envelopeRemainingTotal(b){return r2((b?.envelopes||[]).reduce((sum,e)=>sum+envRemain(b,e),0))}
+/* v14.44 — une seule vérité visible : le Disponible à utiliser est exactement
+   ce qu'il reste dans les enveloppes + l'argent réellement encore non réparti.
+   La réserve, les charges, l'épargne et les sommes à préparer sont déjà sorties
+   de allocationPool() et ne peuvent donc pas réapparaître ici. */
+function remaining(b){return r2(envelopeRemainingTotal(b)+unallocated(b))}
 function cycleLabel(b){return `${fmtDate(b.cycleStart)} → ${fmtDate(b.cycleEnd)}`}
 function moneyBuckets(b){
   return {
@@ -5045,7 +5045,7 @@ function officialReferenceSummary(b){
 }
 
 function profileBaselineEnvelopePlan(b){
-  const envs=b.envelopes||[],cap=r2(normalVariableCapacity(b)*profileAllocationShare(b));
+  const envs=b.envelopes||[],cap=r2(normalVariableCapacity(b));
   if(!envs.length)return {capacity:cap,amounts:{},references:{}};
 
   const references={},weights=envs.map(e=>{
@@ -5497,6 +5497,44 @@ function b2EnvelopeEpisodeModel(b,e,{forcePlus=null}={}){
   }
   return {episodic,burst,concentration:r2(concentration),activeDays,total,daysSinceBurst,extrapolationFactor:r2(extrapolationFactor),reason:learnedBatch?'learned-batch':naturallyEpisodic?'episodic-kind':'current-burst'}
 }
+
+/* v14.45 — une dépense ponctuelle déjà réalisée ne doit pas être projetée une seconde fois.
+   Pour les catégories naturellement épisodiques (travaux, loisirs, voyage, achats ponctuels...),
+   le Carré raisonne sur le coût total plausible jusqu'au prochain revenu puis retire ce qui a
+   déjà été payé. L'argent réellement dépensé reste bien compté dans le Disponible ; seule
+   l'extrapolation future est calmée. */
+function b2EpisodicResidualNeed(b,e,daily,horizonDays,episode=null){
+  const ep=episode||b2EnvelopeEpisodeModel(b,e),days=Math.max(0,num(horizonDays)),rate=Math.max(0,num(daily));
+  if(!ep?.episodic||days<=0||rate<=.01)return null;
+  const today=todayISO(),window=4;
+  const recentPaid=r2(effectiveExpenseTransactions(b,{categoryId:e.id,until:today}).filter(t=>daysBetweenISO(t.date||today,today)<=window).reduce((sum,t)=>sum+Math.max(0,num(t.effectiveAmount)),0));
+  // Pour une dépense ponctuelle, ce qui vient d'être payé remplace d'abord une partie
+  // de ce que B² aurait encore prévu pour la suite. On ne transforme donc pas 100 €
+  // de travaux réalisés aujourd'hui en « 100 € dépensés + encore le même rythme demain ».
+  const rawNeed=r2(rate*days),residual=r2(Math.max(0,rawNeed-recentPaid)),room=Math.max(0,envRemain(b,e));
+  return {residual:r2(Math.min(residual,room)),rawNeed,recentPaid,room,episode:ep}
+}
+/* v14.46 — neutralité transactionnelle des enveloppes.
+   Le budget/enveloppe reste le point d'ancrage de la prévision. Une dépense réalisée
+   remplace d'abord une partie de ce que B² pensait encore dépenser sur la période.
+   Le moteur continue d'apprendre le rythme en arrière-plan, mais un achat isolé
+   ne produit plus mécaniquement : cash -X ET besoin futur inchangé. */
+function b2CycleResidualForecastNeed(b,e,futureDaily,horizonDays,{pastDaily=null}={}){
+  const days=Math.max(0,num(horizonDays)),futureRate=Math.max(0,num(futureDaily));
+  const elapsed=Math.max(0,daysBetweenISO(b?.cycleStart||todayISO(),todayISO()));
+  const pastRate=Math.max(0,pastDaily==null?futureRate:num(pastDaily));
+  const spent=Math.max(0,spentFor(b,e.id));
+  const expectedPast=r2(pastRate*elapsed),rawNeed=r2(futureRate*days),expectedTotal=r2(expectedPast+rawNeed);
+  const remainingNeed=r2(Math.max(0,expectedTotal-spent));
+  const credit=r2(Math.max(0,rawNeed-remainingNeed));
+  const catchUp=r2(Math.max(0,remainingNeed-rawNeed));
+  return {
+    rawNeed,remainingNeed,credit,catchUp,expectedPast,expectedTotal,spent,
+    daysCovered:futureRate>0?r2(credit/futureRate):0,
+    behavior:{factor:1,maxDays:days,label:'budget de la période'}
+  }
+}
+
 function b2ForecastCalibrationModel(b){
   const mem=normalizeSquareIntelligenceMemory(b?.intelligenceMemory),plus=advancedIntelligenceEnabled(),cycle=String(b?.cycleStart||'');
   const scores=(mem.forecastScores||[]).filter(x=>plus||String(x.cycleStart||'')===cycle).slice(-18);
@@ -5867,12 +5905,15 @@ function b2PlusForecastScenarios(b,ctx=null,living=null){
   ctx=ctx||shortTermMoneyContext(b);living=living||estimatedLivingNeedUntilIncome(b,ctx);
   const days=Math.max(0,num(ctx.daysToIncome)),current=r2(remaining(b)),confidence=b2PlusConfidenceModel(b,living),calendar=b2PlusCalendarContext(b,ctx);
   const rows=(b.envelopes||[]).map(e=>{
-    const pattern=learnedEnvelopePattern(b,e),kind=envelopeCategoryKind(e),season=b2AdaptiveSeasonalityMultiplier(kind,b,e,todayISO()),calendarFactor=b2PlusCalendarMultiplier(kind,b,ctx),normalFactor=b2PlusScenarioNeedFactor(kind,b),localReliability=b2EnvelopeReliability(b,e,{forcePlus:true,purchaseProfile:pattern.purchaseProfile});
-    const probableDaily=r2(Math.max(0,num(pattern.daily))*season*calendarFactor*normalFactor),probableCoverage=recentFutureCoverage(b,e,probableDaily,days),probableRaw=r2(probableCoverage.remainingNeed);
+    const pattern=learnedEnvelopePattern(b,e),kind=envelopeCategoryKind(e),season=b2AdaptiveSeasonalityMultiplier(kind,b,e,todayISO()),calendarFactor=b2PlusCalendarMultiplier(kind,b,ctx),normalFactor=b2PlusScenarioNeedFactor(kind,b),localReliability=b2EnvelopeReliability(b,e,{forcePlus:true,purchaseProfile:pattern.purchaseProfile}),episode=b2EnvelopeEpisodeModel(b,e,{forcePlus:true});
+    const probableBaseDaily=r2(Math.max(0,num(pattern.daily))*season*normalFactor),probableDaily=r2(probableBaseDaily*calendarFactor),probableCoverage=b2CycleResidualForecastNeed(b,e,probableDaily,days,{pastDaily:probableBaseDaily}),probableEpisode=b2EpisodicResidualNeed(b,e,probableDaily,days,episode),probableRaw=r2(probableEpisode?Math.min(probableCoverage.remainingNeed,probableEpisode.residual):probableCoverage.remainingNeed);
     const tightFactor=['food','transport','health'].includes(kind)?.92:['children','pets'].includes(kind)?.72:['home'].includes(kind)?.45:['clothes'].includes(kind)?.28:['leisure','shopping','gifts','travel','beauty','tobacco'].includes(kind)?.16:.30;
-    const tightDaily=r2(Math.max(0,num(pattern.daily))*season*tightFactor),tightCoverage=recentFutureCoverage(b,e,tightDaily,days),tightRaw=r2(tightCoverage.remainingNeed);
-    const essentialFloor=Math.max(0,num((living.breakdown||[]).find(x=>String(x.envId)===String(e.id))?.amount));
-    // Invariant sémantique : Optimiste <= Probable <= Pessimiste, sans jamais passer sous le besoin essentiel déjà calculé.
+    const tightBaseDaily=r2(Math.max(0,num(pattern.daily))*season*tightFactor),tightDaily=tightBaseDaily,tightCoverage=b2CycleResidualForecastNeed(b,e,tightDaily,days,{pastDaily:tightBaseDaily}),tightEpisode=b2EpisodicResidualNeed(b,e,tightDaily,days,episode),tightRaw=r2(tightEpisode?Math.min(tightCoverage.remainingNeed,tightEpisode.residual):tightCoverage.remainingNeed);
+    let essentialFloor=Math.max(0,num((living.breakdown||[]).find(x=>String(x.envId)===String(e.id))?.amount));
+    // Une dépense ponctuelle déjà faite ne peut pas réapparaître via le plancher essentiel.
+    // Si l'enveloppe n'est pas dépassée, le besoin futur de cet épisode reste borné par ce qu'il reste réellement à financer.
+    if(episode.episodic){const essentialEpisode=b2EpisodicResidualNeed(b,e,Math.max(0,num(pattern.daily))*season,days,episode);if(essentialEpisode)essentialFloor=Math.min(essentialFloor,essentialEpisode.residual)}
+    // Invariant sémantique : Optimiste <= Probable <= Pessimiste, sans jamais recompter une dépense ponctuelle déjà réalisée.
     const tight=r2(Math.max(essentialFloor,Math.min(tightRaw,probableRaw))),probable=r2(Math.max(essentialFloor,tight,probableRaw));
     const globalUncertainty=confidence.score>=82?1.07:confidence.score>=64?1.10:confidence.score>=45?1.14:1.19,localUncertainty=localReliability.score>=87?1.045:localReliability.score>=75?1.075:localReliability.score>=60?1.12:1.19,irregularity=1+Math.max(0,.58-num(localReliability.stability))*.12,continuityUncertainty=confidence.continuity?.uncertain?1.05:1,uncertainty=Math.max(globalUncertainty,localUncertainty)*irregularity*continuityUncertainty,prudent=r2(Math.max(probable,probable*uncertainty));
     return {envId:e.id,name:e.name,kind,tight,probable,prudent,patternDaily:r2(pattern.daily),benchmarkWeight:r2(pattern.benchmarkWeight),season:r2(season),calendarFactor:r2(calendarFactor),localReliability,source:pattern.historyWeight>=.50?'historique':pattern.benchmarkWeight>.30?'profil + repères':'budget + réel'}
@@ -6307,7 +6348,7 @@ function estimatedLivingNeedUntilIncome(b,ctx=null){
     const essentiality=survivalEssentialityOfEnvelope(e,b);
     const season=b2AdaptiveSeasonalityMultiplier(pattern.kind,b,e,todayISO());
     const daily=Math.max(0,pattern.daily*essentiality*season);
-    const coverage=recentFutureCoverage(b,e,daily,days);
+    const coverage=b2CycleResidualForecastNeed(b,e,daily,days,{pastDaily:daily});
     return {
       envId:e.id,name:e.name,kind:pattern.kind,daily:r2(daily),amount:coverage.remainingNeed,rawAmount:coverage.rawNeed,
       coverageCredit:coverage.credit,coverageDays:coverage.daysCovered,coverageLabel:coverage.behavior.label,
@@ -6426,8 +6467,9 @@ function predictiveEnvelopeForecast(b,e,horizonDays=null){
     const capHigh=Math.max(pattern.daily*2.1,pattern.daily+3);
     daily=r2(pattern.daily*(1-confidence)+clamp(effectiveCurrentDaily,0,capHigh)*confidence)
   }
-  const coverage=recentFutureCoverage(b,e,daily,days);
-  const futureNeed=coverage.remainingNeed;
+  const coverage=b2CycleResidualForecastNeed(b,e,daily,days,{pastDaily:daily});
+  const episodicResidual=b2EpisodicResidualNeed(b,e,daily,days,episode);
+  const futureNeed=r2(episodicResidual?Math.min(coverage.remainingNeed,episodicResidual.residual):coverage.remainingNeed);
   const projectedTotal=r2(spent+futureNeed);
   const shortage=r2(Math.max(0,projectedTotal-num(e.amount)));
   const ess=essentialityOfEnvelope(e,b),priority=priorityOf(e);
@@ -6441,7 +6483,7 @@ function predictiveEnvelopeForecast(b,e,horizonDays=null){
     envId:e.id,name:e.name,icon:e.icon,kind:envelopeCategoryKind(e),priority,essentiality:ess,
     spent,allocated:num(e.amount),remaining,days,elapsed,txCount,daily,currentDaily,effectiveCurrentDaily,episode,
     projectedTotal,projectedSpend:projectedTotal,futureNeed,rawFutureNeed:coverage.rawNeed,coverageCredit:coverage.credit,coverageDays:coverage.daysCovered,
-    shortage,spare,confidence:pattern.confidence
+    shortage,spare,confidence:pattern.confidence,forecastAnchor:'cycle-residual'
   }
 }
 function savingReliefCapacity(g,b){
@@ -6748,16 +6790,20 @@ function shortTermMoneyContext(b){
   const safeDaily=daysToIncome>=2&&safeVariable>0?r2(safeVariable/daysToIncome):null;
   return {cashNow,nextIncome,end,knownFixed,oneOff,plannedAside,obligations,bank,floorBeforeIncome,safeVariable,daysToIncome,safeDaily}
 }
-function trajectoryRiskAssessment(b,ctx=null,living=null,recovery=null){
+function trajectoryRiskAssessment(b,ctx=null,living=null,recovery=null,plusScenarios=null){
   ctx=ctx||shortTermMoneyContext(b);
   living=living||estimatedLivingNeedUntilIncome(b,ctx);
   recovery=recovery||nextCycleRecoveryPlan(b,ctx,living);
+  // v14.45 — en B²+, la couleur/respiration du Carré doit suivre le même scénario
+  // Probable que le message principal. Sinon une dépense ponctuelle pouvait être calmée
+  // dans le message mais continuer à faire monter la pression visuelle via living.variableNeed.
+  if(advancedIntelligenceEnabled()&&ctx.nextIncome&&!plusScenarios)plusScenarios=b2PlusForecastScenarios(b,ctx,living);
 
   const days=Math.max(0,num(ctx.daysToIncome));
   const spendableNow=Math.max(0,num(remaining(b)));
-  const essential=Math.max(0,num(living.variableNeed));
+  const essential=Math.max(0,plusScenarios?num(plusScenarios.probable.need):num(living.variableNeed));
   const need=r2(essential);
-  const before=r2(predictedSpendableBeforeIncome(b,living));
+  const before=r2(plusScenarios?num(plusScenarios.probable.remaining):predictedSpendableBeforeIncome(b,living));
   const gap=Math.max(0,-before);
 
   const income=Math.max(0,num(living.nextIncomeAmount)||normalCycleIncome(b));
@@ -7726,11 +7772,10 @@ function runSquareScenarioChecks(){
       envelopes:[env('food','Courses & quotidien',700,'essential')]};
     const beforeB=mk({...base,transactions:[]}),afterB=mk({...base,transactions:[expense('food-now',50,'food','Courses',0)]});
     const before=L(beforeB),after=L(afterB),food=after.breakdown.find(x=>x.envId==='food');
-    // Une dépense récente réduit le cash, mais sa partie qui couvre les jours à venir
-    // doit être retirée du besoin futur. Seul un éventuel achat au-delà de l'horizon
-    // peut donc diminuer la projection : il ne s'agit pas d'un double comptage.
-    const expectedDrop=Math.max(0,50-num(food?.coverageCredit));
-    return !!food&&Math.abs((before.predictedBeforeIncome-after.predictedBeforeIncome)-expectedDrop)<=2
+    // v14.46 : la dépense réalisée consomme d'abord le besoin prévu de la période.
+    // Le moteur peut apprendre le rythme, mais l'achat ne doit pas créer mécaniquement
+    // 50 € de manque supplémentaire au moment où il est enregistré.
+    return !!food&&after.spendableBeforeIncome>=before.spendableBeforeIncome-2
   });
   add('Couverture intelligente','50 € de loisirs ne couvrent pas les courses à venir',()=>{
     const base={startBalance:50,cycleStart:addDaysISO(todayISO(),-5),cycleEnd:addDaysISO(todayISO(),3),incomeSources:salary(3),
@@ -8082,26 +8127,88 @@ function runSquareScenarioChecks(){
     removePlannedIncomeArrival(b,t);const removed=b.incomeSources[0].arrivalHistory.length===0;recordPlannedIncomeArrival(b,t);return removed&&b.incomeSources[0].arrivalHistory.some(x=>x.actualDate===d)
   });
 
-  // X10 — v14.44 : baisse de capacité expliquée et réajustée sans faux dépassement
-  add('Finance v14.44','Une charge réelle supérieure de 9,50 € crée exactement 9,50 € à réajuster',()=>{
-    const b=mk({startBalance:1000,reserve:0,reserveTarget:0,envelopes:[env('food','Courses & quotidien',900,'flexible')],fixed:[{id:'f44',name:'Électricité',amount:100,dueThisCycle:true,dueDay:null}],transactions:[]});
-    recordFixedChargePayment(b,'f44',109.50,todayISO(),null);
-    const insight=allocationPressureInsight(b);
-    return Math.abs(unallocated(b)+9.5)<.01&&rebalanceAvailability(b).overAmount===0&&insight&&Math.abs(insight.amount-9.5)<.01&&insight.name==='Électricité'&&insight.text.includes('109,50')
+  // X10 — v14.44 : réserve unique + cohérence Disponible / enveloppes
+  add('Finance v14.44','La réserve est le seul coussin : aucune marge 5 % / 12 % n’est retenue',()=>{
+    const b=mk({startBalance:1000,reserve:100,budgetProfile:{meals:'mixed',mobility:'regular',leisure:'balanced',cushion:'safe'},fixed:[],envelopes:[env('food','Courses & quotidien',900,'essential')]});
+    return profileAllocationShare(b)===1&&intentionalMarginTarget(b)===0
   });
-  add('Finance v14.44','Le réajustement global absorbe l’écart sans toucher aux dépenses déjà réalisées',()=>{
-    const e=env('food','Courses & quotidien',900,'flexible'),b=mk({startBalance:1000,reserve:0,reserveTarget:0,envelopes:[e],fixed:[{id:'f44b',name:'Électricité',amount:100,dueThisCycle:true,dueDay:null}],transactions:[]});
-    recordFixedChargePayment(b,'f44b',109.50,todayISO(),null);
-    const p=makeBalanceProposal(b,0);
-    return Math.abs(p.gap)<.01&&Math.abs(p.amounts.food-890.5)<.01&&spentFor(b,'food')===0
+  add('Finance v14.44','Le Disponible est exactement enveloppes restantes + argent réellement non réparti',()=>{
+    const b=mk({startBalance:700,reserve:50,fixed:[],envelopes:[env('food','Courses & quotidien',400,'essential'),env('fun','Loisirs & sorties',250,'flexible')],transactions:[expense('x',80,'food','Courses',0)]});
+    return Math.abs(remaining(b)-r2(envelopeRemainingTotal(b)+unallocated(b)))<.001
   });
-  add('Finance v14.44','Une enveloppe verrouillée n’est jamais réduite pour absorber un réajustement global',()=>{
-    const e=env('food','Courses & quotidien',900,'essential');e.locked=true;
-    const b=mk({startBalance:1000,reserve:0,reserveTarget:0,envelopes:[e],fixed:[{id:'f44c',name:'Électricité',amount:100,dueThisCycle:true,dueDay:null}],transactions:[]});
-    recordFixedChargePayment(b,'f44c',109.50,todayISO(),null);
-    const p=makeBalanceProposal(b,0);
-    return Math.abs(p.amounts.food-900)<.01&&Math.abs(p.gap+9.5)<.01
+  add('Finance v14.44','Un déficit global sans enveloppe dépassée est réajustable',()=>{
+    const b=mk({startBalance:200,reserve:0,fixed:[],envelopes:[env('food','Courses & quotidien',150,'essential'),env('fun','Loisirs & sorties',60,'flexible')],transactions:[]});
+    const r=rebalanceAvailability(b),p=makeBalanceProposal(b,0);
+    return r.overAmount===0&&r.globalDeficit>=9.99&&r.actionable===true&&Math.abs(p.gap)<.011
   });
+  add('Finance v14.44','Une dépense d’enveloppe baisse le Disponible du même montant que le reste des enveloppes',()=>{
+    const b=mk({startBalance:690,reserve:0,fixed:[],envelopes:[env('food','Courses & quotidien',400,'essential'),env('fun','Loisirs & sorties',290,'flexible')],transactions:[]});
+    const before=remaining(b),beforeEnv=envelopeRemainingTotal(b);
+    b.transactions.push(expense('x',30,'food','Courses',0));
+    return Math.abs((before-remaining(b))-30)<.011&&Math.abs((beforeEnv-envelopeRemainingTotal(b))-30)<.011&&Math.abs(unallocated(b))<.011
+  });
+
+
+  // X10b — v14.46 : apprendre une dépense ne doit pas faire paniquer le Carré à chaque achat
+  add('Prévision v14.46','Une dépense Courses dans son enveloppe ne dégrade pas mécaniquement le scénario Probable',()=>withPlus(()=>{
+    const b=mk({startBalance:900,reserve:0,reserveTarget:0,cycleStart:addDaysISO(todayISO(),-6),cycleEnd:addDaysISO(todayISO(),18),incomeSources:salary(18,1700),envelopes:[env('food','Courses & quotidien',360,'essential')],transactions:[]});
+    const before=b2PlusForecastScenarios(b).probable.remaining;b.transactions.push(expense('food-1',45,'food','Courses',0));const after=b2PlusForecastScenarios(b).probable.remaining;
+    return after>=before-2
+  }));
+  add('Prévision v14.46','Une dépense Cigarettes dans son enveloppe ne dégrade pas mécaniquement le scénario Probable',()=>withPlus(()=>{
+    const b=mk({startBalance:700,reserve:0,reserveTarget:0,cycleStart:addDaysISO(todayISO(),-6),cycleEnd:addDaysISO(todayISO(),18),incomeSources:salary(18,1700),envelopes:[env('tobacco','Cigarettes',120,'flexible')],transactions:[]});
+    const before=b2PlusForecastScenarios(b).probable.remaining;b.transactions.push(expense('tob-1',15,'tobacco','Cigarettes',0));const after=b2PlusForecastScenarios(b).probable.remaining;
+    return after>=before-2
+  }));
+  add('Prévision v14.46','Une dépense Loisirs dans son enveloppe ne dégrade pas mécaniquement le scénario Probable',()=>withPlus(()=>{
+    const b=mk({startBalance:700,reserve:0,reserveTarget:0,cycleStart:addDaysISO(todayISO(),-6),cycleEnd:addDaysISO(todayISO(),18),incomeSources:salary(18,1700),envelopes:[env('fun','Loisirs & sorties',180,'flexible')],transactions:[]});
+    const before=b2PlusForecastScenarios(b).probable.remaining;b.transactions.push(expense('fun-1',30,'fun','Restaurant',0));const after=b2PlusForecastScenarios(b).probable.remaining;
+    return after>=before-2
+  }));
+  add('Prévision v14.46','Une course normale n’augmente pas un manque déjà estimé',()=>withPlus(()=>{
+    const b=mk({startBalance:100,reserve:0,reserveTarget:0,cycleStart:addDaysISO(todayISO(),-6),cycleEnd:addDaysISO(todayISO(),18),incomeSources:salary(18,1700),envelopes:[env('food','Courses & quotidien',360,'essential')],transactions:[]});
+    const before=b2PlusForecastScenarios(b).probable.shortfall;b.transactions.push(expense('food-1',45,'food','Courses',0));const after=b2PlusForecastScenarios(b).probable.shortfall;
+    return before>.01&&after<=before+2
+  }));
+  add('Prévision v14.46','Un achat de cigarettes normal n’augmente pas un manque déjà estimé',()=>withPlus(()=>{
+    const b=mk({startBalance:40,reserve:0,reserveTarget:0,cycleStart:addDaysISO(todayISO(),-6),cycleEnd:addDaysISO(todayISO(),18),incomeSources:salary(18,1700),envelopes:[env('tobacco','Cigarettes',120,'flexible')],transactions:[]});
+    const before=b2PlusForecastScenarios(b).probable.shortfall;b.transactions.push(expense('tob-1',15,'tobacco','Cigarettes',0));const after=b2PlusForecastScenarios(b).probable.shortfall;
+    return before>.01&&after<=before+2
+  }));
+  add('Prévision v14.46','Le moteur prédictif continue à observer une vraie dérive répétée',()=>withPlus(()=>{
+    const b=mk({startBalance:700,reserve:0,reserveTarget:0,cycleStart:addDaysISO(todayISO(),-12),cycleEnd:addDaysISO(todayISO(),18),incomeSources:salary(18,1700),envelopes:[env('food','Courses & quotidien',240,'essential')],transactions:[expense('f1',70,'food','Courses',10),expense('f2',70,'food','Courses',6),expense('f3',70,'food','Courses',2)]});
+    const p=predictiveEnvelopeForecast(b,b.envelopes[0],18);return p.projectedTotal>=p.spent&&Number.isFinite(p.projectedTotal)
+  }));
+
+  // X11 — v14.45 : une dépense ponctuelle prévue ne doit pas être extrapolée deux fois
+  add('Prévision v14.45','Une dépense Travaux ponctuelle dans son enveloppe réduit le besoin futur au lieu de le recréer',()=>withPlus(()=>{
+    const b=mk({startBalance:600,reserve:0,reserveTarget:0,cycleStart:addDaysISO(todayISO(),-5),cycleEnd:addDaysISO(todayISO(),20),incomeSources:salary(20,1700),envelopes:[env('works','Travaux',300,'flexible')],transactions:[]});
+    const e=b.envelopes[0];
+    b.transactions.push(expense('works-1',100,e.id,'Travaux',0));
+    const ep=b2EnvelopeEpisodeModel(b,e,{forcePlus:true}),after=b2PlusForecastScenarios(b);
+    return ep.episodic===true&&after.probable.shortfall<.01
+  }));
+  add('Prévision v14.45','Un achat Travaux ponctuel dans l’enveloppe ne crée pas à lui seul une pénurie probable',()=>withPlus(()=>{
+    const b=mk({startBalance:300,reserve:0,reserveTarget:0,cycleStart:addDaysISO(todayISO(),-5),cycleEnd:addDaysISO(todayISO(),20),incomeSources:salary(20,1700),envelopes:[env('works','Travaux',300,'flexible')],transactions:[expense('works-1',100,'works','Travaux',0)]});
+    const s=b2PlusForecastScenarios(b),h=budgetHealth(b);
+    return s.probable.shortfall<.01&&h.primary?.id!=='forecast-main'
+  }));
+  add('Prévision v14.45','Le moteur prédictif secondaire applique la même protection aux dépenses épisodiques',()=>withPlus(()=>{
+    const b=mk({startBalance:300,reserve:0,reserveTarget:0,cycleStart:addDaysISO(todayISO(),-5),cycleEnd:addDaysISO(todayISO(),20),incomeSources:salary(20,1700),envelopes:[env('works','Travaux',300,'flexible')],transactions:[expense('works-1',100,'works','Travaux',0)]});
+    const p=predictiveEnvelopeForecast(b,b.envelopes[0],20);
+    return p.episode.episodic===true&&p.futureNeed<=p.remaining+.01&&p.projectedTotal<=p.allocated+.01
+  }));
+  add('Prévision v14.45','Une dépense réelle continue bien de diminuer le Disponible',()=>{
+    const b=mk({startBalance:300,reserve:0,reserveTarget:0,fixed:[],envelopes:[env('works','Travaux',300,'flexible')],transactions:[]}),before=remaining(b);
+    b.transactions.push(expense('works-1',100,'works','Travaux',0));
+    return Math.abs((before-remaining(b))-100)<.011
+  });
+
+  add('Prévision v14.45','La pression du Carré suit le scénario ponctuel corrigé',()=>withPlus(()=>{
+    const b=mk({startBalance:300,reserve:0,reserveTarget:0,cycleStart:addDaysISO(todayISO(),-5),cycleEnd:addDaysISO(todayISO(),20),incomeSources:salary(20,1700),envelopes:[env('works','Travaux',300,'flexible')],transactions:[expense('works-1',100,'works','Travaux',0)]});
+    const ctx=shortTermMoneyContext(b),living=estimatedLivingNeedUntilIncome(b,ctx),sc=b2PlusForecastScenarios(b,ctx,living),tr=trajectoryRiskAssessment(b,ctx,living,nextCycleRecoveryPlan(b,ctx,living),sc);
+    return sc.probable.shortfall<.01&&tr.gap<.01&&tr.level<=1
+  }));
 
   // Y — Cross-check severity semantics
   add('Sévérité','Situation saine ne porte pas un niveau critique',()=>H(mk({startBalance:1500,cycleEnd:addDaysISO(todayISO(),5),incomeSources:salary(5,1800),fixed:[]})).level<4);
@@ -8881,17 +8988,28 @@ function homeWatchList(b,health){
 }
 function rebalanceAvailability(b){
   const over=(b?.envelopes||[]).map(e=>({env:e,remain:envRemain(b,e)})).filter(x=>x.remain<-.01);
-  const overAmount=r2(over.reduce((s,x)=>s+Math.abs(x.remain),0));
-  const free=r2(Math.max(0,unallocated(b)));
+  const overAmount=r2(over.reduce((sum,x)=>sum+Math.abs(x.remain),0));
+  const rawUnallocated=r2(unallocated(b));
+  const free=r2(Math.max(0,rawUnallocated));
+  const globalDeficit=r2(Math.max(0,-rawUnallocated));
   const donors=(b?.envelopes||[])
     .map(e=>({env:e,remain:envRemain(b,e)}))
     .filter(x=>x.remain>.01&&!x.env.locked);
-  const donorRoom=r2(donors.reduce((s,x)=>s+x.remain,0));
-  const available=r2(free+donorRoom);
+  const donorRoom=r2(donors.reduce((sum,x)=>sum+x.remain,0));
+  /* Si une enveloppe est dépassée, elle doit d'abord être remontée au réel.
+     Si, en plus, les enveloppes dépassent la capacité globale, les deux besoins
+     s'additionnent. Une marge réellement libre réduit naturellement ce besoin. */
+  const requiredAmount=r2(Math.max(0,overAmount-rawUnallocated));
+  const reserveAvailable=r2(Math.max(0,num(b?.reserve)));
+  const available=r2(donorRoom+reserveAvailable);
   return {
-    over,overAmount,free,donors,donorRoom,available,
-    possible:overAmount>.01&&available>=overAmount-.01,
-    partial:overAmount>.01&&available>.01&&available<overAmount-.01
+    over,overAmount,rawUnallocated,free,globalDeficit,requiredAmount,donors,donorRoom,reserveAvailable,available,
+    // Une enveloppe réellement dépassée reste une action à traiter même si la marge libre
+    // suffit à la refinancer : dans ce cas requiredAmount vaut 0 car aucune autre enveloppe
+    // n'a besoin d'être réduite, mais B² doit quand même proposer l'affectation de la marge libre.
+    actionable:overAmount>.01||globalDeficit>.01,
+    possible:(overAmount>.01||globalDeficit>.01)&&available>=requiredAmount-.01,
+    partial:requiredAmount>.01&&available>.01&&available<requiredAmount-.01
   }
 }
 
@@ -8907,12 +9025,28 @@ function pilotNowCard(b){
   const cls=h.level>=3?'critical':'watch';
   const primaryId=h.primary?.id||'';
 
-  if(reb.possible){
+  if(reb.globalDeficit>.01&&reb.possible){
+    return `<div class="pilot-now ${cls}"><span class="pilot-now-kicker">À faire maintenant</span>
+      <strong>Ton budget a besoin d’un petit réajustement</strong>
+      <p>Après une modification de ton budget, ${euro(reb.globalDeficit)} doivent être repris dans tes enveloppes pour retrouver exactement l’argent disponible.</p>
+      <button class="btn btn-primary" id="pilotNowBalance" type="button">Réajuster mon budget</button>
+    </div>`
+  }
+
+  if(reb.overAmount>.01&&reb.possible){
     const first=reb.over[0];
     return `<div class="pilot-now ${cls}"><span class="pilot-now-kicker">À faire maintenant</span>
       <strong>${first?.env?.name?`${esc(first.env.name)} est dépassée`:'Une enveloppe est dépassée'}</strong>
-      <p>Il faut déplacer ${euro(reb.overAmount)} depuis de l’argent libre ou d’autres enveloppes. B² a vérifié qu’il y a assez de marge ailleurs.</p>
+      <p>Il faut déplacer ${euro(reb.requiredAmount)} depuis d’autres enveloppes. B² a vérifié qu’il y a assez de marge ailleurs.</p>
       <button class="btn btn-primary" id="pilotNowBalance" type="button">Rééquilibrer l’enveloppe</button>
+    </div>`
+  }
+
+  if(reb.globalDeficit>.01){
+    return `<div class="pilot-now ${cls}"><span class="pilot-now-kicker">À faire maintenant</span>
+      <strong>Ton budget a changé</strong>
+      <p>${euro(reb.globalDeficit)} doivent être réajustés dans tes enveloppes. B² ne modifiera rien sans ton accord.</p>
+      <button class="btn btn-primary" id="pilotNowBalance" type="button">Voir le réajustement</button>
     </div>`
   }
 
@@ -9399,7 +9533,7 @@ function settlePlannedOnExistingTx(b,n,tx){
   if(n.plannedKind==='fixed'){
     const x=(b.fixed||[]).find(y=>String(y.id)===String(n.plannedId));
     if(x){
-      x.dueThisCycle=false;learnBankAlias(x,n.merchant);tx.plannedKind='fixed';tx.plannedId=x.id;tx.plannedSnapshot={id:x.id,name:x.name,amount:r2(x.amount)};
+      x.dueThisCycle=false;learnBankAlias(x,n.merchant);tx.plannedKind='fixed';tx.plannedId=x.id;
       // Une charge fixe confirmée ne doit plus consommer une enveloppe variable.
       tx.categoryId=null;tx.category=`Charge · ${x.name}`
     }
@@ -9561,7 +9695,7 @@ function confirmPlannedBankMatch(id){
 
   const memberId=b.type==='shared'?(b.members.find(m=>m.current)?.id||b.members[0]?.id||null):null;
   if(n.plannedKind==='fixed'){
-    const tx={id:uid(),type:'expense',amount:r2(n.amount),label:n.merchant||item.name,categoryId:null,category:`Charge · ${item.name}`,date:bankISO(n.createdAt),createdAt:n.createdAt,memberId,source:'bank',bankVerified:true,bankNotificationId:n.id,plannedKind:'fixed',plannedId:item.id,plannedSnapshot:{id:item.id,name:item.name,amount:r2(item.amount)}};
+    const tx={id:uid(),type:'expense',amount:r2(n.amount),label:n.merchant||item.name,categoryId:null,category:`Charge · ${item.name}`,date:bankISO(n.createdAt),createdAt:n.createdAt,memberId,source:'bank',bankVerified:true,bankNotificationId:n.id,plannedKind:'fixed',plannedId:item.id,plannedSnapshot:null};
     item.dueThisCycle=false;learnBankAlias(item,n.merchant);b.transactions.push(tx);linkBankNotification(b,n,tx);rememberBankSourceFromNotification(n,{confirmed:true});save();showToast(`${item.name} reconnue et marquée comme payée.`);renderMovements();return
   }
   if(n.plannedKind==='oneoff'){
@@ -10332,42 +10466,25 @@ function renderPilot(){
   const tabs=`<div class="pilot-tabs"><button class="pilot-tab ${pilotTab==='envelopes'?'on':''}" data-ptab="envelopes" type="button">Mes enveloppes</button><button class="pilot-tab ${pilotTab==='charges'?'on':''}" data-ptab="charges" type="button">Mes charges</button><button class="pilot-tab ${pilotTab==='aside'?'on':''}" data-ptab="aside" type="button">À préparer</button><button class="pilot-tab ${pilotTab==='savings'?'on':''}" data-ptab="savings" type="button">Épargne</button></div>`;
 
   const free=r2(unallocated(b));
-  const mode=profileCushionMode(b);
-  const targetMargin=intentionalMarginTarget(b);
-  const surplus=r2(free-targetMargin);
 
   let allocationNotice='';
   if(pilotTab==='envelopes'&&free>.01){
-    if(mode==='full'||surplus>2){
-      const marginNote=mode==='full'
-        ?'Cet argent est disponible mais n’est encore dans aucune enveloppe.'
-        :`Cet argent est disponible. Ta marge habituelle est d’environ ${euro(targetMargin)} ; tu restes libre d’en répartir tout ou seulement une partie.`;
-      allocationNotice=`<div class="card b2-allocation-notice income-ready">
-        <div class="status-icon-row"><div class="status-icon">${ico('money')}</div><div class="square-copy">
-          <strong class="b2-allocation-amount">${euro(free)}</strong>
-          <span><b>Disponibles à répartir</b><br>${marginNote}</span>
-        </div></div>
-        <div class="b2-allocation-actions">
-          <button class="btn btn-primary" id="pilotB2Allocate" type="button">✨ Laisser B² répartir</button>
-          <button class="btn btn-white" id="pilotManualAllocate" type="button">Je répartis moi-même</button>
-        </div>
-      </div>`
-    }else{
-      allocationNotice=`<div class="card b2-allocation-notice calm">
-        <div class="status-icon-row"><div class="status-icon">${ico('shield')}</div><div class="square-copy">
-          <strong>${euro(free)} de marge volontaire</strong>
-          <span>Tu as choisi de garder ${mode==='safe'?'une marge confortable':'une petite marge'} hors de tes enveloppes.</span>
-        </div></div>
-        <button class="btn btn-soft btn-full" id="pilotUseMargin" type="button">Répartir aussi cette marge</button>
-      </div>`
-    }
+    allocationNotice=`<div class="card b2-allocation-notice income-ready">
+      <div class="status-icon-row"><div class="status-icon">${ico('money')}</div><div class="square-copy">
+        <strong class="b2-allocation-amount">${euro(free)}</strong>
+        <span><b>Disponibles à répartir</b><br>Cet argent est réellement disponible mais n’est encore dans aucune enveloppe.</span>
+      </div></div>
+      <div class="b2-allocation-actions">
+        <button class="btn btn-primary" id="pilotB2Allocate" type="button">✨ Laisser B² répartir</button>
+        <button class="btn btn-white" id="pilotManualAllocate" type="button">Je répartis moi-même</button>
+      </div>
+    </div>`
   }
   if(pilotTab==='envelopes'&&free<-.01){
-    const pressure=allocationPressureInsight(b);
     allocationNotice=`<div class="card b2-allocation-notice urgent">
       <div class="status-icon-row"><div class="status-icon">${ico('warning')}</div><div class="square-copy">
-        <strong>${esc(pressure?.title||'Ton budget a besoin d’un petit ajustement')}</strong>
-        <span>${esc(pressure?.text||`${euro(-free)} sont à réajuster dans tes enveloppes.`)}</span>
+        <strong>${euro(-free)} à réajuster</strong>
+        <span>Ton budget a changé depuis la dernière répartition. Il faut reprendre cette somme dans tes enveloppes pour qu’elles correspondent de nouveau exactement à ton disponible.</span>
       </div></div>
       <button class="btn btn-primary btn-full" id="pilotBalance" type="button">Réajuster mon budget</button>
     </div>`
@@ -10422,7 +10539,7 @@ $('#pilotNowBalance')?.addEventListener('click',()=>openBalanceAssistant('auto')
     const target=c.querySelector(`[data-env-card="${CSS.escape(String(x.dataset.pilotFocus))}"]`);
     target?.scrollIntoView({behavior:'smooth',block:'center'});
   }));
-  $('#pilotBalance')?.addEventListener('click',()=>openBalanceAssistant('auto','allocation'));
+  $('#pilotBalance')?.addEventListener('click',()=>openBalanceAssistant('auto'));
   $('#pilotEditBudgetAside')?.addEventListener('click',()=>startWizard(b.id,3));
   $('#pilotEditReserve')?.addEventListener('click',()=>startWizard(b.id,4));
   $('#pilotEditBudgetSaving')?.addEventListener('click',()=>startWizard(b.id,4));
@@ -10905,7 +11022,7 @@ function recordFixedChargePayment(b,fixedId,amount,date=todayISO(),memberId=null
   if(!b||num(amount)<=0)return null;
   const x=(b.fixed||[]).find(y=>String(y.id)===String(fixedId));
   if(!x||x.dueThisCycle===false)return null;
-  const tx={id:uid(),type:'expense',kind:'normal',direction:null,amount:r2(amount),label:x.name,categoryId:null,category:`Charge · ${x.name}`,date:date||todayISO(),createdAt:Date.now(),memberId:memberId||null,source:'manual',bankVerified:false,bankNotificationId:null,plannedKind:'fixed',plannedId:x.id,plannedSnapshot:{id:x.id,name:x.name,amount:r2(x.amount)},linkedTxId:null,transferId:null,transferAccountId:null};
+  const tx={id:uid(),type:'expense',kind:'normal',direction:null,amount:r2(amount),label:x.name,categoryId:null,category:`Charge · ${x.name}`,date:date||todayISO(),createdAt:Date.now(),memberId:memberId||null,source:'manual',bankVerified:false,bankNotificationId:null,plannedKind:'fixed',plannedId:x.id,plannedSnapshot:null,linkedTxId:null,transferId:null,transferAccountId:null};
   x.dueThisCycle=false;x.confirmDeferredUntil=null;
   b.transactions.push(tx);
   return tx
@@ -11777,40 +11894,23 @@ function makeBalanceProposal(b,reserveUse=0){
   if(gap>.01){const free=b.envelopes.filter(e=>!e.locked),total=free.reduce((v,e)=>v+allocationWeight(e,b),0)||1,cents=Math.round(gap*100);let used=0;free.forEach((e,i)=>{const add=i===free.length-1?cents-used:Math.floor(cents*allocationWeight(e,b)/total);amounts[e.id]=r2(amounts[e.id]+add/100);used+=add})}
   gap=r2(targetPool-sumAmountMap(amounts));const changes=b.envelopes.map(e=>({id:e.id,name:e.name,icon:e.icon,from:e.amount,to:amounts[e.id],delta:r2(amounts[e.id]-e.amount)})).filter(x=>Math.abs(x.delta)>.009);return {amounts,gap,changes}
 }
-function openBalanceAssistant(mode='auto',requestedContext='overspend'){
+function openBalanceAssistant(mode='auto'){
   const b=active();if(!b)return;
-  const reb=rebalanceAvailability(b),allocationGap=r2(Math.max(0,-unallocated(b)));
-  const allocationMode=requestedContext==='allocation'&&allocationGap>.01;
-
-  if(!allocationMode&&!reb.overAmount){
-    showToast('Aucun réajustement n’est nécessaire pour le moment.');
+  const reb=rebalanceAvailability(b);
+  if(!reb.actionable){
+    showToast('Aucun réajustement n’est nécessaire.');
     return
   }
-  if(!allocationMode&&!reb.possible){
-    showToast('Rééquilibrage impossible : il n’y a pas assez de marge dans les autres enveloppes.');
-    return
-  }
-
-  balanceContext=allocationMode?'allocation':'overspend';
-  balanceMode=mode;balanceReserveUse=0;
-  const balanceTitle=$('#balanceModal h3'),balanceApply=$('#applyBalanceBtn');
-  if(balanceTitle)balanceTitle.textContent=allocationMode?'Réajuster mon budget':'Retrouver l’équilibre';
-  if(balanceApply)balanceApply.textContent=allocationMode?'Appliquer les ajustements':'Appliquer la proposition';
-  balancePredictivePlan=allocationMode?null:predictiveCyclePlan(b,0);
-  balanceDraft={amounts:amountMap(b)};
+  balanceMode=mode;balanceReserveUse=0;balancePredictivePlan=reb.globalDeficit>.01?{actionable:false}:predictiveCyclePlan(b,0);balanceDraft={amounts:amountMap(b)};
   b.envelopes.forEach(e=>balanceDraft.amounts[e.id]=Math.max(balanceDraft.amounts[e.id],spentFor(b,e.id)));
-
-  if(allocationMode){
-    const pressure=allocationPressureInsight(b);
-    $('#balanceLead').textContent=pressure?.text||`${euro(allocationGap)} doivent être réajustés pour que les enveloppes correspondent à l’argent réellement disponible.`;
-  }else{
-    const over=b.envelopes.filter(e=>envRemain(b,e)<-.01);
-    $('#balanceLead').textContent=balancePredictivePlan.actionable
+  const over=b.envelopes.filter(e=>envRemain(b,e)<-.01);
+  $('#balanceLead').textContent=reb.globalDeficit>.01
+    ?`Après une modification de ton budget, ${euro(reb.globalDeficit)} doivent être repris dans tes enveloppes. B² te propose où les réajuster, sans rien changer sans ton accord.`
+    :balancePredictivePlan.actionable
       ?`B² anticipe environ ${euro(balancePredictivePlan.totalRisk)} à rééquilibrer avant le prochain revenu. Rien ne change sans ton accord.`
       :remaining(b)<-.01
         ?`Il manque ${euro(Math.abs(remaining(b)))} sur le budget global.`
-        :over.length?`${over.length} enveloppe${over.length>1?'s ont':' a'} dépassé le montant prévu.`:'Aucune enveloppe n’est dépassée.'
-  }
+        :over.length?`${over.length} enveloppe${over.length>1?'s ont':' a'} dépassé le montant prévu.`:'Aucun réajustement n’est nécessaire.';
   renderBalanceAssistant();openModal('balanceModal')
 }
 function refreshBalanceManual(){
@@ -11823,9 +11923,10 @@ function renderBalanceAssistant(){
   $$('[data-balancemode]',$('#balanceModeTabs')).forEach(x=>x.classList.toggle('on',x.dataset.balancemode===balanceMode));
 
   if(balanceMode==='auto'){
-    balancePredictivePlan=balanceContext==='allocation'?null:predictiveCyclePlan(b,balanceReserveUse);
+    const hardAllocationGap=Math.max(0,-unallocated(b));
+    balancePredictivePlan=hardAllocationGap>.01?{actionable:false}:predictiveCyclePlan(b,balanceReserveUse);
 
-    if(balancePredictivePlan?.actionable){
+    if(balancePredictivePlan.actionable){
       const p=balancePredictivePlan;
       balanceDraft={amounts:p.amounts,proposal:p,predictive:true};
 
@@ -11953,12 +12054,9 @@ function renderBalanceAssistant(){
       const p=makeBalanceProposal(b,balanceReserveUse);
       balanceDraft={amounts:p.amounts,proposal:p,predictive:false};
 
-      const pressure=balanceContext==='allocation'?allocationPressureInsight(b):null;
       const stateBox=p.gap<-.01
-        ?`<div class="balance-box bad"><strong>Il manque encore ${euro(Math.abs(p.gap))}</strong>B² a respecté les montants déjà dépensés et toutes les enveloppes protégées.</div>`
-        :balanceContext==='allocation'
-          ?`<div class="balance-box good"><strong>✓ B² a trouvé comment absorber ${euro(pressure?.amount||Math.max(0,-unallocated(b)))}</strong>Les montants déjà dépensés restent intacts. Rien ne change sans ton accord.</div>`
-          :`<div class="balance-box good"><strong>✓ Équilibre retrouvé</strong>B² ne changera rien sans ton accord.</div>`;
+        ?`<div class="balance-box bad"><strong>Il manque encore ${euro(Math.abs(p.gap))}</strong>B² a respecté toutes les enveloppes protégées.</div>`
+        :`<div class="balance-box good"><strong>✓ Équilibre retrouvé</strong>B² ne changera rien sans ton accord.</div>`;
 
       const changeCards=p.changes.map(x=>{
         const currentRemain=r2(num(x.from)-spentFor(b,x.id));
@@ -11975,8 +12073,7 @@ function renderBalanceAssistant(){
       }).join('');
 
       body.innerHTML=`${stateBox}
-        ${balanceContext==='allocation'&&pressure?`<div class="status info"><strong>Pourquoi ?</strong><br>${esc(pressure.text)}</div>`:''}
-        ${changeCards?`<div class="section-title"><h3>${balanceContext==='allocation'?'Ajustements proposés':'Comment B² te propose de rééquilibrer'}</h3></div><div class="balance-explain-list">${changeCards}</div>`:'<div class="empty">Aucun déplacement nécessaire.</div>'}
+        ${changeCards?`<div class="section-title"><h3>Comment B² te propose de rééquilibrer</h3></div><div class="balance-explain-list">${changeCards}</div>`:'<div class="empty">Aucun déplacement nécessaire.</div>'}
         ${p.gap<-.01?`<button class="btn btn-white btn-full" id="balanceReserveBtn" type="button" ${b.reserve-balanceReserveUse<Math.abs(p.gap)-.01?'disabled':''}>${ico('shield')} Utiliser ma réserve</button>`:''}`;
 
       $('#applyBalanceBtn').disabled=p.gap<-.01;
@@ -12033,9 +12130,8 @@ function applyBalance(){
   }
 
   b.envelopes.forEach(e=>e.amount=r2(Math.max(spentFor(b,e.id),num(amounts[e.id]))));
-  const appliedContext=balanceContext;
   closeModal('balanceModal');save();
-  showToast(predictive?'Proposition B² appliquée.':appliedContext==='allocation'?'Budget réajusté.':'Budget rééquilibré.','Annuler',()=>{
+  showToast(predictive?'Proposition B² appliquée.':'Budget rééquilibré.','Annuler',()=>{
     b.reserve=before.reserve;b.reserveUsedThisCycle=before.reserveUsedThisCycle;
     b.envelopes.forEach(e=>e.amount=before.amounts[e.id]??e.amount);
     (b.savings||[]).forEach(g=>g.cycleReduction=before.savings[g.id]||0);
@@ -12056,7 +12152,7 @@ function budgetProfileOf(b){
     pets:['none','one','several'].includes(p.pets)?p.pets:'none',
     clothing:['low','regular','high'].includes(p.clothing)?p.clothing:'regular',
     leisure:['home','balanced','active'].includes(p.leisure)?p.leisure:'balanced',
-    cushion:p.cushion==='tight'?'full':(['full','balanced','safe'].includes(p.cushion)?p.cushion:'balanced'),
+    cushion:'full',
     childStages:Array.isArray(p.childStages)?p.childStages.filter(x=>['baby','school','teen'].includes(x)):[],
     childNeeds:Array.isArray(p.childNeeds)?p.childNeeds.filter(x=>['canteen','childcare','activities'].includes(x)):[],
     priorities
@@ -12065,21 +12161,12 @@ function budgetProfileOf(b){
 function profileHas(p,key){return Array.isArray(p?.priorities)&&p.priorities.includes(key)}
 function profileChildStage(p,key){return Array.isArray(p?.childStages)&&p.childStages.includes(key)}
 function profileChildNeed(p,key){return Array.isArray(p?.childNeeds)&&p.childNeeds.includes(key)}
-function profileCushionMode(b){
-  const p=budgetProfileOf(b);
-  return ['full','balanced','safe'].includes(p.cushion)?p.cushion:'balanced'
-}
-function profileAllocationShare(b){
-  const mode=profileCushionMode(b);
-  return mode==='full'?1:mode==='safe'?.88:.95
-}
-function profileMarginLabel(b){
-  const mode=profileCushionMode(b);
-  return mode==='full'?'Tout le disponible est réparti':mode==='safe'?'Marge confortable':'Petite marge'
-}
-function intentionalMarginTarget(b){
-  return r2(Math.max(0,allocationPool(b)*(1-profileAllocationShare(b))))
-}
+/* v14.44 — la réserve est l'unique coussin de sécurité volontaire.
+   B² ne retient plus 5 % ou 12 % supplémentaires hors des enveloppes. */
+function profileCushionMode(){return 'full'}
+function profileAllocationShare(){return 1}
+function profileMarginLabel(){return 'Réserve uniquement · tout le disponible est réparti'}
+function intentionalMarginTarget(){return 0}
 function profileRecommendedCategories(b){
   const p=budgetProfileOf(b),h=b.household||{adults:1,children:0},out=[];
   const kids=Math.max(0,num(h.children));
@@ -12134,7 +12221,6 @@ function profileSummary(b){
   parts.push(p.mobility==='low'?'peu de déplacements':p.mobility==='high'?'beaucoup de déplacements':'déplacements réguliers');
   if(p.pets!=='none')parts.push(p.pets==='several'?'plusieurs animaux':'un animal');
   if(p.leisure==='active')parts.push('sorties fréquentes');
-  if(p.cushion==='safe')parts.push('marge de sécurité renforcée');
   return parts.join(' · ')
 }
 function allocationWeight(e,b){
@@ -12260,7 +12346,7 @@ function applyIncomeAllocationManual(){
 
 function autoBalance(b,shareOverride=null){
   const before=amountMap(b);
-  const share=shareOverride==null?profileAllocationShare(b):clamp(num(shareOverride),0,1);
+  const share=shareOverride==null?1:clamp(num(shareOverride),0,1);
   const target=Math.max(0,allocationPool(b)*share),
     locked=b.envelopes.filter(e=>e.locked),free=b.envelopes.filter(e=>!e.locked);
   let lockedTotal=locked.reduce((s,e)=>s+Math.max(e.amount,spentFor(b,e.id)),0);
@@ -12418,7 +12504,7 @@ function startWizard(id=null,jump=null,opts=null){
   wizard=saved?normalizeBudget(saved.wizard):(editing?normalizeBudget(JSON.parse(JSON.stringify(editing))):makeBlankAccountV11(v11WizardGroupId,defaultName,v11WizardShared));wizard.budgetGroupId=v11WizardGroupId;wizard.type=v11WizardShared?'shared':'personal';
   if(!editing&&first){
     wizard.household=JSON.parse(JSON.stringify(first.household||{adults:1,children:0}));
-    wizard.budgetProfile=JSON.parse(JSON.stringify(first.budgetProfile||{meals:'mixed',mobility:'regular',housing:'tenant',pets:'none',clothing:'regular',leisure:'balanced',cushion:'balanced',childStages:[],childNeeds:[],priorities:[]}))
+    wizard.budgetProfile=JSON.parse(JSON.stringify(first.budgetProfile||{meals:'mixed',mobility:'regular',housing:'tenant',pets:'none',clothing:'regular',leisure:'balanced',cushion:'full',childStages:[],childNeeds:[],priorities:[]}));wizard.budgetProfile.cushion='full'
   }
   if(v11WizardShared)wizard.members=JSON.parse(JSON.stringify(g?.members?.length?g.members:[{id:uid(),name:'Moi',contribution:0,current:true,status:'joined',role:'owner',recipient:''}]));
   wizardBalanceMode=wizard.buildMode==='manual'?'manual':'auto';wizardStep=jump!=null?jump:(saved?.wizardStep??0);if(saved){wizardAccountBalance=num(saved.wizardAccountBalance);wizardCashExtra=num(saved.wizardCashExtra)}else{wizardCashExtra=Math.max(0,num(wizard.startCash));wizardAccountBalance=r2(num(wizard.startBalance)-wizardCashExtra)}
@@ -12654,19 +12740,7 @@ function renderWizardBase(){
         </div>
       </div>
 
-      <div class="card profile-card">
-        <div class="profile-question">
-          <strong>Quelle marge veux-tu garder ?</strong>
-          <span>Après tes charges, ton épargne et ta réserve, choisis ce que B² fait du reste disponible.</span>
-          <div class="profile-options">
-            <button class="profile-option ${p.cushion==='full'?'on':''}" data-profile-cushion="full" type="button">${ico('money')}<span>Utiliser tout mon disponible</span></button>
-            <button class="profile-option ${p.cushion==='balanced'?'on':''}" data-profile-cushion="balanced" type="button">${ico('shield')}<span>Garder une petite marge</span></button>
-            <button class="profile-option ${p.cushion==='safe'?'on':''}" data-profile-cushion="safe" type="button">${ico('shield')}<span>Garder une marge confortable</span></button>
-          </div>
-        </div>
-      </div>
-
-      <div class="profile-note"><strong>Ce que B² fera avec tout ça :</strong> il ajustera ses recommandations d’enveloppes, leur poids de départ, les charges mises en avant et la part qu’il laisse volontairement disponible. Dès que tu utilises l’app, tes vraies habitudes prennent progressivement le dessus sur ce questionnaire.</div>
+      <div class="profile-note"><strong>Ce que B² fera avec tout ça :</strong> il ajustera ses recommandations d’enveloppes, leur poids de départ et les charges mises en avant. Après les charges, l’épargne, les sommes à préparer et ta réserve, tout le disponible restant est réparti dans les enveloppes. Dès que tu utilises l’app, tes vraies habitudes prennent progressivement le dessus sur ce questionnaire.</div>
 
       ${wizard.type==='shared'?`<div class="section-title"><h3>Membres du compte</h3></div><div class="card flat"><div class="help" style="margin:0 0 10px">Ce sont les personnes qui auront accès à ce compte partagé.</div><div id="memberList">${wizard.members.map(memberRow).join('')}</div><button class="btn btn-white btn-full" id="addMember" type="button">＋ Ajouter un membre</button></div>`:''}`
   }
@@ -12760,11 +12834,11 @@ function renderWizardBase(){
       ${wizard.envelopes.length?`
         <div class="b2-final-overview">
           <div><span>Dans tes enveloppes</span><strong>${euro(allocated(wizard))}</strong></div>
-          <div><span>${profileCushionMode(wizard)==='full'?'Reste à répartir':'Marge gardée'}</span><strong>${euro(margin)}</strong></div>
+          <div><span>Reste à répartir</span><strong>${euro(margin)}</strong></div>
         </div>
 
         <div class="section-title"><h3>Tes enveloppes</h3></div>
-        <div class="b2-final-simple-note">${ico('spark')}<span>${profileCushionMode(wizard)==='full'?'Tu as choisi d’utiliser tout le disponible restant.':`Tu as choisi de garder ${profileCushionMode(wizard)==='safe'?'une marge confortable':'une petite marge'} hors des enveloppes.`} Modifie un montant : B² rééquilibre automatiquement les autres enveloppes <strong>ajustables</strong>. Une enveloppe protégée reste intacte.</span></div>
+        <div class="b2-final-simple-note">${ico('spark')}<span>Après les sommes protégées et ta réserve, B² répartit tout le disponible restant. Modifie un montant : B² rééquilibre automatiquement les autres enveloppes <strong>ajustables</strong>. Une enveloppe protégée reste intacte.</span></div>
         <div class="b2-final-env-list" id="wAlloc">${wizard.envelopes.map(wizardFinalEnvelopeRow).join('')}</div>
       `:''}
 
@@ -13177,7 +13251,7 @@ function nextWizard(){
 }
 function prevWizard(){captureWizard();saveWizardDraft();if(!v11WizardCreatingBudget&&wizardStep===2){wizardStep=0;renderWizard();wizardTop();return}if(wizardStep>0){wizardStep=wizardStep===6?4:wizardStep-1;renderWizard();wizardTop()}}
 function autoAllocateWizard(){
-  const capacity=Math.max(0,wizardPlanningPool(wizard)*profileAllocationShare(wizard)),plan=smartEnvelopeTargets(wizard,capacity);
+  const capacity=Math.max(0,wizardPlanningPool(wizard)),plan=smartEnvelopeTargets(wizard,capacity);
   wizard.envelopes.forEach(e=>{
     const minimum=wizardEditId?spentFor(wizard,e.id):0;
     if(e.locked)e.amount=Math.max(minimum,num(e.amount));
@@ -13494,7 +13568,7 @@ function renderEndPeriodReview(){
     </div>
     <div class="small muted" style="line-height:1.45;margin-top:8px">
       B² reprend bien <strong>${future.carry<0?'− ':''}${euro(Math.abs(future.carry))}</strong> de la période précédente.
-      Après environ ${euro(future.protected.total)} de charges, épargne, dépenses prévues et sommes protégées.${future.margin>.01?` B² garderait ${euro(future.margin)} de marge.`:' Tout le disponible restant peut être réparti.'}
+      Après environ ${euro(future.protected.total)} de charges, épargne, dépenses prévues et sommes protégées. Tout le disponible restant peut être réparti dans les enveloppes.
     </div>
   </div>`:'';
 
@@ -13741,7 +13815,7 @@ function makeBlankAccountV11(groupId,name='Compte principal',shared=false){
   return normalizeBudget({
     id:uid(),name,budgetGroupId:groupId,type:shared?'shared':'personal',accountKind:'personal',active:false,
     startMode:'now',nextIncomeDate:addMonthsISO(todayISO(),1),cycleStart:todayISO(),cycleEnd:addMonthsISO(todayISO(),1),
-    startBalance:0,household:{adults:1,children:0},budgetProfile:{meals:'mixed',mobility:'regular',housing:'tenant',pets:'none',clothing:'regular',leisure:'balanced',cushion:'balanced',childStages:[],childNeeds:[],priorities:[]},members:shared?[{id:uid(),name:'Moi',contribution:0,current:true,status:'joined',role:'owner',recipient:''}]:[],
+    startBalance:0,household:{adults:1,children:0},budgetProfile:{meals:'mixed',mobility:'regular',housing:'tenant',pets:'none',clothing:'regular',leisure:'balanced',cushion:'full',childStages:[],childNeeds:[],priorities:[]},members:shared?[{id:uid(),name:'Moi',contribution:0,current:true,status:'joined',role:'owner',recipient:''}]:[],
     incomeMode:'global',income:0,incomeSources:[],fixed:[],oneOffs:[],exceptionalIncomes:[],provisions:[],provisionHistory:[],savings:[],reserve:0,buildMode:'manual',lifestyle:[],
     envelopes:[],transactions:[]
   })
@@ -13893,7 +13967,7 @@ function openAccountSummary(id){
     <div class="card flat">
       <div class="summary-line"><span>Période</span><strong>${fmtDate(a.cycleStart)} → ${fmtDate(a.cycleEnd)}</strong></div>
       <div class="summary-line"><span>Foyer</span><strong>${esc(householdLabel(a))}</strong></div>
-      <div class="summary-line"><span>Mode de marge</span><strong>${esc(profileMarginLabel(a))}</strong></div>
+      <div class="summary-line"><span>Sécurité du budget</span><strong>${esc(profileMarginLabel(a))}</strong></div>
     </div>
 
     ${statusLine}`,
