@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#075a4d">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<title>B² v14.54 — protections financières verrouillées</title>
+<title>B² v14.55 — protections financières verrouillées</title>
 <style>
 :root{
   --brand:#075a4d;--brand2:#0a7965;--brand3:#0f8f72;--lime:#b9ef68;
@@ -4084,6 +4084,51 @@ function migrateLegacyAllocationPolicyV1444(s){
 
 let state=emptyState();
 state=migrate();
+
+/* v14.55 — restauration ponctuelle de la répartition observée avant le bug v14.55.
+   Important : on ne touche ni aux transactions ni à leur historique. Pour chaque
+   enveloppe visible sur les captures de référence, on reconstruit simplement son
+   allocation comme : dépenses réelles déjà enregistrées + reste observé.
+   Le marqueur localStorage garantit que cette restauration ne s'exécute qu'une fois. */
+const B2_V1455_ENVELOPE_RESTORE_KEY='B2_V1455_ENVELOPE_RESTORE_DONE';
+function restoreEnvelopeSnapshotV1455(s){
+  try{
+    if(localStorage.getItem(B2_V1455_ENVELOPE_RESTORE_KEY)==='1')return false;
+    const g=s?.budgetGroups?.find(x=>x.active);
+    const b=g?((s.budgets||[]).find(x=>String(x.id)===String(g.activeAccountId))||(s.budgets||[]).find(x=>String(x.budgetGroupId)===String(g.id))):null;
+    if(!b||!Array.isArray(b.envelopes))return false;
+    const wanted=[
+      {match:/course|quotidien|aliment/i,remaining:159.79,locked:true},
+      {match:/animaux|animal|chien|chat/i,remaining:52.27},
+      {match:/v[eê]tement/i,remaining:0,locked:true},
+      {match:/sant[eé]|pharm|m[eé]dec/i,remaining:49.61,locked:true},
+      {match:/tabac|cigarette|vap/i,remaining:1.48},
+      {match:/travaux|bricol|maison.*entretien/i,remaining:57.34}
+    ];
+    let changed=false,found=0;
+    wanted.forEach(rule=>{
+      const e=b.envelopes.find(x=>rule.match.test(String(x.name||'')));
+      if(!e)return;
+      found++;
+      const spent=spentFor(b,e.id);
+      const target=r2(Math.max(0,spent+rule.remaining));
+      if(Math.abs(num(e.amount)-target)>.001){e.amount=target;changed=true}
+      if(rule.locked===true&&e.locked!==true){e.locked=true;changed=true}
+    });
+    // Ne marque la restauration comme faite que si les 6 enveloppes de référence
+    // ont bien été retrouvées : pas de restauration partielle silencieuse.
+    if(found===wanted.length){
+      localStorage.setItem(B2_V1455_ENVELOPE_RESTORE_KEY,'1');
+      if(changed)localStorage.setItem(KEY,JSON.stringify(s));
+      return changed
+    }
+    return false
+  }catch(e){
+    console.warn('B² v14.55 : restauration des enveloppes ignorée sans bloquer l’application',e);
+    return false
+  }
+}
+const b2V1455EnvelopeRestored=restoreEnvelopeSnapshotV1455(state);
 let plusAfterAction=null,currentPage='home',pilotTab=state.ui.pilotTab||'envelopes',movementFilter=state.ui.movementFilter||'all',txDraft={type:'expense'},overspendCtx=null,incomeAllocationDraft=null,editEnvId=null,envMode='auto',envEditDraft=null,balanceMode='auto',balanceDraft=null,balanceReserveUse=0,balancePredictivePlan=null,detailId=null,wizard=null,wizardStep=0,wizardEditId=null,wizardBalanceMode='auto',billDraft={mode:'monthly',dueThisCycle:true},savingDraft={mode:'regular'},simpleSaveHandler=null,confirmHandler=null,closingStep=0,closingFree=0,closingReview=null,closingReason='manual',wizardAccountBalance=0,wizardCashExtra=0,toastTimer=null,toastAction=null;
 let b2OpeningIncomeRepaired=false,b2IncomeLearningRepaired=false,b2EarlySalaryAutoRepaired=false,b2AllocationPolicyMigrated=false;
 try{
@@ -12576,7 +12621,7 @@ function startWizard(id=null,jump=null,opts=null){
   wizardBalanceMode=wizard.buildMode==='manual'?'manual':'auto';wizardStep=jump!=null?jump:(saved?.wizardStep??0);if(saved){wizardAccountBalance=num(saved.wizardAccountBalance);wizardCashExtra=num(saved.wizardCashExtra)}else{wizardCashExtra=Math.max(0,num(wizard.startCash));wizardAccountBalance=r2(num(wizard.startBalance)-wizardCashExtra)}
   if(wizard._startNegative==null)wizard._startNegative=wizardAccountBalance<0;if(wizardStep===5)wizardStep=6;wizard.buildMode='auto';wizardBalanceMode='auto';wizard._originalStructureSignature=wizard._originalStructureSignature||budgetStructureSignature(wizard);wizard._lastStructureSignature=wizard._lastStructureSignature||wizard._originalStructureSignature;if(wizard._allocated==null)wizard._allocated=!!editing;showPage('wizard')
 }
-/* v14.54 — modifier un budget existant ne doit jamais relancer sa répartition tout seul. */
+/* v14.55 — modifier un budget existant ne doit jamais relancer sa répartition tout seul. */
 function invalidateWizardAllocation(){
   if(!wizard)return;
   // En création, B² peut encore préparer une répartition. En modification, les montants
@@ -13056,7 +13101,7 @@ function wizardAdjustEnvelope(id,target){
   e.amount=Math.max(min,r2(target));
   wizard._allocated=true;
 
-  // v14.54 : sur un budget déjà validé, modifier une enveloppe ne touche jamais
+  // v14.55 : sur un budget déjà validé, modifier une enveloppe ne touche jamais
   // aux autres. Le reste à répartir (ou le dépassement) montre simplement l'effet
   // du choix de l'utilisateur. Une redistribution globale exige une action explicite.
   if(wizardEditId){wizardBalanceMode='manual';return}
