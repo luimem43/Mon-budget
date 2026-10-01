@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#075a4d">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<title>B² v14.55 — protections financières verrouillées</title>
+<title>B² v14.61 — transferts multi-comptes verrouillés</title>
 <style>
 :root{
   --brand:#075a4d;--brand2:#0a7965;--brand3:#0f8f72;--lime:#b9ef68;
@@ -2223,7 +2223,7 @@ button{
 <div class="field"><label for="txAmount">Montant</label><input id="txAmount" type="number" inputmode="decimal" step="0.01" placeholder="0,00"></div>
 <div class="field" id="txCategoryWrap"><label id="txCategoryLabel" for="txCategory">Enveloppe</label><select id="txCategory"></select></div>
 <div class="field hidden" id="txRefundExpenseWrap"><label for="txRefundExpense">Dépense remboursée <span style="font-weight:650;color:var(--muted)">(facultatif)</span></label><select id="txRefundExpense"></select><div class="help">B² recrédite automatiquement l’enveloppe correspondante.</div></div>
-<div class="field hidden" id="txTransferWrap"><label for="txTransferAccount">Vers quel compte ?</label><select id="txTransferAccount"></select><div class="help">Le transfert sera créé sur les deux comptes, sans compter comme dépense ni comme revenu.</div></div>
+<div class="field hidden" id="txTransferWrap"><label for="txTransferAccount">Compte d’arrivée</label><select id="txTransferAccount"></select><div class="help">Le transfert déplace seulement l’argent entre tes comptes : il ne modifie ni tes enveloppes ni ton disponible global.</div></div>
 <div class="field hidden" id="txMemberWrap"><label for="txMember">Qui a payé ?</label><select id="txMember"></select><div class="help">Le budget reste commun ; B² garde simplement la trace de qui a payé quoi.</div></div>
 <div class="field"><label for="txLabel">Libellé</label><input id="txLabel" autocomplete="off" placeholder="Ex. restaurant"></div><div class="field"><label for="txDate">Date</label><input id="txDate" type="date"></div><div class="modal-actions"><button class="btn btn-soft" data-close="transactionModal" type="button">Annuler</button><button class="btn btn-primary" id="saveTxBtn" type="button">Enregistrer</button></div></div></div>
 
@@ -3281,6 +3281,7 @@ function applyRemoteSharedRow(row){
   accounts.forEach(a=>state.budgets.push(normalizeBudget({...a,budgetGroupId:g.id,type:'shared',remoteSharedId:row.id,active:false,members:g.members,shareInvites:g.shareInvites})));
   g.accountIds=accountsForBudget(g.id).map(a=>a.id);
   if(!g.activeAccountId||!g.accountIds.some(id=>String(id)===String(g.activeAccountId)))g.activeAccountId=g.accountIds[0]||null;
+    if(!g.planAccountId||!g.accountIds.some(id=>String(id)===String(g.planAccountId)))g.planAccountId=g.accountIds[0]||null;
   syncBudgetSharing(g)
 }
 async function syncRemoteSharedBudgets({render=true}={}){
@@ -3716,7 +3717,7 @@ function normalizeBudget(b){
         arrivalHistory:Array.isArray(x.arrivalHistory)?x.arrivalHistory.slice(-8).map(h=>({
           expectedDate:h.expectedDate||'',actualDate:h.actualDate||'',offsetDays:Math.round(num(h.offsetDays))
         })).filter(h=>h.actualDate):[],
-        bankAliases:Array.isArray(x.bankAliases)?x.bankAliases.slice(-8):[]
+        bankAliases:Array.isArray(x.bankAliases)?x.bankAliases.slice(-8):[],accountId:x.accountId||null
       }
     }):[],
     fixed:Array.isArray(b.fixed)?b.fixed.map(x=>{
@@ -3724,13 +3725,13 @@ function normalizeBudget(b){
       const rawRemaining=x.remainingPayments!=null?Math.round(num(x.remainingPayments)):(x.totalPayments!=null?Math.round(num(x.totalPayments)):1);
       const remainingPayments=durationMode==='months'?Math.max(0,rawRemaining):null;
       const totalPayments=durationMode==='months'?Math.max(remainingPayments,Math.round(num(x.totalPayments??remainingPayments))):null;
-      return {id:x.id||uid(),name:x.name||'Charge',amount:Math.max(0,num(x.amount)),dueThisCycle:x.dueThisCycle!==false,dueDay:x.dueDay==null?null:clamp(Math.round(num(x.dueDay)),1,31),durationMode,remainingPayments,totalPayments,endDate:durationMode==='date'?(x.endDate||null):null,systemKey:x.systemKey||null,bankAliases:Array.isArray(x.bankAliases)?x.bankAliases.slice(-8):[],confirmDeferredUntil:x.confirmDeferredUntil||null}
+      return {id:x.id||uid(),name:x.name||'Charge',amount:Math.max(0,num(x.amount)),dueThisCycle:x.dueThisCycle!==false,dueDay:x.dueDay==null?null:clamp(Math.round(num(x.dueDay)),1,31),durationMode,remainingPayments,totalPayments,endDate:durationMode==='date'?(x.endDate||null):null,systemKey:x.systemKey||null,bankAliases:Array.isArray(x.bankAliases)?x.bankAliases.slice(-8):[],confirmDeferredUntil:x.confirmDeferredUntil||null,accountId:x.accountId||null}
     }).filter(x=>x.durationMode!=='months'||num(x.remainingPayments)>0):[],
-    oneOffs:Array.isArray(b.oneOffs)?b.oneOffs.map(x=>({id:x.id||uid(),name:x.name||'Dépense prévue',amount:num(x.amount),bankAliases:Array.isArray(x.bankAliases)?x.bankAliases.slice(-8):[]})):[],
+    oneOffs:Array.isArray(b.oneOffs)?b.oneOffs.map(x=>({id:x.id||uid(),name:x.name||'Dépense prévue',amount:num(x.amount),bankAliases:Array.isArray(x.bankAliases)?x.bankAliases.slice(-8):[],accountId:x.accountId||null})):[],
     exceptionalIncomes:Array.isArray(b.exceptionalIncomes)?b.exceptionalIncomes.map(x=>({id:x.id||uid(),name:x.name||'Revenu exceptionnel',amount:Math.max(0,num(x.amount))})):[],
-    provisions:Array.isArray(b.provisions)?b.provisions.map(x=>({id:x.id||uid(),name:x.name||'À mettre de côté',targetAmount:num(x.targetAmount),dueDate:x.dueDate||addMonthsISO(todayISO(),12),savedAmount:num(x.savedAmount),manualContribution:x.manualContribution==null?null:num(x.manualContribution),recurringMonths:[2,3,6,12].includes(num(x.recurringMonths))?num(x.recurringMonths):null,status:['active','ready','kept'].includes(x.status)?x.status:'active',readyAt:x.readyAt||null,lastPaidAt:x.lastPaidAt||null,cycleReduction:0,periodContributionDone:x.periodContributionDone===true})):[],
+    provisions:Array.isArray(b.provisions)?b.provisions.map(x=>({id:x.id||uid(),name:x.name||'À mettre de côté',targetAmount:num(x.targetAmount),dueDate:x.dueDate||addMonthsISO(todayISO(),12),savedAmount:num(x.savedAmount),manualContribution:x.manualContribution==null?null:num(x.manualContribution),recurringMonths:[2,3,6,12].includes(num(x.recurringMonths))?num(x.recurringMonths):null,status:['active','ready','kept'].includes(x.status)?x.status:'active',readyAt:x.readyAt||null,lastPaidAt:x.lastPaidAt||null,cycleReduction:0,periodContributionDone:x.periodContributionDone===true,accountId:x.accountId||null})):[],
     provisionHistory:Array.isArray(b.provisionHistory)?b.provisionHistory.map(x=>({id:x.id||uid(),name:x.name||'Cagnotte',amount:num(x.amount),targetAmount:num(x.targetAmount),dueDate:x.dueDate||null,usedAt:x.usedAt||Date.now(),action:x.action||'used'})):[],
-    savings:Array.isArray(b.savings)?b.savings.map(x=>({id:x.id||uid(),name:x.name||'Épargne',monthlyAmount:num(x.monthlyAmount??x.amount),currentSaved:num(x.currentSaved),targetAmount:x.targetAmount==null?null:num(x.targetAmount),dueDate:x.dueDate||null,dueThisCycle:x.dueThisCycle!==false,cycleReduction:0})):[],
+    savings:Array.isArray(b.savings)?b.savings.map(x=>({id:x.id||uid(),name:x.name||'Épargne',monthlyAmount:num(x.monthlyAmount??x.amount),currentSaved:num(x.currentSaved),targetAmount:x.targetAmount==null?null:num(x.targetAmount),dueDate:x.dueDate||null,dueThisCycle:x.dueThisCycle!==false,cycleReduction:0,accountId:x.accountId||null})):[],
     reserve:num(b.reserve),reserveTarget:num(b.reserveTarget??b.reserve),reserveUsedThisCycle:num(b.reserveUsedThisCycle),
     buildMode:b.buildMode==='manual'?'manual':'auto',
     lifestyle:Array.isArray(b.lifestyle)?b.lifestyle:[],
@@ -4084,51 +4085,6 @@ function migrateLegacyAllocationPolicyV1444(s){
 
 let state=emptyState();
 state=migrate();
-
-/* v14.55 — restauration ponctuelle de la répartition observée avant le bug v14.55.
-   Important : on ne touche ni aux transactions ni à leur historique. Pour chaque
-   enveloppe visible sur les captures de référence, on reconstruit simplement son
-   allocation comme : dépenses réelles déjà enregistrées + reste observé.
-   Le marqueur localStorage garantit que cette restauration ne s'exécute qu'une fois. */
-const B2_V1455_ENVELOPE_RESTORE_KEY='B2_V1455_ENVELOPE_RESTORE_DONE';
-function restoreEnvelopeSnapshotV1455(s){
-  try{
-    if(localStorage.getItem(B2_V1455_ENVELOPE_RESTORE_KEY)==='1')return false;
-    const g=s?.budgetGroups?.find(x=>x.active);
-    const b=g?((s.budgets||[]).find(x=>String(x.id)===String(g.activeAccountId))||(s.budgets||[]).find(x=>String(x.budgetGroupId)===String(g.id))):null;
-    if(!b||!Array.isArray(b.envelopes))return false;
-    const wanted=[
-      {match:/course|quotidien|aliment/i,remaining:159.79,locked:true},
-      {match:/animaux|animal|chien|chat/i,remaining:52.27},
-      {match:/v[eê]tement/i,remaining:0,locked:true},
-      {match:/sant[eé]|pharm|m[eé]dec/i,remaining:49.61,locked:true},
-      {match:/tabac|cigarette|vap/i,remaining:1.48},
-      {match:/travaux|bricol|maison.*entretien/i,remaining:57.34}
-    ];
-    let changed=false,found=0;
-    wanted.forEach(rule=>{
-      const e=b.envelopes.find(x=>rule.match.test(String(x.name||'')));
-      if(!e)return;
-      found++;
-      const spent=spentFor(b,e.id);
-      const target=r2(Math.max(0,spent+rule.remaining));
-      if(Math.abs(num(e.amount)-target)>.001){e.amount=target;changed=true}
-      if(rule.locked===true&&e.locked!==true){e.locked=true;changed=true}
-    });
-    // Ne marque la restauration comme faite que si les 6 enveloppes de référence
-    // ont bien été retrouvées : pas de restauration partielle silencieuse.
-    if(found===wanted.length){
-      localStorage.setItem(B2_V1455_ENVELOPE_RESTORE_KEY,'1');
-      if(changed)localStorage.setItem(KEY,JSON.stringify(s));
-      return changed
-    }
-    return false
-  }catch(e){
-    console.warn('B² v14.55 : restauration des enveloppes ignorée sans bloquer l’application',e);
-    return false
-  }
-}
-const b2V1455EnvelopeRestored=restoreEnvelopeSnapshotV1455(state);
 let plusAfterAction=null,currentPage='home',pilotTab=state.ui.pilotTab||'envelopes',movementFilter=state.ui.movementFilter||'all',txDraft={type:'expense'},overspendCtx=null,incomeAllocationDraft=null,editEnvId=null,envMode='auto',envEditDraft=null,balanceMode='auto',balanceDraft=null,balanceReserveUse=0,balancePredictivePlan=null,detailId=null,wizard=null,wizardStep=0,wizardEditId=null,wizardBalanceMode='auto',billDraft={mode:'monthly',dueThisCycle:true},savingDraft={mode:'regular'},simpleSaveHandler=null,confirmHandler=null,closingStep=0,closingFree=0,closingReview=null,closingReason='manual',wizardAccountBalance=0,wizardCashExtra=0,toastTimer=null,toastAction=null;
 let b2OpeningIncomeRepaired=false,b2IncomeLearningRepaired=false,b2EarlySalaryAutoRepaired=false,b2AllocationPolicyMigrated=false;
 try{
@@ -4371,7 +4327,7 @@ function active(){
     }
   }
   if(!g||!canUseBudgetGroup(g))return null;
-  return byId(g.activeAccountId)||accountsForBudget(g.id)[0]||null
+  return planAccountForBudget(g)||accountsForBudget(g.id)[0]||null
 } function byId(id){return state.budgets.find(b=>String(b.id)===String(id))||null}
 function sum(arr,key='amount'){return (arr||[]).reduce((s,x)=>s+num(x[key]),0)}
 
@@ -4506,12 +4462,16 @@ function refundAppliedTotal(b){return refundCreditModel(b).applied}
 function refundExcessIncome(b){return refundCreditModel(b).excess}
 function allocatableCashIncome(b){return r2(extraIncome(b)+refundExcessIncome(b))}
 function cashIncome(b){return r2(extraIncome(b)+refundIncome(b))}
-function transferNet(b){return r2((b.transactions||[]).filter(t=>t.type==='transfer').reduce((s,t)=>s+(t.direction==='in'?num(t.amount):-num(t.amount)),0))}
+function transferNet(b){
+  const g=b?.budgetGroupId?budgetById(b.budgetGroupId):null;
+  const txs=g&&String(planAccountForBudget(g)?.id)===String(b.id)?budgetTransactions(b):(b.transactions||[]);
+  return r2(txs.filter(t=>t.type==='transfer').reduce((s,t)=>s+(t.direction==='in'?num(t.amount):-num(t.amount)),0))
+}
 function plannedExceptionalIncome(b){return r2((b.exceptionalIncomes||[]).reduce((s,x)=>s+Math.max(0,num(x.amount)),0))}
-function expenses(b){return r2((b.transactions||[]).filter(t=>t.type==='expense').reduce((s,t)=>s+num(t.amount),0))}
+function expenses(b){return r2(budgetTransactions(b).filter(t=>t.type==='expense').reduce((s,t)=>s+num(t.amount),0))}
 function netExpenses(b){return r2(Math.max(0,expenses(b)-refundAppliedTotal(b)))}
 function spentFor(b,id){
-  const key=String(id),out=(b.transactions||[]).filter(t=>t.type==='expense'&&String(t.categoryId)===key).reduce((s,t)=>s+num(t.amount),0);
+  const key=String(id),out=budgetTransactions(b).filter(t=>t.type==='expense'&&String(t.categoryId)===key).reduce((s,t)=>s+num(t.amount),0);
   const back=num(refundCreditModel(b).creditByCategory[key]);
   return r2(Math.max(0,out-back))
 }
@@ -6663,7 +6623,11 @@ function smartPlanningCapacity(b){
   return Math.max(0,wizardPlanningPoolLegacy(b))
 }
 
-function currentCashEstimate(b){return r2(num(b.startBalance)+cashIncome(b)+transferNet(b)-expenses(b))}
+function currentCashEstimate(b){
+  const g=b?.budgetGroupId?budgetById(b.budgetGroupId):null;
+  if(g&&String(planAccountForBudget(g)?.id)===String(b.id))return r2(accountsForBudget(g.id).reduce((sum,a)=>sum+accountCashEstimate(a),0));
+  return accountCashEstimate(b)
+}
 function futureIncomeSources(b){
   const today=todayISO();
   return (b.incomeSources||[]).filter(x=>x.nextDate&&x.nextDate>=today&&num(x.amount)>0).sort((a,z)=>{
@@ -9367,6 +9331,21 @@ function bankTextHasStrongMovementContext(raw){
 function bankSourceLooksFinancial(sourceApp,label=''){
   return !!builtInBankApp(sourceApp,label)||knownBankSource(sourceApp)
 }
+function dedupeStoredBankNotificationsV1460(b){
+  if(!b||!Array.isArray(b.bankNotifications)||b.bankNotifications.length<2)return false;
+  const keep=[],seen=new Map();let changed=false;
+  [...b.bankNotifications].sort((a,z)=>num(a.createdAt)-num(z.createdAt)).forEach(n=>{
+    const fp=bankNotificationFingerprint(n),prev=seen.get(fp);
+    if(fp&&prev&&Math.abs(num(n.createdAt)-num(prev.createdAt))<=24*3600000){
+      const prevImportant=prev.status==='matched'||!!prev.matchedTxId,curImportant=n.status==='matched'||!!n.matchedTxId;
+      if(curImportant&&!prevImportant){const i=keep.indexOf(prev);if(i>=0)keep[i]=n;seen.set(fp,n)}
+      changed=true;return
+    }
+    keep.push(n);if(fp)seen.set(fp,n)
+  });
+  if(changed)b.bankNotifications=keep;
+  return changed
+}
 function visibleBankNotification(n){
   if(!n||n.status!=='pending')return false;
   if(isBlockedBankSource(n.sourceApp))return false;
@@ -9580,16 +9559,21 @@ function parseBankNotificationText(raw,{sourceFinance=false,sourceTrusted=false,
   }
   return {type,amount,merchant,rawText:t,sign,format}
 }
+function bankNotificationFingerprint(n){
+  const source=String(n?.sourceApp||'').trim().toLowerCase(),type=String(n?.type||'expense');
+  const amount=r2(Math.abs(num(n?.amount))),raw=bankAliasKey(n?.rawText||''),merchant=bankAliasKey(n?.merchant||'');
+  return `${source}|${type}|${amount}|${raw||merchant}`
+}
 function repeatedBankNotification(b,n){
-  const rawKey=bankAliasKey(n.rawText||''),merchantKey=bankAliasKey(n.merchant||'');
+  const fp=bankNotificationFingerprint(n),rawKey=bankAliasKey(n.rawText||''),merchantKey=bankAliasKey(n.merchant||'');
   return (b.bankNotifications||[]).find(x=>{
     if(x.id===n.id||x.type!==n.type||Math.abs(num(x.amount)-num(n.amount))>.01)return false;
     if(String(x.sourceApp||'')!==String(n.sourceApp||''))return false;
-    const dt=Math.abs(num(x.createdAt)-num(n.createdAt));
-    const otherRaw=bankAliasKey(x.rawText||''),otherMerchant=bankAliasKey(x.merchant||'');
-    const exactRaw=rawKey&&otherRaw&&rawKey===otherRaw&&dt<=10*60000;
-    const sameMerchant=merchantKey&&otherMerchant&&merchantKey===otherMerchant&&dt<=90*1000;
-    return exactRaw||sameMerchant
+    const dt=Math.abs(num(x.createdAt)-num(n.createdAt)),otherRaw=bankAliasKey(x.rawText||''),otherMerchant=bankAliasKey(x.merchant||'');
+    const exactFingerprint=fp&&fp===bankNotificationFingerprint(x)&&dt<=24*3600000;
+    const exactRaw=rawKey&&otherRaw&&rawKey===otherRaw&&dt<=24*3600000;
+    const sameMerchant=merchantKey&&otherMerchant&&merchantKey===otherMerchant&&dt<=45*1000;
+    return exactFingerprint||exactRaw||sameMerchant
   })
 }
 function linkBankNotification(b,n,tx){
@@ -9659,14 +9643,15 @@ function registerBankNotification(data,{silent=false,force=false}={}){
   const merchant=String(data.merchant||parsed.merchant||'Paiement carte').trim();
   const type=data.type==='income'||data.type==='expense'?data.type:(parsed.type||'expense');
   const isWithdrawal=type==='expense'&&/\b(retrait|dab|distributeur|atm)\b/i.test(`${merchant} ${rawText}`);
-  const n={id:uid(),type,amount,merchant,rawText,sourceApp,sourceAppLabel,sourceFinance,sourceTrusted,createdAt:data.createdAt||Date.now(),status:'pending',candidateId:null,matchedTxId:null,kind:isWithdrawal?'withdrawal':'payment',matchKind:null,plannedKind:null,plannedId:null,suggestedCategoryId:null,confidence:'low',reason:'',duplicateOfNotificationId:null};
+  const bankGroup=activeBudgetGroup(),bankAccountId=data.accountId||bankGroup?.activeAccountId||bankGroup?.planAccountId||b.id;
+  const n={id:uid(),type,amount,merchant,rawText,sourceApp,sourceAppLabel,sourceFinance,sourceTrusted,accountId:bankAccountId,createdAt:data.createdAt||Date.now(),status:'pending',candidateId:null,matchedTxId:null,kind:isWithdrawal?'withdrawal':'payment',matchKind:null,plannedKind:null,plannedId:null,suggestedCategoryId:null,confidence:'low',reason:'',duplicateOfNotificationId:null};
   if(!n.amount)return null;b.bankNotifications=b.bankNotifications||[];
   if((sourceFinance||sourceTrusted)&&sourceApp)rememberBankSource(sourceApp,bankSourceFriendlyName(sourceApp,sourceAppLabel),{confirmed:true});
 
   const repeated=repeatedBankNotification(b,n);
   if(repeated){
-    n.status='ignored';n.kind='duplicate-notification';n.duplicateOfNotificationId=repeated.id;
-    b.bankNotifications.push(n);save();if(!silent)showToast('Notification bancaire déjà reçue : ignorée.');return {status:'duplicate-notification',notification:n}
+    if(!silent)showToast('Notification bancaire déjà reçue : aucun doublon ajouté.');
+    return {status:'duplicate-notification',notification:repeated}
   }
   if(isWithdrawal){
     n.status='ignored';b.bankNotifications.push(n);save();if(!silent)showToast('Retrait détecté : B² ne le compte pas comme une nouvelle dépense.');return {status:'withdrawal',notification:n}
@@ -9724,7 +9709,7 @@ function matchPendingBankToTransaction(b,tx){
   const env=b.envelopes.find(e=>String(e.id)===String(tx.categoryId));if(env)learnBankAlias(env,best.n.merchant);
   return best.n
 }
-function pendingBank(b){return (b.bankNotifications||[]).filter(n=>visibleBankNotification(n))}
+function pendingBank(b){dedupeStoredBankNotificationsV1460(b);return (b.bankNotifications||[]).filter(n=>visibleBankNotification(n))}
 function bankPlannedEntity(b,n){
   if(!b||!n?.plannedId)return null;
   if(n.plannedKind==='fixed')return (b.fixed||[]).find(x=>String(x.id)===String(n.plannedId))||null;
@@ -9758,6 +9743,7 @@ function attachBankCandidate(id){
 }
 function confirmPlannedBankMatch(id){
   const b=active(),n=(b?.bankNotifications||[]).find(x=>String(x.id)===String(id));if(!b||!n)return;
+  const bankAccount=byId(n.accountId)||b;
   const item=bankPlannedEntity(b,n);if(!item){rejectBankPlannedMatch(id);return}
   const existing=findBankCandidate(b,n);
   if(existing&&existing.score>=8&&!existing.ambiguous){n.candidateId=existing.tx.id;attachBankCandidate(id);return}
@@ -9765,12 +9751,12 @@ function confirmPlannedBankMatch(id){
   const memberId=b.type==='shared'?(b.members.find(m=>m.current)?.id||b.members[0]?.id||null):null;
   if(n.plannedKind==='fixed'){
     const tx={id:uid(),type:'expense',amount:r2(n.amount),label:n.merchant||item.name,categoryId:null,category:`Charge · ${item.name}`,date:bankISO(n.createdAt),createdAt:n.createdAt,memberId,source:'bank',bankVerified:true,bankNotificationId:n.id,plannedKind:'fixed',plannedId:item.id,plannedSnapshot:null};
-    item.dueThisCycle=false;learnBankAlias(item,n.merchant);b.transactions.push(tx);linkBankNotification(b,n,tx);rememberBankSourceFromNotification(n,{confirmed:true});save();showToast(`${item.name} reconnue et marquée comme payée.`);renderMovements();return
+    item.dueThisCycle=false;learnBankAlias(item,n.merchant);bankAccount.transactions.push(tx);linkBankNotification(b,n,tx);rememberBankSourceFromNotification(n,{confirmed:true});save();showToast(`${item.name} reconnue et marquée comme payée.`);renderMovements();return
   }
   if(n.plannedKind==='oneoff'){
     const snapshot={...item};b.oneOffs=b.oneOffs.filter(x=>String(x.id)!==String(item.id));learnBankAlias(snapshot,n.merchant);
     const tx={id:uid(),type:'expense',amount:r2(n.amount),label:n.merchant||item.name,categoryId:null,category:`Dépense prévue · ${item.name}`,date:bankISO(n.createdAt),createdAt:n.createdAt,memberId,source:'bank',bankVerified:true,bankNotificationId:n.id,plannedKind:'oneoff',plannedId:item.id,plannedSnapshot:snapshot};
-    b.transactions.push(tx);linkBankNotification(b,n,tx);rememberBankSourceFromNotification(n,{confirmed:true});save();showToast(`${item.name} reconnue : dépense prévue rapprochée.`);renderMovements();return
+    bankAccount.transactions.push(tx);linkBankNotification(b,n,tx);rememberBankSourceFromNotification(n,{confirmed:true});save();showToast(`${item.name} reconnue : dépense prévue rapprochée.`);renderMovements();return
   }
   if(n.plannedKind==='income'){
     learnBankAlias(item,n.merchant);
@@ -9778,14 +9764,14 @@ function confirmPlannedBankMatch(id){
     const nominalExpected=incomeScheduledDateForMonth(item,actualIncomeDate);
     recordIncomeArrival(item,actualIncomeDate,nominalExpected);
     const tx={id:uid(),type:'income',kind:'normal',amount:r2(n.amount),label:n.merchant||item.name,categoryId:null,category:'',date:actualIncomeDate,createdAt:n.createdAt,memberId,source:'bank',bankVerified:true,bankNotificationId:n.id,plannedKind:'income',plannedId:item.id,plannedSnapshot:null};
-    b.transactions.push(tx);linkBankNotification(b,n,tx);rememberBankSourceFromNotification(n,{confirmed:true});save();renderMovements();
+    bankAccount.transactions.push(tx);linkBankNotification(b,n,tx);rememberBankSourceFromNotification(n,{confirmed:true});save();renderMovements();
     showToast(`${item.name} reconnu.`,item.primary?'Faire le point':null,item.primary?()=>startClosing('income'):null);return
   }
   if(n.plannedKind==='exceptionalIncome'){
     const actualIncomeDate=bankISO(n.createdAt),snapshot={...item};
     b.exceptionalIncomes=b.exceptionalIncomes.filter(x=>String(x.id)!==String(item.id));
     const tx={id:uid(),type:'income',kind:'normal',amount:r2(n.amount),label:n.merchant||item.name,categoryId:null,category:'',date:actualIncomeDate,createdAt:n.createdAt,memberId,source:'bank',bankVerified:true,bankNotificationId:n.id,plannedKind:'exceptionalIncome',plannedId:item.id,plannedSnapshot:snapshot};
-    b.transactions.push(tx);linkBankNotification(b,n,tx);rememberBankSourceFromNotification(n,{confirmed:true});save();renderMovements();showToast(`${item.name} reçu : la prévision a été remplacée par le montant réel.`);return
+    bankAccount.transactions.push(tx);linkBankNotification(b,n,tx);rememberBankSourceFromNotification(n,{confirmed:true});save();renderMovements();showToast(`${item.name} reçu : la prévision a été remplacée par le montant réel.`);return
   }
 }
 let bankReviewId=null;
@@ -9996,7 +9982,7 @@ async function importNativeBankNotifications({silent=true}={}){
         sourceTrusted:item?.sourceTrusted===true,
         createdAt:num(item?.createdAt)||Date.now()
       },{silent:true,force:true});
-      if(res&&!String(res.status||'').startsWith('filtered'))imported++;
+      if(res&&!String(res.status||'').startsWith('filtered')&&res.status!=='duplicate-notification')imported++;
     }
     if(imported){
       updateNotificationBell();
@@ -10760,12 +10746,12 @@ function renderBudgetDetail(){
   $('#budgetDetailTitle').textContent=g.name;const accounts=accountsForBudget(g.id),locked=!canUseBudgetGroup(g);if(g.type==='shared')ensureBudgetOwner(g);
   const sharedOwner=g.type==='shared'&&(isOwnedSharedBudget(g)||(!g.remoteShared&&isPlus()));
   const sharedTop=g.type==='shared'?`<div class="shared-hero"><div class="small">BUDGET PARTAGÉ · ${sharedOwner?'PROPRIÉTAIRE':'MEMBRE'}</div><strong>${esc(g.name)}</strong><div class="small" style="margin-top:5px">${g.members.filter(m=>m.status==='joined').length} membre${g.members.filter(m=>m.status==='joined').length>1?'s':''} actif${g.members.filter(m=>m.status==='joined').length>1?'s':''} · plusieurs personnes peuvent participer · tes autres budgets restent privés</div><div class="shared-actions">${sharedOwner?'<button class="btn btn-white" id="detailInviteMember" type="button">Inviter une personne</button>':''}<button class="btn btn-white" id="detailManageMembers" type="button">${sharedOwner?'Gérer les membres':'Voir les membres'}</button></div></div>`:'';
-  c.innerHTML=`${sharedTop}${locked?`<div class="status warn"><strong>Budget partagé en pause.</strong><br>${isOwnedSharedBudget(g)?'Réactive B²+ pour le rendre de nouveau utilisable par tous les membres.':'Le propriétaire doit réactiver B²+ pour reprendre les modifications.'} Les données sont conservées.</div>`:''}<div class="card"><div class="card-title"><h3>Comptes de ce budget</h3><span class="badge">${accounts.length}</span></div><div class="small muted">Choisis le compte à consulter ou à modifier.</div></div>${accounts.map(a=>{const future=a.startMode==='next'&&String(a.cycleStart)>todayISO(),on=g.active&&String(g.activeAccountId)===String(a.id);return `<div class="card account-detail-card"><div class="account-detail-head"><div class="budget-icon">${ico(accountIcon(a))}</div><div class="account-detail-copy"><strong>${esc(a.name)}</strong><span>${future?'Prévision':'Disponible'} ${euro(remaining(a))} · ${accountChargeCount(a)} charge${accountChargeCount(a)>1?'s':''}</span></div>${on?'<span class="badge">ACTIF</span>':''}</div><div class="account-detail-actions">${locked?'<button class="mini-btn" data-unlock-detail type="button">B²+</button>':`<button class="mini-btn account-action-main" data-view-account="${a.id}" type="button">Voir le résumé</button><button class="mini-btn" data-edit-account="${a.id}" type="button">Modifier</button>${accounts.length>1?`<button class="mini-btn danger" data-delete-account="${a.id}" type="button">Supprimer</button>`:''}`}</div></div>`}).join('')}<button class="btn ${locked?'btn-soft':'btn-primary'} btn-full" id="detailAddAccount" type="button">${locked?'Débloquer ce budget avec B²+':'＋ Ajouter un compte'}</button>${g.type!=='shared'&&isPlus()?`<button class="btn btn-white btn-full" id="detailShareBudget" type="button" style="margin-top:8px">${ico('group')} Partager ce budget</button>`:''}${g.type==='shared'&&sharedOwner?`<button class="btn btn-white btn-full" id="detailStopSharing" type="button" style="margin-top:8px">Arrêter le partage</button>`:''}${g.type==='shared'&&sharedOwner&&shareArchiveForGroup(g.id)?`<button class="btn btn-white btn-full" id="detailPrivateArchive" type="button" style="margin-top:8px">${ico('shield')} Historique privé avant partage</button>`:''}`;
+  c.innerHTML=`${sharedTop}${locked?`<div class="status warn"><strong>Budget partagé en pause.</strong><br>${isOwnedSharedBudget(g)?'Réactive B²+ pour le rendre de nouveau utilisable par tous les membres.':'Le propriétaire doit réactiver B²+ pour reprendre les modifications.'} Les données sont conservées.</div>`:''}<div class="card"><div class="card-title"><h3>Comptes de ce budget</h3><span class="badge">${accounts.length}</span></div><div class="small muted">Choisis le compte à consulter ou à modifier.</div></div>${accounts.map(a=>{const future=a.startMode==='next'&&String(a.cycleStart)>todayISO(),on=g.active&&String(g.activeAccountId)===String(a.id);return `<div class="card account-detail-card"><div class="account-detail-head"><div class="budget-icon">${ico(accountIcon(a))}</div><div class="account-detail-copy"><strong>${esc(a.name)}</strong><span>Solde ${euro(accountCashEstimate(a))}${String(g.planAccountId)===String(a.id)?' · compte principal':''}</span></div>${on?'<span class="badge">ACTIF</span>':''}</div><div class="account-detail-actions">${locked?'<button class="mini-btn" data-unlock-detail type="button">B²+</button>':`<button class="mini-btn account-action-main" data-view-account="${a.id}" type="button">Voir le résumé</button><button class="mini-btn" data-edit-account="${a.id}" type="button">Modifier</button>${accounts.length>1?`<button class="mini-btn danger" data-delete-account="${a.id}" type="button">Supprimer</button>`:''}`}</div></div>`}).join('')}<button class="btn ${locked?'btn-soft':'btn-primary'} btn-full" id="detailAddAccount" type="button">${locked?'Débloquer ce budget avec B²+':'＋ Ajouter un compte'}</button>${g.type!=='shared'&&isPlus()?`<button class="btn btn-white btn-full" id="detailShareBudget" type="button" style="margin-top:8px">${ico('group')} Partager ce budget</button>`:''}${g.type==='shared'&&sharedOwner?`<button class="btn btn-white btn-full" id="detailStopSharing" type="button" style="margin-top:8px">Arrêter le partage</button>`:''}${g.type==='shared'&&sharedOwner&&shareArchiveForGroup(g.id)?`<button class="btn btn-white btn-full" id="detailPrivateArchive" type="button" style="margin-top:8px">${ico('shield')} Historique privé avant partage</button>`:''}`;
   if(g.type==='shared'){$('#detailInviteMember')?.addEventListener('click',()=>shareBudget(g.id));$('#detailManageMembers')?.addEventListener('click',()=>openSharedMembers(g.id))}
   $('#detailShareBudget')?.addEventListener('click',()=>shareBudget(g.id));
   $('#detailStopSharing')?.addEventListener('click',()=>stopSharingBudget(g.id));
   $('#detailPrivateArchive')?.addEventListener('click',()=>renderShareArchive(g.id));
-  $('#detailAddAccount')?.addEventListener('click',()=>locked?openPlus('Plusieurs budgets'):startAccountWizard(g.id));$$('[data-unlock-detail]',c).forEach(x=>x.addEventListener('click',()=>openPlus('Plusieurs budgets')));$$('[data-view-account]',c).forEach(x=>x.addEventListener('click',()=>openAccountSummary(x.dataset.viewAccount)));$$('[data-edit-account]',c).forEach(x=>x.addEventListener('click',()=>startWizard(x.dataset.editAccount)));$$('[data-delete-account]',c).forEach(x=>x.addEventListener('click',()=>askDeleteAccountV11(x.dataset.deleteAccount)))
+  $('#detailAddAccount')?.addEventListener('click',()=>locked?openPlus('Plusieurs budgets'):startAccountWizard(g.id));$$('[data-unlock-detail]',c).forEach(x=>x.addEventListener('click',()=>openPlus('Plusieurs budgets')));$$('[data-view-account]',c).forEach(x=>x.addEventListener('click',()=>openAccountSummary(x.dataset.viewAccount)));$$('[data-edit-account]',c).forEach(x=>x.addEventListener('click',()=>openAccountEditorV1457(x.dataset.editAccount)));$$('[data-delete-account]',c).forEach(x=>x.addEventListener('click',()=>askDeleteAccountV11(x.dataset.deleteAccount)))
 }
 function renderEconomies(){
   const b=active(),c=$('#economiesContent');
@@ -11042,8 +11028,38 @@ function renderAnalysis(){
 }
 
 function openQuick(){if(!active()){showToast('Crée d’abord un budget actif.');return}openModal('quickModal')}
+function refreshTransferAccountsV1461(){
+  const b=active(),g=activeBudgetGroup();if(!b||!g||txDraft?.type!=='transfer')return;
+  const accounts=accountsForBudget(g.id),source=byId(txDraft.accountId)||selectedAccountForBudget(g)||planAccountForBudget(g);
+  if(!source)return;
+  txDraft.accountId=source.id;
+  const sel=$('#txTransferAccount');if(!sel)return;
+  const destinations=accounts.filter(a=>String(a.id)!==String(source.id));
+  const previous=txDraft.transferAccountId||sel.value;
+  sel.innerHTML=destinations.map(a=>`<option value="${a.id}">${esc(a.name)}</option>`).join('');
+  const chosen=destinations.some(a=>String(a.id)===String(previous))?previous:destinations[0]?.id||'';
+  sel.value=chosen;txDraft.transferAccountId=chosen||null;
+  sel.disabled=destinations.length===0;
+  const wrap=$('#txTransferWrap'),help=wrap?.querySelector('.help');
+  if(help)help.textContent=destinations.length?`De ${source.name} vers un autre compte de ce budget. Le budget global ne change pas.`:'Ajoute un deuxième compte pour pouvoir faire un transfert.';
+} 
 function renderTxFields(){
   const b=active();if(!b)return;
+  const g=activeBudgetGroup(),accounts=g?accountsForBudget(g.id):[],existingAccount=txDraft.editId?accounts.find(a=>(a.transactions||[]).some(t=>String(t.id)===String(txDraft.editId))):null;
+  let aw=$('#txAccountWrap');
+  if(!aw){
+    aw=document.createElement('div');aw.id='txAccountWrap';aw.className='field';
+    const amountField=$('#txAmount')?.closest('.field');if(amountField?.parentNode)amountField.parentNode.insertBefore(aw,amountField)
+  }
+  const plannedItem=txDraft.plannedKind==='fixed'?(b.fixed||[]).find(x=>String(x.id)===String(txDraft.plannedId)):txDraft.plannedKind==='oneoff'?(b.oneOffs||[]).find(x=>String(x.id)===String(txDraft.plannedId)):null;
+  const forcedId=plannedItem?itemAccountId(plannedItem,b):null;
+  const chosenId=forcedId||existingAccount?.id||txDraft.accountId||g?.activeAccountId||g?.planAccountId;
+  if(accounts.length<=1){aw.classList.add('hidden');txDraft.accountId=accounts[0]?.id||b.id}
+  else{
+    aw.classList.remove('hidden');
+    aw.innerHTML=`<label>${forcedId?'Compte prévu':txDraft.type==='transfer'?'Compte de départ':'Compte utilisé'}</label><select id="txAccount" ${forcedId?'disabled':''}>${accounts.map(a=>`<option value="${a.id}" ${String(a.id)===String(chosenId)?'selected':''}>${esc(a.name)}</option>`).join('')}</select>${forcedId?`<div class="help">Cette opération était prévue sur ${esc(byId(forcedId)?.name||'ce compte')}.</div>`:'<div class="help">B² ne te demande ce choix que parce que ton budget contient plusieurs comptes.</div>'}`;
+    txDraft.accountId=chosenId;$('#txAccount')?.addEventListener('change',e=>{txDraft.accountId=e.target.value;if(txDraft.type==='transfer')refreshTransferAccountsV1461()})
+  }
   const isIncome=txDraft.type==='income',isRefund=isIncome&&txDraft.kind==='refund',isTransfer=txDraft.type==='transfer',plannedProtectedExpense=txDraft.type==='expense'&&['fixed','oneoff'].includes(txDraft.plannedKind);
   $('#txIncomeKindWrap').classList.toggle('hidden',!isIncome);
   $$('[data-tx-income-kind]',$('#txIncomeKindWrap')).forEach(x=>x.classList.toggle('on',x.dataset.txIncomeKind===(txDraft.kind||'normal')));
@@ -11054,17 +11070,18 @@ function renderTxFields(){
   if(isIncome&&!isRefund)$('#txLead').textContent=`${b.type==='shared'?'Budget partagé · ':''}${b.name} · L’argent sera ajouté à Piloter pour être réparti ensuite.`;
   else if(isRefund)$('#txLead').textContent=`${b.type==='shared'?'Budget partagé · ':''}${b.name} · Le remboursement recrédite l’enveloppe concernée.`;
   else if(plannedProtectedExpense&&txDraft.plannedKind==='fixed')$('#txLead').textContent=`${b.type==='shared'?'Budget partagé · ':''}${b.name} · Montant prévu prérempli. Modifie-le si le montant réellement prélevé est différent.`;
-  $('#txTransferWrap').classList.toggle('hidden',!isTransfer);
+  $('#txTransferWrap').classList.toggle('hidden',!isTransfer);if(isTransfer)refreshTransferAccountsV1461();
   const showPayer=b.type==='shared'&&(txDraft.type==='expense'||isRefund);
   $('#txMemberWrap').classList.toggle('hidden',!showPayer);
   if(showPayer){const sel=$('#txMember');sel.innerHTML=(b.members||[]).filter(m=>m.status==='joined').map(m=>`<option value="${m.id}">${esc(m.name)}${m.current?' · moi':''}</option>`).join('');if(txDraft.memberId)sel.value=txDraft.memberId}
 }
 function openTx(type,prefill={}){
   const b=active();if(!b)return;
-  const existing=prefill.editId?b.transactions.find(t=>String(t.id)===String(prefill.editId)):null;
+  const g=activeBudgetGroup(),allAccounts=g?accountsForBudget(g.id):[],selectedAccount=g?selectedAccountForBudget(g):b;
+  const existing=prefill.editId?allAccounts.flatMap(a=>a.transactions||[]).find(t=>String(t.id)===String(prefill.editId)):null;
   const realType=existing?.type||type;
-  if(realType==='transfer'&&!existing&&accountsForBudget(b.budgetGroupId).filter(a=>String(a.id)!==String(b.id)).length===0){showToast('Ajoute un autre compte à ce budget pour faire un transfert.');return}
-  txDraft={type:realType,kind:existing?.kind||prefill.kind||'normal',memberId:existing?.memberId||(b.type==='shared'?(b.members.find(m=>m.current)?.id||b.members.find(m=>m.status==='joined')?.id||null):null),pendingBankId:prefill.pendingBankId||null,editId:existing?.id||null,linkedTxId:existing?.linkedTxId||null,transferAccountId:existing?.transferAccountId||null,plannedKind:existing?.plannedKind||prefill.plannedKind||null,plannedId:existing?.plannedId||prefill.plannedId||null,plannedSnapshot:existing?.plannedSnapshot||prefill.plannedSnapshot||null,voiceOrigin:prefill.voiceOrigin||null,voiceConceptId:prefill.voiceConceptId||null,voiceMerchantKey:prefill.voiceMerchantKey||null,voiceSuggestedCategoryId:prefill.voiceSuggestedCategoryId||null};
+  if(realType==='transfer'&&!existing&&allAccounts.length<2){showToast('Ajoute un autre compte à ce budget pour faire un transfert.');return}
+  txDraft={type:realType,accountId:prefill.accountId||selectedAccount?.id||g?.planAccountId||b.id,kind:existing?.kind||prefill.kind||'normal',memberId:existing?.memberId||(b.type==='shared'?(b.members.find(m=>m.current)?.id||b.members.find(m=>m.status==='joined')?.id||null):null),pendingBankId:prefill.pendingBankId||null,editId:existing?.id||null,linkedTxId:existing?.linkedTxId||null,transferAccountId:existing?.transferAccountId||null,plannedKind:existing?.plannedKind||prefill.plannedKind||null,plannedId:existing?.plannedId||prefill.plannedId||null,plannedSnapshot:existing?.plannedSnapshot||prefill.plannedSnapshot||null,voiceOrigin:prefill.voiceOrigin||null,voiceConceptId:prefill.voiceConceptId||null,voiceMerchantKey:prefill.voiceMerchantKey||null,voiceSuggestedCategoryId:prefill.voiceSuggestedCategoryId||null};
   $('#txTitle').textContent=existing?(realType==='income'?'Modifier le mouvement':realType==='transfer'?'Transfert':'Modifier la dépense'):(realType==='income'?'Ajouter un revenu':realType==='transfer'?'Faire un transfert':'Ajouter une dépense');
   $('#txLead').textContent=(b.type==='shared'?'Budget partagé · ':'')+b.name;
   $('#txAmount').value=existing?.amount??prefill.amount??'';
@@ -11079,8 +11096,8 @@ function openTx(type,prefill={}){
   const recent=(b.transactions||[]).filter(t=>t.type==='expense').sort((a,z)=>(z.createdAt||0)-(a.createdAt||0)).slice(0,30);
   const refundSel=$('#txRefundExpense');refundSel.innerHTML=`<option value="">Choisir seulement l’enveloppe</option>`+recent.map(t=>`<option value="${t.id}">${fmtDate(t.date)} · ${esc(t.label||t.category)} · ${euro(t.amount)}</option>`).join('');
   if(existing?.linkedTxId)refundSel.value=existing.linkedTxId;
-  const transferSel=$('#txTransferAccount');transferSel.innerHTML=accountsForBudget(b.budgetGroupId).filter(a=>String(a.id)!==String(b.id)).map(a=>`<option value="${a.id}">${esc(a.name)}</option>`).join('');
-  if(existing?.transferAccountId)transferSel.value=existing.transferAccountId;
+  const transferSel=$('#txTransferAccount');
+  if(existing?.transferAccountId)txDraft.transferAccountId=existing.transferAccountId;
   $('#saveTxBtn').textContent=existing?'Enregistrer les modifications':realType==='transfer'?'Faire le transfert':'Enregistrer';
   if(!existing&&realType==='expense'&&txDraft.plannedKind==='fixed'){
     $('#txTitle').textContent='Confirmer le prélèvement';
@@ -11121,7 +11138,8 @@ function recordFixedChargePayment(b,fixedId,amount,date=todayISO(),memberId=null
   if(!x||x.dueThisCycle===false)return null;
   const tx={id:uid(),type:'expense',kind:'normal',direction:null,amount:r2(amount),label:x.name,categoryId:null,category:`Charge · ${x.name}`,date:date||todayISO(),createdAt:Date.now(),memberId:memberId||null,source:'manual',bankVerified:false,bankNotificationId:null,plannedKind:'fixed',plannedId:x.id,plannedSnapshot:null,linkedTxId:null,transferId:null,transferAccountId:null};
   x.dueThisCycle=false;x.confirmDeferredUntil=null;
-  b.transactions.push(tx);
+  const target=byId(x.accountId)||b;
+  target.transactions.push(tx);
   return tx
 }
 let b2FixedChargePaymentOpening=false;
@@ -11144,15 +11162,18 @@ function openFixedChargePayment(id){
   }
 }
 function saveTx(){
-  const b=active(),amount=num($('#txAmount').value),label=$('#txLabel').value.trim(),date=$('#txDate').value||todayISO();
+  const budget=active(),g=activeBudgetGroup(),selected=g?(byId(txDraft.accountId)||selectedAccountForBudget(g)):budget;
+  const b=(txDraft.editId?accountsForBudget(g?.id).find(a=>(a.transactions||[]).some(t=>String(t.id)===String(txDraft.editId))):selected)||budget;
+  const amount=num($('#txAmount').value),label=$('#txLabel').value.trim(),date=$('#txDate').value||todayISO();
   if(!b||amount<=0){showToast('Indique un montant valide.');return}
   if(txDraft.type==='transfer'){
     if(txDraft.editId){showToast('Pour modifier un transfert, supprime-le puis recrée-le.');return}
-    const dest=byId($('#txTransferAccount').value);if(!dest||String(dest.budgetGroupId)!==String(b.budgetGroupId)||String(dest.id)===String(b.id)){showToast('Choisis un autre compte de ce budget.');return}
+    const source=byId(txDraft.accountId),dest=byId($('#txTransferAccount').value);
+    if(!source||!dest||String(source.budgetGroupId)!==String(g?.id)||String(dest.budgetGroupId)!==String(g?.id)||String(dest.id)===String(source.id)){showToast('Choisis deux comptes différents de ce budget.');return}
     const transferId=uid(),base={amount:r2(amount),date,createdAt:Date.now(),source:'manual',bankVerified:false,bankNotificationId:null,plannedKind:null,plannedId:null,plannedSnapshot:null,kind:'transfer',transferId};
-    b.transactions.push({id:uid(),type:'transfer',direction:'out',label:label||`Vers ${dest.name}`,categoryId:null,category:'',memberId:null,transferAccountId:dest.id,linkedTxId:null,...base});
-    dest.transactions.push({id:uid(),type:'transfer',direction:'in',label:label||`Depuis ${b.name}`,categoryId:null,category:'',memberId:null,transferAccountId:b.id,linkedTxId:null,...base});
-    closeModal('transactionModal');save();showToast(`${euro(amount)} transférés vers ${dest.name}. Aucun faux revenu ni dépense.`);return
+    source.transactions.push({id:uid(),type:'transfer',direction:'out',label:label||`Vers ${dest.name}`,categoryId:null,category:'',memberId:null,transferAccountId:dest.id,linkedTxId:null,...base});
+    dest.transactions.push({id:uid(),type:'transfer',direction:'in',label:label||`Depuis ${source.name}`,categoryId:null,category:'',memberId:null,transferAccountId:source.id,linkedTxId:null,...base});
+    closeModal('transactionModal');save();showToast(`${euro(amount)} transférés de ${source.name} vers ${dest.name}. Le budget global ne change pas.`);return
   }
   const existing=txDraft.editId?b.transactions.find(t=>String(t.id)===String(txDraft.editId)):null;
   const chosenMember=b.type==='shared'?($('#txMember')?.value||txDraft.memberId):null;
@@ -11181,9 +11202,9 @@ function saveTx(){
     const dup=findRecordedBankDuplicate(b,tx);if(dup&&!isRefund){askPossibleDuplicate(dup,tx,finishIncome);return}finishIncome();return
   }
   if(!existing&&txDraft.plannedKind==='fixed'&&txDraft.plannedId){
-    const x=(b.fixed||[]).find(y=>String(y.id)===String(txDraft.plannedId));
+    const x=(budget.fixed||[]).find(y=>String(y.id)===String(txDraft.plannedId));
     if(!x||x.dueThisCycle===false){showToast('Cette charge est déjà enregistrée comme payée.');return}
-    const tx=recordFixedChargePayment(b,x.id,amount,date,chosenMember);
+    const tx=recordFixedChargePayment(budget,x.id,amount,date,chosenMember);
     if(!tx){showToast('Impossible de confirmer cette charge.');return}
     closeModal('transactionModal');save();queueB2LocalScheduleSync();showToast(`${x.name} · ${euro(amount)} réellement prélevés.`);renderPilot();return
   }
@@ -11194,7 +11215,7 @@ function saveTx(){
     if(existing.plannedKind==='oneoff'){existing.category=`Dépense prévue · ${existing.plannedSnapshot?.name||existing.label||'Dépense prévue'}`}
     closeModal('transactionModal');save();showToast('Mouvement prévu modifié.','Annuler',()=>{Object.assign(existing,before);save();showToast('Modification annulée.')});return
   }
-  const e=b.envelopes.find(x=>String(x.id)===String($('#txCategory').value));if(!e){showToast('Choisis une enveloppe.');return}
+  const e=(active()?.envelopes||[]).find(x=>String(x.id)===String($('#txCategory').value));if(!e){showToast('Choisis une enveloppe.');return}
   if(existing){
     const before={...existing};existing.amount=r2(amount);existing.label=label||e.name;existing.categoryId=e.id;existing.category=e.name;existing.date=date;existing.memberId=chosenMember;
     if(String(before.categoryId||'')!==String(e.id)){
@@ -11759,7 +11780,7 @@ function analyseVoice(text){
   else if(r.type==='expense'&&r.confidenceLevel==='low')showToast('Vérifie la catégorie, B² n’est pas totalement sûr.');
 }
 function saveVoiceDirect(r,text){
-  const b=active(); if(!b)return;
+  const budget=active(),g=activeBudgetGroup(),b=g?selectedAccountForBudget(g):budget; if(!b||!budget)return;
   const memberId=b.type==='shared'?(b.members.find(m=>m.current)?.id||b.members[0]?.id||null):null;
   const cleanLabel=String(r.label||text||'').trim();
   if(r.type==='income'){
@@ -11769,7 +11790,7 @@ function saveVoiceDirect(r,text){
     const finish=()=>{b.transactions.push(tx);matchPendingBankToTransaction(b,tx);save();showToast(tx.bankVerified?`${euro(r.amount)} reconnu aussi par la banque. Aucun doublon.`:`${euro(r.amount)} ajoutés. À répartir quand tu veux.`)};
     const dup=findRecordedBankDuplicate(b,tx);if(dup){askPossibleDuplicate(dup,tx,finish);return}finish();return;
   }
-  const e=b.envelopes.find(x=>x.id===r.categoryId); if(!e){openTx('expense',{amount:r.amount,label:cleanLabel});return}
+  const e=(active()?.envelopes||[]).find(x=>x.id===r.categoryId); if(!e){openTx('expense',{amount:r.amount,label:cleanLabel});return}
   const tx={id:uid(),type:'expense',amount:r2(r.amount),label:cleanLabel||e.name,categoryId:e.id,category:e.name,date:todayISO(),createdAt:Date.now(),memberId,source:'voice',bankVerified:false,bankNotificationId:null,plannedKind:null,plannedId:null,plannedSnapshot:null};
   const finish=()=>{b.transactions.push(tx);matchPendingBankToTransaction(b,tx);const remAfter=r2(e.amount-(spentFor(b,e.id)));save();if(remAfter<-.01){overspendCtx={budgetId:b.id,envId:e.id};$('#overspendLead').textContent=`${e.name} dépasse de ${euro(Math.abs(remAfter))}. Que veux-tu faire ?`;$('#overspendReserve').disabled=b.reserve<Math.abs(remAfter)-.01;openModal('overspendModal')}else showToast(tx.bankVerified?`${euro(r.amount)} · ${e.name} · rapproché avec la banque, aucun doublon.`:`${euro(r.amount)} · ${e.name} · enregistré.`)};
   const dup=findRecordedBankDuplicate(b,tx);if(dup){askPossibleDuplicate(dup,tx,finish);return}finish();
@@ -12597,7 +12618,7 @@ function confirmDeleteTx(id){
   const b=active(),idx=b?.transactions.findIndex(x=>String(x.id)===String(id));if(!b||idx<0)return;const t=b.transactions[idx];
   openConfirm(t.type==='transfer'?'Supprimer ce transfert ?':'Supprimer ce mouvement ?',`${transactionSign(t)} ${euro(t.amount)} · ${t.label||t.category}`,()=>{
     if(t.type==='transfer'&&t.transferId){
-      const snapshots=[];state.budgets.forEach(a=>{(a.transactions||[]).forEach((x,i)=>{if(String(x.transferId)===String(t.transferId))snapshots.push({a,x,i})})});snapshots.forEach(({a,x})=>{a.transactions=a.transactions.filter(y=>String(y.id)!==String(x.id))});save();showToast('Transfert supprimé sur les deux comptes.','Annuler',()=>{snapshots.forEach(({a,x,i})=>a.transactions.splice(Math.min(i,a.transactions.length),0,x));save();showToast('Suppression annulée.')});return
+      const snapshots=[];accountsForBudget(b.budgetGroupId).forEach(a=>{(a.transactions||[]).forEach((x,i)=>{if(String(x.transferId)===String(t.transferId))snapshots.push({a,x,i})})});snapshots.forEach(({a,x})=>{a.transactions=a.transactions.filter(y=>String(y.id)!==String(x.id))});save();showToast('Transfert supprimé sur les deux comptes.','Annuler',()=>{snapshots.forEach(({a,x,i})=>a.transactions.splice(Math.min(i,a.transactions.length),0,x));save();showToast('Suppression annulée.')});return
     }
     b.transactions.splice(idx,1);restorePlannedAfterDelete(b,t);save();showToast('Mouvement supprimé.','Annuler',()=>{b.transactions.splice(Math.min(idx,b.transactions.length),0,t);reapplyPlannedAfterUndo(b,t);save();showToast('Suppression annulée.')})
   })
@@ -12621,7 +12642,10 @@ function startWizard(id=null,jump=null,opts=null){
   wizardBalanceMode=wizard.buildMode==='manual'?'manual':'auto';wizardStep=jump!=null?jump:(saved?.wizardStep??0);if(saved){wizardAccountBalance=num(saved.wizardAccountBalance);wizardCashExtra=num(saved.wizardCashExtra)}else{wizardCashExtra=Math.max(0,num(wizard.startCash));wizardAccountBalance=r2(num(wizard.startBalance)-wizardCashExtra)}
   if(wizard._startNegative==null)wizard._startNegative=wizardAccountBalance<0;if(wizardStep===5)wizardStep=6;wizard.buildMode='auto';wizardBalanceMode='auto';wizard._originalStructureSignature=wizard._originalStructureSignature||budgetStructureSignature(wizard);wizard._lastStructureSignature=wizard._lastStructureSignature||wizard._originalStructureSignature;if(wizard._allocated==null)wizard._allocated=!!editing;showPage('wizard')
 }
-/* v14.55 — modifier un budget existant ne doit jamais relancer sa répartition tout seul. */
+/* v14.56 — INVARIANT DE MODIFICATION
+   Une fois le budget validé, sa répartition enregistrée est la référence.
+   Ajouter / modifier / retirer un élément ne redistribue jamais les autres montants.
+   Un recalcul global n'est autorisé que sur demande explicite de l'utilisateur. */
 function invalidateWizardAllocation(){
   if(!wizard)return;
   // En création, B² peut encore préparer une répartition. En modification, les montants
@@ -12652,6 +12676,7 @@ function incomeSourceRow(x){
         <input data-income-date="${x.id}" type="date" value="${x.nextDate||''}">
       </div>
     </div>
+    ${wizardAccountsV1458().length>1?`<div class="field"><label>Compte qui reçoit ce revenu</label><select data-income-account="${x.id}">${wizardAccountsV1458().map(a=>`<option value="${a.id}" ${String(a.id)===String(x.accountId||wizardDefaultAccountIdV1458())?'selected':''}>${esc(a.name)}</option>`).join('')}</select></div>`:''}
     ${main?'<div class="income-source-note">B² utilise cette date pour savoir jusqu’à quand ton argent doit tenir.</div>':''}
   </div>`
 }
@@ -12660,7 +12685,8 @@ function captureIncomeSources(){
   $$('[data-income-source]',$('#wizardContent')).forEach(row=>{
     const id=row.dataset.incomeSource,x=wizard.incomeSources.find(y=>String(y.id)===String(id));if(!x)return;
     x.amount=Math.max(0,num($(`[data-income-amount="${CSS.escape(String(id))}"]`,row)?.value));
-    x.nextDate=$(`[data-income-date="${CSS.escape(String(id))}"]`,row)?.value||''
+    x.nextDate=$(`[data-income-date="${CSS.escape(String(id))}"]`,row)?.value||'';
+    const as=$(`[data-income-account="${CSS.escape(String(id))}"]`,row);if(as)x.accountId=as.value||null
   });
   const total=recurringIncomeTotal(wizard);wizard.income=r2(total)
 }
@@ -13007,8 +13033,8 @@ function sharedIncomeHTML(w){
 }
 function billGroupsHTML(w){
   const actions=(key,id)=>`<div class="fund-actions"><button class="btn-link" data-edit-bill="${key}:${id}" type="button">Modifier</button><button class="btn-link danger-link" data-remove-bill="${key}:${id}" type="button">Retirer</button></div>`;
-  const monthly=w.fixed.map(x=>`<div class="fund-row"><div class="fund-top"><strong>${ico(billIconForName(x.name))} ${esc(x.name)}</strong><b>${euro(x.amount)}/mois</b></div><div class="fund-sub">${fixedDurationText(x)}${x.dueThisCycle===false?' · déjà payée':x.dueDay?` · le ${x.dueDay}`:' · jour non renseigné'}</div>${actions('fixed',x.id)}</div>`).join('');
-  const prep=w.provisions.map(p=>{const q=provisionContributionPreview(p,w),skipped=p.periodContributionDone===true;return `<div class="fund-row"><div class="fund-top"><strong>${ico('target')} ${esc(p.name)}</strong><b>${euro(q.current)} cette période</b></div><div class="fund-sub">${euro(p.targetAmount)} à prévoir · ${fmtDate(p.dueDate)}</div>${skipped&&q.next>0?`<div class="fund-sub">Prochaine période : B² prévoit ≈ ${euro(q.next)} à mettre de côté.</div>`:q.next>0?`<div class="fund-sub">Puis ≈ ${euro(q.next)} à la prochaine période.</div>`:''}${actions('provision',p.id)}</div>`}).join('');
+  const monthly=w.fixed.map(x=>`<div class="fund-row"><div class="fund-top"><strong>${ico(billIconForName(x.name))} ${esc(x.name)}</strong><b>${euro(x.amount)}/mois</b></div><div class="fund-sub">${fixedDurationText(x)}${x.dueThisCycle===false?' · déjà payée':x.dueDay?` · le ${x.dueDay}`:' · jour non renseigné'}${wizardAccountsV1458().length>1?` · ${esc(itemAccountName(x,w))}`:''}</div>${actions('fixed',x.id)}</div>`).join('');
+  const prep=w.provisions.map(p=>{const q=provisionContributionPreview(p,w),skipped=p.periodContributionDone===true;return `<div class="fund-row"><div class="fund-top"><strong>${ico('target')} ${esc(p.name)}</strong><b>${euro(q.current)} cette période</b></div><div class="fund-sub">${euro(p.targetAmount)} à prévoir · ${fmtDate(p.dueDate)}${wizardAccountsV1458().length>1?` · ${esc(itemAccountName(p,w))}`:''}</div>${skipped&&q.next>0?`<div class="fund-sub">Prochaine période : B² prévoit ≈ ${euro(q.next)} à mettre de côté.</div>`:q.next>0?`<div class="fund-sub">Puis ≈ ${euro(q.next)} à la prochaine période.</div>`:''}${actions('provision',p.id)}</div>`}).join('');
   const now=w.oneOffs.map(x=>`<div class="fund-row"><div class="fund-top"><strong>${ico(billIconForName(x.name))} ${esc(x.name)}</strong><b>${euro(x.amount)}</b></div><div class="fund-sub">Dépense ponctuelle prise en compte dans la période.</div>${actions('oneoff',x.id)}</div>`).join('');
   return `<div class="section-title"><h3>Chaque mois</h3></div><div class="card flat">${monthly||'<div class="empty">Aucun élément.</div>'}</div><div class="section-title"><h3>À mettre de côté</h3></div><div class="card flat">${prep||'<div class="empty">Aucun élément.</div>'}</div><div class="section-title"><h3>Dépenses ponctuelles</h3></div><div class="card flat">${now||'<div class="empty">Aucun élément.</div>'}</div>`
 }
@@ -13065,7 +13091,9 @@ function wizardReduceGroup(rows,need){
   }
   return remaining
 }
-function wizardRebalanceToCapacity(preferredId=null){
+function wizardRebalanceToCapacity(preferredId=null,force=false){
+  // v14.56 — jamais de redistribution implicite d'un budget existant.
+  if(wizardEditId&&!force){wizard._allocated=true;wizardBalanceMode='manual';return}
   const capacity=Math.max(0,wizardPlanningPool(wizard));
   let diff=r2(allocated(wizard)-capacity);
 
@@ -13101,7 +13129,7 @@ function wizardAdjustEnvelope(id,target){
   e.amount=Math.max(min,r2(target));
   wizard._allocated=true;
 
-  // v14.55 : sur un budget déjà validé, modifier une enveloppe ne touche jamais
+  // v14.54 : sur un budget déjà validé, modifier une enveloppe ne touche jamais
   // aux autres. Le reste à répartir (ou le dépassement) montre simplement l'effet
   // du choix de l'utilisateur. Une redistribution globale exige une action explicite.
   if(wizardEditId){wizardBalanceMode='manual';return}
@@ -13167,14 +13195,14 @@ function wireWizard(){
     captureIncomeSources();
     const n=x.dataset.addIncome;
     if(wizard.incomeSources.some(y=>y.name===n)){showToast('Déjà ajouté.');return}
-    wizard.incomeSources.push({id:uid(),name:n,amount:0,nextDate:'',primary:wizard.incomeSources.length===0,frequency:'monthly'});
+    wizard.incomeSources.push({id:uid(),name:n,amount:0,nextDate:'',primary:wizard.incomeSources.length===0,frequency:'monthly',accountId:wizardDefaultAccountIdV1458()});
     wizard._noIncomeMode=null;invalidateWizardAllocation();renderWizard()
   }));
   $('#customIncome')?.addEventListener('click',()=>{
     captureIncomeSources();
     openSimple('Ajouter un revenu','',`<div class="field"><label for="simpleName">Nom du revenu</label><input id="simpleName" placeholder="Ex. Prime régulière"></div>`,()=>{
       const n=$('#simpleName').value.trim();if(!n)return false;
-      wizard.incomeSources.push({id:uid(),name:n,amount:0,nextDate:'',primary:wizard.incomeSources.length===0,frequency:'monthly'});
+      wizard.incomeSources.push({id:uid(),name:n,amount:0,nextDate:'',primary:wizard.incomeSources.length===0,frequency:'monthly',accountId:wizardDefaultAccountIdV1458()});
       invalidateWizardAllocation();return true
     })
   });
@@ -13221,7 +13249,7 @@ function wireWizard(){
     panel.classList.toggle('hidden',!opening);
     btn.textContent=opening?'Masquer mes informations':'Voir mes revenus, charges et informations enregistrées'
   });
-  $('#wizardFinishBalance')?.addEventListener('click',()=>{autoAllocateWizard();wizardBalanceMode='auto';renderWizard()});
+  $('#wizardFinishBalance')?.addEventListener('click',()=>{autoAllocateWizard(true);wizardBalanceMode='auto';renderWizard()});
   $('#wizardAddFutureIncome')?.addEventListener('click',()=>{
     wizard._noIncomeMode=null;
     saveWizardDraft();
@@ -13251,10 +13279,12 @@ function captureWizardBase(){
     wizard.startCash=wizardCashExtra;
     wizard.startBalance=r2(wizardAccountBalance+wizardCashExtra);
     wizard.startMode='now';
-    wizard.cycleStart=todayISO();
+    // v14.56 — en modification, conserver le début de période déjà enregistré.
+    // Modifier un revenu ou un solde ne doit pas transformer le budget en nouveau budget.
+    if(!wizardEditId)wizard.cycleStart=todayISO();
     const primary=primaryIncomeSource(wizard);
     wizard.nextIncomeDate=primary?.nextDate||'';
-    wizard.cycleEnd=primary?.nextDate||addMonthsISO(todayISO(),1);
+    wizard.cycleEnd=primary?.nextDate||wizard.cycleEnd||addMonthsISO(todayISO(),1);
     wizard.income=r2(recurringIncomeTotal(wizard));
   }
   if(wizardStep===4){const nr=Math.max(0,num($('#wReserve')?.value));wizard.reserve=nr;wizard.reserveTarget=nr}
@@ -13349,6 +13379,7 @@ function nextWizard(){
   else state.budgets.push(normalizeBudget(wizard));
   g.accountIds=accountsForBudget(g.id).map(a=>a.id);
   if(!wizardEditId||wasActive||v11WizardCreatingBudget){state.budgetGroups.forEach(x=>x.active=String(x.id)===String(g.id));g.activeAccountId=wizard.id}else if(!g.activeAccountId)g.activeAccountId=wizard.id;
+  if(v11WizardCreatingBudget||!g.planAccountId)g.planAccountId=wizard.id;
   if(g.type==='shared'){if(v11WizardCreatingBudget)g.members=JSON.parse(JSON.stringify(wizard.members));syncBudgetSharing(g)}
   if(!isPlus()&&!state.plan.freeBudgetId&&g.type!=='shared')state.plan.freeBudgetId=g.id;
   ensureActive();if(isPlus())ensurePlusBill(active());clearWizardDraft();save();
@@ -13371,7 +13402,12 @@ function nextWizard(){
   }
 }
 function prevWizard(){captureWizard();saveWizardDraft();if(!v11WizardCreatingBudget&&wizardStep===2){wizardStep=0;renderWizard();wizardTop();return}if(wizardStep>0){wizardStep=wizardStep===6?4:wizardStep-1;renderWizard();wizardTop()}}
-function autoAllocateWizard(){
+function autoAllocateWizard(force=false){
+  // v14.56 — Un budget déjà validé garde sa répartition de référence.
+  // Aucun ajout / retrait / changement de revenu, charge, épargne, provision,
+  // réserve, profil ou enveloppe ne peut relancer une répartition globale.
+  // Seule l'action explicite « répartir avec B² » peut forcer un nouveau calcul.
+  if(wizardEditId&&!force){wizard._allocated=true;wizardBalanceMode='manual';return}
   const capacity=Math.max(0,wizardPlanningPool(wizard)),plan=smartEnvelopeTargets(wizard,capacity);
   wizard.envelopes.forEach(e=>{
     const minimum=wizardEditId?spentFor(wizard,e.id):0;
@@ -13397,7 +13433,7 @@ function openBill(name,preferredMode='monthly'){
   $('#billModalTitle').textContent=mode==='prepare'?'Préparer une dépense':'Ajouter une charge';
   $('#billModal .lead').textContent=mode==='prepare'?'À quelle date veux-tu que cette somme soit prête ?':'Quand faut-il prévoir ce paiement ?';
   $('#saveBillBtn').disabled=false;
-  billDraft={mode,dueThisCycle:true,dueDay:null,id:null,originKey:null,periodContributionDone:false,durationMode:'unlimited',remainingPayments:null,totalPayments:null,endDate:null};
+  billDraft={mode,dueThisCycle:true,dueDay:null,id:null,originKey:null,periodContributionDone:false,durationMode:'unlimited',remainingPayments:null,totalPayments:null,endDate:null,accountId:wizardDefaultAccountIdV1458()};
   $('#saveBillBtn').textContent='Ajouter';
   $$('[data-billmode]').forEach(x=>x.disabled=false);
   $('#billName').value=name||'';
@@ -13439,7 +13475,8 @@ function openBillEdit(ref){
     savedAmount:num(item.savedAmount),
     manualContribution:item.manualContribution??null,
     recurringMonths:item.recurringMonths??null,
-    periodContributionDone:item.periodContributionDone===true
+    periodContributionDone:item.periodContributionDone===true,
+    accountId:item.accountId||wizardDefaultAccountIdV1458()
   };
 
   $('#billModes').hidden=false;
@@ -13510,6 +13547,10 @@ function renderBillFields(){
     <div class="help">B² calcule le montant à mettre de côté pour atteindre ton objectif à la date prévue.</div>`;
   }
   if(billDraft.mode==='now')f.innerHTML=`<div class="field"><label for="billAmount">Montant à payer</label><input id="billAmount" type="number" step="0.01" inputmode="decimal" value="${billDraft.amount||''}"></div>`;
+  if(billDraft.mode!=='variable'){
+    f.insertAdjacentHTML('beforeend',accountSelectHTMLV1458(billDraft.accountId,billDraft.mode==='prepare'||billDraft.mode==='periodic'?'Compte où cette somme sera préparée':'Compte qui paiera cette dépense'));
+    const accountSel=$('[data-account-link]',f);if(accountSel)accountSel.addEventListener('change',()=>{billDraft.accountId=accountSel.value||null})
+  }
   $$('[data-billdue]',f).forEach(x=>x.addEventListener('click',()=>{captureMonthlyBillDraft();billDraft.dueThisCycle=x.dataset.billdue==='yes';renderBillFields()}));
   $$('[data-billduration]',f).forEach(x=>x.addEventListener('click',()=>{captureMonthlyBillDraft();billDraft.durationMode=x.dataset.billduration;if(billDraft.durationMode==='months'&&!billDraft.remainingPayments)billDraft.remainingPayments=8;if(billDraft.durationMode==='date'&&!billDraft.endDate)billDraft.endDate=addMonthsISO(wizard?.cycleStart||todayISO(),8);renderBillFields()}));
   $('#billAmount',f)?.addEventListener('input',updateMonthlyDurationPreview);
@@ -13563,24 +13604,24 @@ function saveBill(){
       if(endDate<todayISO())return showToast('Choisis une date de fin à venir.')
     }
 
-    next={id,name,amount:r2(a),dueThisCycle:billDraft.dueThisCycle!==false,dueDay,durationMode,remainingPayments,totalPayments,endDate};nextKey='fixed'
+    next={id,name,amount:r2(a),dueThisCycle:billDraft.dueThisCycle!==false,dueDay,durationMode,remainingPayments,totalPayments,endDate,accountId:billDraft.accountId||wizardDefaultAccountIdV1458()};nextKey='fixed'
   }
   if(billDraft.mode==='now'){
     const a=num($('#billAmount').value);if(a<=0)return showToast('Indique un montant.');
-    next={id,name,amount:r2(a)};nextKey='oneoff'
+    next={id,name,amount:r2(a),accountId:billDraft.accountId||wizardDefaultAccountIdV1458()};nextKey='oneoff'
   }
   if(billDraft.mode==='periodic'){
     const target=num($('#billTarget').value),due=$('#billDue').value,recurringMonths=num($('#billRecurringMonths').value),saved=Math.max(0,num($('#billAlreadySaved').value));
     if(target<=0||!due||![2,3,6,12].includes(recurringMonths))return showToast('Indique le montant, la fréquence et la prochaine date.');
     if(due<=todayISO())return showToast('Choisis la prochaine date de paiement.');
-    next={id,name,targetAmount:r2(target),dueDate:due,savedAmount:r2(Math.min(saved,target)),manualContribution:null,recurringMonths,status:'active',readyAt:null};nextKey='provision'
+    next={id,name,targetAmount:r2(target),dueDate:due,savedAmount:r2(Math.min(saved,target)),manualContribution:null,recurringMonths,status:'active',readyAt:null,accountId:billDraft.accountId||wizardDefaultAccountIdV1458()};nextKey='provision'
   }
   if(billDraft.mode==='prepare'){
     if(wizard.savings.some(y=>normalizeSpeechText(y.name)===normalizeSpeechText(name))){showToast('Ce projet est déjà compté dans ton épargne.');return}
     const target=num($('#billTarget').value),due=$('#billDue').value,recurringMonths=num($('#billRecurringMonths')?.value)||null,periodContributionDone=billDraft.periodContributionDone===true;
     if(target<=0||!due)return showToast('Indique le montant et la date.');
     if(due<=todayISO())return showToast('Choisis une date à venir.');
-    next={id,name,targetAmount:r2(target),dueDate:due,savedAmount:0,periodContributionDone,manualContribution:billDraft.manualContribution??null,recurringMonths,status:'active',readyAt:null};nextKey='provision'
+    next={id,name,targetAmount:r2(target),dueDate:due,savedAmount:0,periodContributionDone,manualContribution:billDraft.manualContribution??null,recurringMonths,status:'active',readyAt:null,accountId:billDraft.accountId||wizardDefaultAccountIdV1458()};nextKey='provision'
   }
   if(!next)return;
   if(billDraft.id&&billDraft.originKey)removeBillRef(billDraft.originKey,billDraft.id);
@@ -13590,13 +13631,15 @@ function saveBill(){
   invalidateWizardAllocation();wizard._situationChanged=true;closeModal('billModal');renderWizard();wizardTop()
 }
 function openSaving(name){
-  savingDraft={mode:'regular',dueThisCycle:true};$('#savingName').value=name||'';$$('[data-savingmode]',$('#savingModes')).forEach(x=>x.classList.toggle('on',x.dataset.savingmode==='regular'));renderSavingFields();openModal('savingModal')
+  savingDraft={mode:'regular',dueThisCycle:true,accountId:wizardDefaultAccountIdV1458()};$('#savingName').value=name||'';$$('[data-savingmode]',$('#savingModes')).forEach(x=>x.classList.toggle('on',x.dataset.savingmode==='regular'));renderSavingFields();openModal('savingModal')
 }
 function renderSavingFields(){
   const f=$('#savingFields');
   const firstCycle=wizard?.startMode==='now'?`<div class="field"><label>Pour cette première période</label><div class="segmented"><button class="seg-btn ${savingDraft.dueThisCycle?'on':''}" data-savingdue="yes" type="button">Encore à mettre de côté</button><button class="seg-btn ${!savingDraft.dueThisCycle?'on':''}" data-savingdue="no" type="button">Déjà mis de côté</button></div></div>`:'';
   if(savingDraft.mode==='regular')f.innerHTML=`<div class="field"><label for="savingAmount">Montant à épargner par période</label><input id="savingAmount" type="number" step="0.01" inputmode="decimal" placeholder="0,00" value="${savingDraft.amount||''}"></div>${firstCycle}`;
   else f.innerHTML=`<div class="field"><label for="savingTarget">Montant à atteindre</label><input id="savingTarget" type="number" step="0.01" inputmode="decimal" placeholder="0,00" value="${savingDraft.target||''}"></div><div class="field"><label for="savingDue">Date prévue</label><input id="savingDue" type="date" value="${savingDraft.due||addMonthsISO(wizard?.cycleStart||todayISO(),12)}"></div><div class="goal-preview" id="savingGoalPreview">Indique le montant et la date : B² calcule le rythme.</div>${firstCycle}`;
+  f.insertAdjacentHTML('beforeend',accountSelectHTMLV1458(savingDraft.accountId,'Compte où cette épargne sera mise de côté'));
+  const sas=$('[data-account-link]',f);if(sas)sas.addEventListener('change',()=>{savingDraft.accountId=sas.value||null});
   $('#savingTarget')?.addEventListener('input',updateSavingGoalPreview);$('#savingDue')?.addEventListener('change',updateSavingGoalPreview);
   $$('[data-savingdue]',f).forEach(x=>x.addEventListener('click',()=>{savingDraft.amount=num($('#savingAmount')?.value);savingDraft.target=num($('#savingTarget')?.value);savingDraft.due=$('#savingDue')?.value||savingDraft.due;savingDraft.dueThisCycle=x.dataset.savingdue==='yes';renderSavingFields();if(savingDraft.mode==='goal')updateSavingGoalPreview()}));
   if(savingDraft.mode==='goal')updateSavingGoalPreview()
@@ -13607,8 +13650,8 @@ function updateSavingGoalPreview(){
 function saveSaving(){
   const n=$('#savingName').value.trim();if(!n){showToast('Donne un nom à cette épargne.');return}
   if(wizard.provisions.some(y=>normalizeSpeechText(y.name)===normalizeSpeechText(n))){showToast('Cette dépense est déjà dans « À préparer pour plus tard ».');return}
-  if(savingDraft.mode==='regular'){const a=num($('#savingAmount').value);if(a<=0)return showToast('Indique un montant.');wizard.savings.push({id:uid(),name:n,monthlyAmount:r2(a),currentSaved:0,targetAmount:null,dueDate:null,dueThisCycle:savingDraft.dueThisCycle!==false})}
-  else{const target=num($('#savingTarget').value),due=$('#savingDue').value,from=wizard?.cycleStart||todayISO();if(target<=0||!due)return showToast('Indique le montant et la date.');if(due<=from)return showToast('Choisis une date après le début du budget.');const cycles=monthsUntil(from,due),a=r2(target/cycles);wizard.savings.push({id:uid(),name:n,monthlyAmount:a,currentSaved:0,targetAmount:r2(target),dueDate:due,dueThisCycle:savingDraft.dueThisCycle!==false})}
+  if(savingDraft.mode==='regular'){const a=num($('#savingAmount').value);if(a<=0)return showToast('Indique un montant.');wizard.savings.push({id:uid(),name:n,monthlyAmount:r2(a),currentSaved:0,targetAmount:null,dueDate:null,dueThisCycle:savingDraft.dueThisCycle!==false,accountId:savingDraft.accountId||wizardDefaultAccountIdV1458()})}
+  else{const target=num($('#savingTarget').value),due=$('#savingDue').value,from=wizard?.cycleStart||todayISO();if(target<=0||!due)return showToast('Indique le montant et la date.');if(due<=from)return showToast('Choisis une date après le début du budget.');const cycles=monthsUntil(from,due),a=r2(target/cycles);wizard.savings.push({id:uid(),name:n,monthlyAmount:a,currentSaved:0,targetAmount:r2(target),dueDate:due,dueThisCycle:savingDraft.dueThisCycle!==false,accountId:savingDraft.accountId||wizardDefaultAccountIdV1458()})}
   invalidateWizardAllocation();closeModal('savingModal');renderWizard();wizardTop()
 }
 function openSmartSaving(id){
@@ -13860,6 +13903,7 @@ function normalizeBudgetGroupV11(g){
   return {
     id:g.id||uid(),name:g.name||'Mon budget',type:g.type==='shared'?'shared':'personal',active:!!g.active,
     accountIds:Array.isArray(g.accountIds)?g.accountIds.map(String):[],activeAccountId:g.activeAccountId||null,
+    planAccountId:g.planAccountId||g.activeAccountId||null,
     members:Array.isArray(g.members)?g.members.map((m,i)=>({id:m.id||uid(),userId:m.userId||null,name:m.name||`Membre ${i+1}`,contribution:num(m.contribution),current:!!m.current,status:m.status||(m.current?'joined':'pending'),role:m.role||(m.current?'owner':'member'),recipient:m.recipient||''})):[],
     shareInvites:Array.isArray(g.shareInvites)?g.shareInvites:[],
     remoteShared:!!g.remoteShared,remoteSharedId:g.remoteSharedId||null,remoteRevision:Math.max(0,num(g.remoteRevision)),remoteRole:g.remoteRole||null,remoteOwnerId:g.remoteOwnerId||null,
@@ -13870,6 +13914,60 @@ function normalizeBudgetGroupV11(g){
 }
 function budgetById(id){return state.budgetGroups?.find(g=>String(g.id)===String(id))||null}
 function accountsForBudget(id,s=state){return (s?.budgets||[]).filter(a=>String(a.budgetGroupId)===String(id))}
+/* v14.57 — un budget porte le plan, ses comptes portent les soldes et mouvements.
+   planAccountId désigne l'objet historique qui conserve le plan budgétaire afin de
+   rester compatible avec toutes les versions précédentes. Les autres objets sont
+   des comptes financiers légers : ils ne possèdent aucune répartition autonome. */
+/* v14.60 — audit : plan unique, comptes = soldes/mouvements, enveloppes communes,
+   transferts internes neutres, notifications Android dédupliquées à l'entrée et au rendu. */
+function planAccountForBudget(groupOrId,s=state){
+  const g=typeof groupOrId==='object'?groupOrId:(s?.budgetGroups||[]).find(x=>String(x.id)===String(groupOrId));
+  if(!g)return null;
+  const accounts=accountsForBudget(g.id,s);
+  let a=accounts.find(x=>String(x.id)===String(g.planAccountId));
+  if(!a)a=accounts[0]||null;
+  if(a)g.planAccountId=a.id;
+  return a
+}
+function selectedAccountForBudget(groupOrId,s=state){
+  const g=typeof groupOrId==='object'?groupOrId:(s?.budgetGroups||[]).find(x=>String(x.id)===String(groupOrId));
+  if(!g)return null;
+  return accountsForBudget(g.id,s).find(x=>String(x.id)===String(g.activeAccountId))||planAccountForBudget(g,s)
+}
+function budgetTransactions(b){
+  const g=b?.budgetGroupId?budgetById(b.budgetGroupId):null;
+  if(!g)return b?.transactions||[];
+  return accountsForBudget(g.id).flatMap(a=>(a.transactions||[]).map(t=>({...t,_accountId:a.id,_accountName:a.name})))
+}
+function accountCashEstimate(a){
+  if(!a)return 0;
+  const income=(a.transactions||[]).filter(t=>t.type==='income').reduce((x,t)=>x+num(t.amount),0);
+  const out=(a.transactions||[]).filter(t=>t.type==='expense').reduce((x,t)=>x+num(t.amount),0);
+  const transfers=(a.transactions||[]).filter(t=>t.type==='transfer').reduce((x,t)=>x+(t.direction==='in'?num(t.amount):-num(t.amount)),0);
+  return r2(num(a.startBalance)+income+transfers-out)
+}
+function itemAccountId(item,b){
+  const g=b?.budgetGroupId?budgetById(b.budgetGroupId):null;
+  return item?.accountId||g?.planAccountId||b?.id||null
+}
+function itemAccountName(item,b){
+  const id=itemAccountId(item,b),a=byId(id);return a?.name||'Compte principal'
+}
+function wizardGroupV1458(){return budgetById(wizard?.budgetGroupId||v11WizardGroupId)||activeBudgetGroup()}
+function wizardAccountsV1458(){
+  const g=wizardGroupV1458(),rows=g?accountsForBudget(g.id):[];
+  if(rows.length)return rows;
+  return wizard?[{id:wizard.id||'wizard-main',name:wizard.name||'Compte principal'}]:[]
+}
+function wizardDefaultAccountIdV1458(){
+  const g=wizardGroupV1458(),rows=wizardAccountsV1458();
+  return g?.planAccountId||rows[0]?.id||null
+}
+function accountSelectHTMLV1458(value,label='Compte concerné'){
+  const rows=wizardAccountsV1458(),chosen=value||wizardDefaultAccountIdV1458();
+  if(rows.length<=1)return `<div class="help">Compte : <strong>${esc(rows[0]?.name||'Compte principal')}</strong></div>`;
+  return `<div class="field"><label>${label}</label><select data-account-link>${rows.map(a=>`<option value="${a.id}" ${String(a.id)===String(chosen)?'selected':''}>${esc(a.name)}</option>`).join('')}</select><div class="help">Ce choix indique où l’argent entre, sort ou est mis de côté. Il ne crée pas un autre budget.</div></div>`
+}
 function activeBudgetGroup(){return state?.budgetGroups?.find(g=>g.active)||null}
 function ensureBudgetOwner(g){
   if(!g)return;
@@ -13978,7 +14076,8 @@ function makeBlankAccountV11(groupId,name='Compte principal',shared=false){
     const old=byId(state.plan.freeAccountId);if(old)state.plan.freeBudgetId=old.budgetGroupId
   }
   delete state.plan.freeAccountId
-})();
+  try{state.budgetGroups.forEach(g=>{if(accountsForBudget(g.id).length>1)ensurePlanAccountLinksV1459(g)})}catch(e){console.warn('B² : rattachement des anciens éléments impossible',e)}
+})();;
 
 
 
@@ -14030,7 +14129,7 @@ ensureActive();
 
 function homeAccountStripV11(g,current){
   const accounts=accountsForBudget(g.id);
-  return `<div class="home-accounts-wrap"><div class="home-accounts-head"><strong>Mes comptes</strong><span>${accounts.length} dans ce budget</span></div><div class="home-account-strip">${accounts.map(a=>`<button class="home-account-pill ${String(a.id)===String(current?.id)?'on':''}" data-home-account="${a.id}" aria-pressed="${String(a.id)===String(current?.id)}" type="button"><span>${esc(a.name)}</span><strong class="${remaining(a)<0?'bad':''}">${euro(remaining(a))}</strong></button>`).join('')}<button class="home-account-add" id="homeAddAccount" type="button"><span aria-hidden="true">+</span><strong>Ajouter</strong></button></div></div>`
+  return `<div class="home-accounts-wrap"><div class="home-accounts-head"><strong>Soldes de mes comptes</strong><span>${accounts.length===1?'1 compte · aucun choix nécessaire':`${accounts.length} comptes · un seul budget`}</span></div><div class="home-account-strip">${accounts.map(a=>`<button class="home-account-pill ${String(a.id)===String(g.activeAccountId)?'on':''}" data-home-account="${a.id}" aria-pressed="${String(a.id)===String(g.activeAccountId)}" type="button"><span>${esc(a.name)}</span><strong class="${accountCashEstimate(a)<0?'bad':''}">${euro(accountCashEstimate(a))}</strong></button>`).join('')}<button class="home-account-add" id="homeAddAccount" type="button"><span aria-hidden="true">+</span><strong>Ajouter</strong></button></div></div>`
 }
 function openAccountSummary(id){
   const a=byId(id),g=a?budgetById(a.budgetGroupId):null;
@@ -14130,6 +14229,7 @@ function renameBudgetV11(id){
 function askDeleteAccountV11(id){
   const a=byId(id),g=a?budgetById(a.budgetGroupId):null;if(!a||!g)return;
   const all=accountsForBudget(g.id);if(all.length<=1){showToast('Un budget doit garder au moins un compte. Supprime le budget si tu veux repartir de zéro.');return}
+  if(String(g.planAccountId)===String(a.id)){showToast('Le compte principal porte actuellement la structure du budget. Choisis un autre compte principal avant de le supprimer.');return}
   openConfirm('Supprimer ce compte ?',`« ${a.name} » sera retiré de « ${g.name} ».`,()=>{const billing=String(state.plan?.billingAccountId||'')===String(a.id);state.budgets=state.budgets.filter(x=>String(x.id)!==String(a.id));if(String(g.activeAccountId)===String(a.id))g.activeAccountId=accountsForBudget(g.id)[0]?.id||null;if(billing&&isPlus()){state.plan.billingAccountId=active()?.id||state.budgets[0]?.id||null;ensurePlusBill(active()||state.budgets[0])}save();showToast('Compte supprimé.')})
 }
 
@@ -14158,7 +14258,44 @@ function startNewBudget(shared=false){
 }
 function startAccountWizard(groupId){
   const g=budgetById(groupId);if(!g)return;if(!canUseBudgetGroup(g)){openPlus('Plusieurs budgets');return}
-  startWizard(null,null,{groupId:g.id,shared:g.type==='shared'})
+  openAccountEditorV1457(null,g.id)
+}
+function ensurePlanAccountLinksV1459(g){
+  const p=planAccountForBudget(g);if(!g||!p)return false;
+  let changed=false;
+  ['incomeSources','fixed','oneOffs','provisions','savings','exceptionalIncomes'].forEach(key=>{
+    (p[key]||[]).forEach(x=>{if(!x.accountId){x.accountId=p.id;changed=true}})
+  });
+  return changed
+}
+function openAccountEditorV1457(accountId=null,groupId=null){
+  const a=accountId?byId(accountId):null,g=budgetById(groupId||a?.budgetGroupId);if(!g)return;
+  const isPlan=a&&String(planAccountForBudget(g)?.id)===String(a.id);
+  openSimple(accountId?'Modifier le compte':'Ajouter un compte',
+    accountId?'Modifie uniquement les informations bancaires de ce compte. Le budget et sa répartition ne changent pas.':
+    `Ce compte rejoint « ${g.name} ». B² garde une seule organisation budgétaire et ne demandera le compte concerné que lorsque plusieurs choix existent.`,
+    `<div class="field"><label for="simpleName">Nom du compte</label><input id="simpleName" maxlength="48" value="${esc(a?.name||'')}" placeholder="Ex. Compte courant, Compte joint"></div>
+     <div class="field"><label for="simpleAccountBalance">Solde actuel</label><input id="simpleAccountBalance" inputmode="decimal" value="${a?String(accountCashEstimate(a)).replace('.',','):''}" placeholder="0,00"></div>
+     <div class="status info compact"><strong>Un seul budget, plusieurs comptes.</strong><br>Les dépenses de ce compte consommeront les mêmes enveloppes que celles des autres comptes. Les charges, l’épargne et les sommes à préparer pourront être rattachées au compte qui les paie.</div>
+     ${isPlan?'<div class="small muted">Compte principal du budget : sa suppression est protégée.</div>':''}`,
+    ()=>{
+      const name=$('#simpleName')?.value.trim(),balance=num(String($('#simpleAccountBalance')?.value||'').replace(',','.'));
+      if(!name){showToast('Donne un nom au compte.');return false}
+      if(a){
+        const oldCash=accountCashEstimate(a);a.name=name;
+        // Rebase the opening balance so changing the displayed current balance does not erase history.
+        a.startBalance=r2(num(a.startBalance)+(balance-oldCash));
+      }else{
+        ensurePlanAccountLinksV1459(g);
+        const n=makeBlankAccountV11(g.id,name,g.type==='shared');
+        n.startBalance=r2(balance);n.isLedgerAccount=true;
+        // A secondary account is deliberately empty of budget-planning structures.
+        n.income=0;n.incomeSources=[];n.fixed=[];n.oneOffs=[];n.exceptionalIncomes=[];
+        n.provisions=[];n.savings=[];n.reserve=0;n.envelopes=[];n.lifestyle=[];n.history=[];
+        state.budgets.push(n);g.accountIds=accountsForBudget(g.id).map(x=>x.id);g.activeAccountId=n.id;
+      }
+      save();renderAll();return true
+    })
 }
 
 
@@ -14176,7 +14313,7 @@ function renderWizard(){
   $('#wizardSteps').innerHTML=Array.from({length:total},(_,i)=>`<i class="step ${i<=visual?'on':''}"></i>`).join('');
   $('#wizardNext').textContent=wizardStep===STEPS-1?(wizardEditId?'Enregistrer mon budget':v11WizardCreatingBudget?'Créer le budget':'Ajouter le compte'):wizardStep===6?(wizard.envelopes.length?'Voir ma répartition':'Vérifier mon budget'):'Continuer';
   if(wizardStep===0){
-    c.innerHTML=v11WizardCreatingBudget?`<h2 class="wizard-title">${v11WizardShared?'Ton budget partagé':'Ton budget'}</h2><p class="wizard-lead">${v11WizardShared?'Commence par donner un nom au budget partagé.':'Le budget regroupe les comptes que tu veux piloter ensemble.'}</p><div class="field"><label for="wBudgetName">Nom du budget</label><input id="wBudgetName" maxlength="48" value="${esc(v11WizardBudgetName)}" placeholder="Ex. Mon budget"></div><div class="section-title"><h3>Premier compte</h3></div><div class="field"><label for="wName">Nom du compte</label><input id="wName" maxlength="48" value="${esc(wizard.name)}" placeholder="Ex. Compte principal"></div><div class="help">Tu pourras ajouter d’autres comptes à ce budget juste après.</div>`:`<h2 class="wizard-title">${wizardEditId?'Modifier ce compte':'Ajouter un compte'}</h2><p class="wizard-lead">Ce compte sera ajouté à « ${esc(budgetById(v11WizardGroupId)?.name||'Mon budget')} ».</p><div class="field"><label for="wName">Nom du compte</label><input id="wName" maxlength="48" value="${esc(wizard.name)}" placeholder="Ex. Compte principal, Compte voiture"></div><div class="help">Ses revenus, charges, enveloppes et mouvements resteront associés à ce compte.</div>`
+    c.innerHTML=v11WizardCreatingBudget?`<h2 class="wizard-title">${v11WizardShared?'Ton budget partagé':'Ton budget'}</h2><p class="wizard-lead">${v11WizardShared?'Commence par donner un nom au budget partagé.':'Crée d’abord ton budget. Son premier compte sert uniquement à indiquer où se trouve l’argent ; les comptes ajoutés ensuite partageront cette même organisation.'}</p><div class="field"><label for="wBudgetName">Nom du budget</label><input id="wBudgetName" maxlength="48" value="${esc(v11WizardBudgetName)}" placeholder="Ex. Mon budget"></div><div class="section-title"><h3>Premier compte</h3></div><div class="field"><label for="wName">Nom du compte</label><input id="wName" maxlength="48" value="${esc(wizard.name)}" placeholder="Ex. Compte principal"></div><div class="help">Tu pourras ajouter d’autres comptes à ce budget juste après.</div>`:`<h2 class="wizard-title">${wizardEditId?'Modifier ce compte':'Ajouter un compte'}</h2><p class="wizard-lead">Ce compte sera ajouté à « ${esc(budgetById(v11WizardGroupId)?.name||'Mon budget')} ».</p><div class="field"><label for="wName">Nom du compte</label><input id="wName" maxlength="48" value="${esc(wizard.name)}" placeholder="Ex. Compte principal, Compte voiture"></div><div class="help">Ses revenus, charges, enveloppes et mouvements resteront associés à ce compte.</div>`
   }
   if(wizardStep===7){
     const strong=c.querySelector('.switch-copy strong'),span=c.querySelector('.switch-copy span');if(strong)strong.textContent='Afficher ce compte sur l’accueil';if(span)span.textContent=wizard.startMode==='next'?'Il sera prêt pour la période choisie.':'Les prochains mouvements iront sur ce compte.'
