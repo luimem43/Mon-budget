@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#075a4d">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<title>B² v14.65 — compte actif et Carré cohérent</title>
+<title>B² v14.67 — sélecteur de compte au-dessus du Carré</title>
 <style>
 :root{
   --brand:#075a4d;--brand2:#0a7965;--brand3:#0f8f72;--lime:#b9ef68;
@@ -736,13 +736,14 @@ opacity:.10;animation:b2SquareFade 8.8s ease-in-out infinite
 .home-account-pill,.home-account-add{border:1px solid var(--line);background:#fff;border-radius:16px;min-width:132px;padding:10px 12px;text-align:left;display:flex;flex-direction:column;gap:4px;flex:0 0 auto}
 .home-account-pill{cursor:pointer;user-select:none;position:relative;transition:border-color .16s ease,background .16s ease,transform .16s ease}
 .home-account-pill:active{transform:scale(.985)}
-.home-account-pill.on{border-color:rgba(7,122,98,.28);background:#f4fbf8}
+.home-account-pill.on{border-color:rgba(34,255,121,.82);background:#f2fff7;box-shadow:0 0 0 1px rgba(34,255,121,.18)}
 .home-account-pill span{font-size:10px;color:var(--muted);font-weight:750;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:135px}.home-account-pill strong{font-size:13px;color:var(--text)}
 .home-account-name{display:flex!important;align-items:center;gap:6px;max-width:145px!important}
-.home-account-dot{width:7px;height:7px;border-radius:50%;background:var(--brand);box-shadow:0 0 0 3px rgba(7,122,98,.10);flex:0 0 auto}
+.home-account-dot{width:9px;height:9px;border-radius:50%;background:#21f477;box-shadow:0 0 0 3px rgba(33,244,119,.18),0 0 10px rgba(33,244,119,.72);flex:0 0 auto}
 .home-account-pill .bad{color:var(--red)}
-.hero-balance-estimate{margin-top:5px;font-size:9.5px;color:var(--muted);font-weight:750}
-.hero-balance-estimate strong{color:var(--text);font-weight:900}
+/* v14.67 — dans le hero vert, le solde estimé reste une information secondaire mais lisible. */
+.hero-main .hero-balance-estimate{display:inline-flex;align-items:center;gap:5px;width:max-content;max-width:100%;margin-top:10px;margin-bottom:1px;padding:5px 8px;border:1px solid rgba(255,255,255,.18);border-radius:9px;background:rgba(0,0,0,.12);color:rgba(255,255,255,.82);font-size:10.5px;line-height:1.25;font-weight:700}
+.hero-main .hero-balance-estimate strong{color:#fff;font-size:10.5px;font-weight:900}
 .home-account-add{min-width:88px;align-items:center;justify-content:center;text-align:center;color:var(--green)}.home-account-add span{font-size:20px;line-height:1}.home-account-add strong{font-size:10px}
 .account-detail-card{padding:13px}.account-detail-head{display:flex;align-items:center;gap:11px}.account-detail-copy{min-width:0;flex:1;display:flex;flex-direction:column;gap:3px}.account-detail-copy strong{font-size:13px}.account-detail-copy span{font-size:10px;color:var(--muted);line-height:1.35}.account-detail-actions{display:flex;gap:7px;margin-top:12px;flex-wrap:wrap}
 /* Keep the budget name readable on phones, without stretching the selector too far. */
@@ -10355,6 +10356,7 @@ function renderHome(){
     :'';
   content.innerHTML=`
     ${sharedInvitePrompt}${incomeClosePrompt}${futureSalaryFix}
+    ${homeAccountStripV11(g,b)}
     <button class="card status-action home-square-card" id="homeStatusCard" type="button">
       <div class="square-status home-square-status">
         <span class="home-square-stage"><span class="home-square-scale"><span class="square-mark b2-dynamic ${statusClass}" style="${squareMotionStyle(health)}"><i>B²</i><i>B²</i><i>B²</i><i>B²</i><i>B²</i><i>B²</i><i>B²</i><i>B²</i><i>B²</i><i>B²</i><i>B²</i><i>B²</i></span></span></span>
@@ -10365,7 +10367,6 @@ function renderHome(){
         </span>
       </div>
     </button>
-    ${homeAccountStripV11(g,b)}
     ${readyFundsCard}${essential}${adCard('home')}${watchBlock}
     <div class="section-title"><h3>Derniers mouvements</h3><button class="btn-link" data-home-go="movements" type="button">Tout voir</button></div>
     <div class="card">${recent.length?recent.map(txMini).join(''):'<div class="empty">Aucun mouvement pour cette période.</div>'}</div>`;
@@ -10759,7 +10760,7 @@ function renderBudgetDetail(){
   $('#budgetDetailTitle').textContent=g.name;const accounts=accountsForBudget(g.id),locked=!canUseBudgetGroup(g);if(g.type==='shared')ensureBudgetOwner(g);
   const sharedOwner=g.type==='shared'&&(isOwnedSharedBudget(g)||(!g.remoteShared&&isPlus()));
   const sharedTop=g.type==='shared'?`<div class="shared-hero"><div class="small">BUDGET PARTAGÉ · ${sharedOwner?'PROPRIÉTAIRE':'MEMBRE'}</div><strong>${esc(g.name)}</strong><div class="small" style="margin-top:5px">${g.members.filter(m=>m.status==='joined').length} membre${g.members.filter(m=>m.status==='joined').length>1?'s':''} actif${g.members.filter(m=>m.status==='joined').length>1?'s':''} · plusieurs personnes peuvent participer · tes autres budgets restent privés</div><div class="shared-actions">${sharedOwner?'<button class="btn btn-white" id="detailInviteMember" type="button">Inviter une personne</button>':''}<button class="btn btn-white" id="detailManageMembers" type="button">${sharedOwner?'Gérer les membres':'Voir les membres'}</button></div></div>`:'';
-  c.innerHTML=`${sharedTop}${locked?`<div class="status warn"><strong>Budget partagé en pause.</strong><br>${isOwnedSharedBudget(g)?'Réactive B²+ pour le rendre de nouveau utilisable par tous les membres.':'Le propriétaire doit réactiver B²+ pour reprendre les modifications.'} Les données sont conservées.</div>`:''}<div class="card"><div class="card-title"><h3>Comptes de ce budget</h3><span class="badge">${accounts.length}</span></div><div class="small muted">Modifie un compte pour retrouver le parcours complet : solde, rôle, revenus, charges, sommes à préparer et épargne. Les enveloppes restent communes.</div></div>${accounts.map(a=>`<div class="card account-detail-card"><div class="account-detail-head"><div class="budget-icon">${ico(accountIcon(a))}</div><div class="account-detail-copy"><strong>${esc(a.name)}</strong><span>Solde ${euro(accountCashEstimate(a))} · ${esc(accountBudgetUseLabelV1464(a))}</span></div></div><div class="account-detail-actions">${locked?'<button class="mini-btn" data-unlock-detail type="button">B²+</button>':`<button class="mini-btn account-action-main" data-view-account="${a.id}" type="button">Voir le résumé</button><button class="mini-btn" data-edit-account="${a.id}" type="button">Modifier</button>${accounts.length>1?`<button class="mini-btn danger" data-delete-account="${a.id}" type="button">Supprimer</button>`:''}`}</div></div>`).join('')}<button class="btn ${locked?'btn-soft':'btn-primary'} btn-full" id="detailAddAccount" type="button">${locked?'Débloquer ce budget avec B²+':'＋ Ajouter un compte'}</button><div class="card" style="margin-top:12px"><div class="card-title"><h3>Enveloppes communes</h3><span class="badge">${planAccountForBudget(g)?.envelopes?.length||0}</span></div><div class="small muted">Une seule enveloppe Courses, Carburant, Loisirs… quel que soit le compte utilisé.</div><button class="btn btn-white btn-full" id="detailEditEnvelopes" type="button" style="margin-top:10px">Modifier les enveloppes</button></div>${g.type!=='shared'&&isPlus()?`<button class="btn btn-white btn-full" id="detailShareBudget" type="button" style="margin-top:8px">${ico('group')} Partager ce budget</button>`:''}${g.type==='shared'&&sharedOwner?`<button class="btn btn-white btn-full" id="detailStopSharing" type="button" style="margin-top:8px">Arrêter le partage</button>`:''}${g.type==='shared'&&sharedOwner&&shareArchiveForGroup(g.id)?`<button class="btn btn-white btn-full" id="detailPrivateArchive" type="button" style="margin-top:8px">${ico('shield')} Historique privé avant partage</button>`:''}`;
+  c.innerHTML=`${sharedTop}${locked?`<div class="status warn"><strong>Budget partagé en pause.</strong><br>${isOwnedSharedBudget(g)?'Réactive B²+ pour le rendre de nouveau utilisable par tous les membres.':'Le propriétaire doit réactiver B²+ pour reprendre les modifications.'} Les données sont conservées.</div>`:''}<div class="card"><div class="card-title"><h3>Comptes de ce budget</h3><span class="badge">${accounts.length}</span></div><div class="small muted">Modifie un compte pour retrouver le parcours complet : solde, rôle, revenus, charges, sommes à préparer et épargne. Les enveloppes restent communes.</div></div>${accounts.map(a=>`<div class="card account-detail-card"><div class="account-detail-head"><div class="budget-icon">${ico(accountIcon(a))}</div><div class="account-detail-copy"><strong>${esc(a.name)}</strong><span>Solde ${euro(accountCashEstimate(a))} · ${esc(accountBudgetUseLabelV1464(a))}</span></div></div><div class="account-detail-actions">${locked?'<button class="mini-btn" data-unlock-detail type="button">B²+</button>':`<button class="mini-btn account-action-main" data-view-account="${a.id}" type="button">Voir le résumé</button><button class="mini-btn" data-edit-account="${a.id}" type="button">Modifier</button>${accounts.length>1?`<button class="mini-btn danger" data-delete-account="${a.id}" type="button">Supprimer</button>`:''}`}</div></div>`).join('')}<button class="btn ${locked?'btn-soft':'btn-primary'} btn-full" id="detailAddAccount" type="button">${locked?'Débloquer ce budget avec B²+':'＋ Ajouter un compte'}</button><div class="card" style="margin-top:12px"><div class="card-title"><h3>Enveloppes communes</h3><span class="badge">${planAccountForBudget(g)?.envelopes?.length||0}</span></div><div class="small muted">Une seule enveloppe Courses, Carburant, Loisirs… quel que soit le compte utilisé.</div><button class="btn btn-primary btn-full" id="detailEditEnvelopes" type="button" style="margin-top:10px">Modifier les enveloppes</button></div>${g.type!=='shared'&&isPlus()?`<button class="btn btn-white btn-full" id="detailShareBudget" type="button" style="margin-top:8px">${ico('group')} Partager ce budget</button>`:''}${g.type==='shared'&&sharedOwner?`<button class="btn btn-white btn-full" id="detailStopSharing" type="button" style="margin-top:8px">Arrêter le partage</button>`:''}${g.type==='shared'&&sharedOwner&&shareArchiveForGroup(g.id)?`<button class="btn btn-white btn-full" id="detailPrivateArchive" type="button" style="margin-top:8px">${ico('shield')} Historique privé avant partage</button>`:''}`;
   if(g.type==='shared'){$('#detailInviteMember')?.addEventListener('click',()=>shareBudget(g.id));$('#detailManageMembers')?.addEventListener('click',()=>openSharedMembers(g.id))}
   $('#detailEditEnvelopes')?.addEventListener('click',()=>locked?openPlus('Plusieurs budgets'):startBudgetPlanEditorV1462(g.id,6));
   $('#detailShareBudget')?.addEventListener('click',()=>shareBudget(g.id));
@@ -14396,7 +14397,7 @@ function openAccountEditorV1457(accountId=null,groupId=null){
     `<div class="field"><label for="simpleName">Nom du compte</label><input id="simpleName" maxlength="48" value="${esc(a?.name||'')}" placeholder="Ex. Compte courant, PEL, Compte joint"></div>
      <div class="field"><label for="simpleAccountBalance">Solde actuel</label><input id="simpleAccountBalance" inputmode="decimal" value="${a?String(accountCashEstimate(a)).replace('.',','):''}" placeholder="0,00"></div>
      <div id="simpleAccountRoleBox"></div>
-     <div class="status info compact"><strong>Une seule série d’enveloppes.</strong><br>Quel que soit le compte utilisé, une dépense « Courses » consomme toujours la même enveloppe Courses du budget.</div>
+     <div class="status info compact"><strong>Tes enveloppes sont communes à tous tes comptes.</strong><br>Si tu dépenses 50 € en courses, ces 50 € sont retirés de ton enveloppe Courses, quel que soit le compte utilisé.</div>
      ${isPlan?'<div class="small muted">Compte principal du budget : sa suppression reste protégée.</div>':''}`,
     ()=>{
       const name=$('#simpleName')?.value.trim(),balance=num(String($('#simpleAccountBalance')?.value||'').replace(',','.'));
