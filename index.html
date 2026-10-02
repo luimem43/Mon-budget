@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#075a4d">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<title>B² v14.75 — parrainage harmonisé</title>
+<title>B² v14.76 — code parrainage lisible</title>
 <style>
 :root{
   --brand:#075a4d;--brand2:#0a7965;--brand3:#0f8f72;--lime:#b9ef68;
@@ -1439,6 +1439,7 @@ opacity:.10;animation:b2SquareFade 8.8s ease-in-out infinite
 .offer-copy{font-size:10px;line-height:1.48;color:var(--muted);margin-top:7px;max-width:92%}
 .offer-card:after{content:"";position:absolute;right:-34px;top:-34px;width:96px;height:96px;border-radius:50%;border:14px solid rgba(7,90,77,.045);pointer-events:none}
 
+/* B² v14.76 — code de parrainage : libellé au-dessus + espacement mobile */
 /* v12.95 — referral */
 .referral-hero{background:linear-gradient(145deg,#073f38,#08705d);color:#fff;border-radius:22px;padding:18px;position:relative;overflow:hidden;margin-bottom:12px}
 .referral-hero:after{content:"B²+";position:absolute;right:-8px;bottom:-17px;font-size:58px;font-weight:950;color:rgba(255,255,255,.055)}
@@ -1451,9 +1452,11 @@ opacity:.10;animation:b2SquareFade 8.8s ease-in-out infinite
 .referral-progress-label{display:flex;justify-content:space-between;gap:10px;margin-top:7px;font-size:8.5px;color:rgba(255,255,255,.72)}
 .referral-methods{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
 .referral-methods .btn{min-width:0}
-.referral-code{display:flex;align-items:center;justify-content:space-between;gap:10px;background:#f4f8f7;border:1px solid var(--line);border-radius:14px;padding:10px 11px;margin-top:10px}
-.referral-code strong{font-size:12px;letter-spacing:.05em}
-.referral-code span{font-size:8.5px;color:var(--muted)}
+.referral-code{display:flex;align-items:center;justify-content:space-between;gap:14px;background:#f4f8f7;border:1px solid var(--line);border-radius:14px;padding:12px 13px;margin-top:10px}
+.referral-code>div{display:flex;flex-direction:column;align-items:flex-start;gap:5px;min-width:0;flex:1}
+.referral-code strong{display:block;font-size:12px;line-height:1.2;letter-spacing:.05em;overflow-wrap:anywhere}
+.referral-code span{display:block;font-size:8.5px;line-height:1;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.referral-code .btn-link{flex:0 0 auto}
 .referral-stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
 .referral-stat{background:#f5f8f8;border-radius:14px;padding:11px}
 .referral-stat span{display:block;font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
@@ -3531,7 +3534,8 @@ async function cloudUpsertNow(){
     const payload=personalCloudPayload();
     const {error}=await b2supabase.from('b2_backups').upsert({user_id:cloudSession.user.id,data:payload,schema_version:Number(state.version)||14},{onConflict:'user_id'});
     if(error)throw error;
-    await evaluateReferralActivation({silent:true})
+    await evaluateReferralActivation({silent:true});
+    await refreshB2AccessStatus({render:true,silent:true})
   }catch(err){console.error('B² cloud save',err);showToast('Sauvegarde cloud momentanément indisponible. Les données restent sur cet appareil.')}
   finally{cloudSaving=false}
 }
@@ -3555,6 +3559,7 @@ async function loadCloudBackupOrSeed(){
   await evaluateReferralActivation({silent:true});
   await refreshReferralStatus({render:false,silent:true});
   await refreshLaunchConfig({render:false});
+  await refreshB2AccessStatus({render:false,silent:true});
   await syncRemoteSharedBudgets({render:false});
   restoreLastActiveBudgetSelection();
   persistB2LocalOnly();
@@ -3605,7 +3610,7 @@ async function logoutAuth(){
   try{if(b2SharedRealtimeChannel&&b2supabase)await b2supabase.removeChannel(b2SharedRealtimeChannel)}catch(e){}
   b2SharedRealtimeChannel=null;b2PendingSharedInvites=[];b2RemoteInbox=[];
   if(b2supabase)try{await b2supabase.auth.signOut()}catch(e){}
-  cloudSession=null;cloudReady=false;clearReferralStatus();renderHeaderAccount();setAuthMode('login');
+  cloudSession=null;cloudReady=false;clearReferralStatus();resetB2AccessStatus();renderHeaderAccount();setAuthMode('login');
   if($('#authEmail'))$('#authEmail').value=email;if($('#authPassword'))$('#authPassword').value='';showAuth();showToast('Tu es déconnecté.')
 }
 function openAccountModal(){
@@ -4176,7 +4181,69 @@ function paidPlusPeriodEndText(){
   const t=paidPlusPeriodEndMs();if(!t)return '';
   return new Intl.DateTimeFormat('fr-FR',{day:'numeric',month:'long',year:'numeric'}).format(new Date(t))
 }
-function isPlus(){return hasPaidPlus()||hasReferralPlus()}
+
+/* B² v14.77 — droits B²+ personnels pilotés par Supabase (essai / parrainage / abonnement vérifié) */
+let b2AccessStatus={
+  ready:false,plusActive:false,accessSource:'none',trialEligible:false,trialStartedAt:null,trialEndsAt:null,
+  trialActive:false,founderEligible:false,founderOfferAvailable:false,referralPlusUntil:null,referralActive:false,
+  paidActive:false,subscriptionOffer:null,subscriptionPrice:null,priceLocked:false,offerPreview:'standard',
+  offerPreviewPrice:2.99,earlyOfferClaimed:0,earlyOfferLimit:1000
+};
+let b2AccessRefreshing=false;
+function resetB2AccessStatus(){
+  b2AccessStatus={ready:false,plusActive:false,accessSource:'none',trialEligible:false,trialStartedAt:null,trialEndsAt:null,trialActive:false,founderEligible:false,founderOfferAvailable:false,referralPlusUntil:null,referralActive:false,paidActive:false,subscriptionOffer:null,subscriptionPrice:null,priceLocked:false,offerPreview:'standard',offerPreviewPrice:2.99,earlyOfferClaimed:0,earlyOfferLimit:1000}
+}
+function applyB2AccessStatus(x={}){
+  b2AccessStatus={
+    ready:true,
+    plusActive:x.plus_active===true,
+    accessSource:String(x.access_source||'none'),
+    trialEligible:x.trial_eligible===true,
+    trialStartedAt:x.trial_started_at||null,
+    trialEndsAt:x.trial_ends_at||null,
+    trialActive:x.trial_active===true,
+    founderEligible:x.founder_eligible===true,
+    founderOfferAvailable:x.founder_offer_available===true,
+    referralPlusUntil:x.referral_plus_until||null,
+    referralActive:x.referral_active===true,
+    paidActive:x.paid_active===true,
+    subscriptionOffer:x.subscription_offer||null,
+    subscriptionPrice:Number.isFinite(Number(x.subscription_price))?Number(x.subscription_price):null,
+    priceLocked:x.price_locked===true,
+    offerPreview:String(x.offer_preview||'standard'),
+    offerPreviewPrice:Number.isFinite(Number(x.offer_preview_price))?Number(x.offer_preview_price):2.99,
+    earlyOfferClaimed:Math.max(0,Math.round(Number(x.early_offer_claimed)||0)),
+    earlyOfferLimit:Math.max(1,Math.round(Number(x.early_offer_limit)||1000))
+  };
+  return b2AccessStatus
+}
+async function refreshB2AccessStatus({render=false,silent=true}={}){
+  if(b2AccessRefreshing||!b2supabase||!cloudSession?.user)return b2AccessStatus;
+  b2AccessRefreshing=true;
+  try{
+    const {data,error}=await b2supabase.rpc('b2_access_status');
+    if(error)throw error;
+    applyB2AccessStatus(data&&typeof data==='object'?data:{});
+    if(render){ensurePlusBill(active());syncOwnedSharedEntitlement({remote:true});renderAll()}
+    return b2AccessStatus
+  }catch(err){
+    console.warn('B² access status unavailable',err);
+    if(!silent)showToast('Les droits B²+ seront resynchronisés dès que possible.');
+    return b2AccessStatus
+  }finally{b2AccessRefreshing=false}
+}
+function launchTrialUntilMs(){
+  const t=Date.parse(b2AccessStatus?.trialEndsAt||'');
+  return Number.isFinite(t)?t:0
+}
+function hasLaunchTrialPlus(){return b2AccessStatus?.trialActive===true&&launchTrialUntilMs()>Date.now()}
+function launchTrialDateText(){
+  const t=launchTrialUntilMs();if(!t)return '';
+  return new Intl.DateTimeFormat('fr-FR',{day:'numeric',month:'long',year:'numeric'}).format(new Date(t))
+}
+function hasServerPaidPlus(){return b2AccessStatus?.paidActive===true}
+function hasServerFounderOffer(){return b2AccessStatus?.founderOfferAvailable===true&&b2AccessStatus?.offerPreview==='founder099'}
+function isPlus(){return hasPaidPlus()||hasReferralPlus()||hasLaunchTrialPlus()||hasServerPaidPlus()}
 function plusFeatureBadge(){
   return isPlus()
     ?''
@@ -4191,7 +4258,7 @@ function paidPlusAutoRenews(){
 }
 function finitePlusExpiryInfo(){
   // Un abonnement payant encore renouvelé n'a pas de date de fin à annoncer.
-  if(paidPlusAutoRenews())return null;
+  if(paidPlusAutoRenews()||hasServerPaidPlus())return null;
   const candidates=[];
   if(state.plan?.tier==='plus'&&state.plan?.cancelAtPeriodEnd===true){
     const t=Date.parse(state.plan?.subscriptionPeriodEnd||'');
@@ -4199,19 +4266,19 @@ function finitePlusExpiryInfo(){
   }
   const referral=referralPlusUntilMs();
   if(referral>0)candidates.push({end:referral,source:'referral'});
+  const trial=launchTrialUntilMs();
+  if(trial>0)candidates.push({end:trial,source:'trial'});
   if(!candidates.length)return null;
-  const end=Math.max(...candidates.map(x=>x.end));
-  const source=candidates.some(x=>x.source==='subscription'&&x.end===end)?'subscription':'referral';
-  return {end,source}
+  return candidates.sort((a,b)=>b.end-a.end)[0]
 }
 function plusExpiryFingerprint(info){
   return info?`${info.source}:${Math.round(info.end)}`:''
 }
 function sharedEntitlementEndMs(){
-  if(paidPlusAutoRenews())return 0;
+  if(paidPlusAutoRenews()||hasServerPaidPlus())return 0;
   const paid=state.plan?.tier==='plus'&&state.plan?.cancelAtPeriodEnd===true
     ?Date.parse(state.plan?.subscriptionPeriodEnd||'')||0:0;
-  return Math.max(paid,referralPlusUntilMs())
+  return Math.max(paid,referralPlusUntilMs(),launchTrialUntilMs())
 }
 function syncOwnedSharedEntitlement({remote=true}={}){
   const owned=(state.budgetGroups||[]).filter(g=>isOwnedSharedBudget(g));
@@ -4233,7 +4300,9 @@ function openPlusEndedNotice(info){
   if($('#plusEndedIcon'))$('#plusEndedIcon').innerHTML=ico('spark');
   $('#plusEndedTitle').textContent=info?.source==='referral'
     ?'Ton accès offert B²+ est terminé'
-    :'Ton accès B²+ est terminé';
+    :info?.source==='trial'
+      ?'Tes 30 jours de B²+ sont terminés'
+      :'Ton accès B²+ est terminé';
   $('#plusEndedLead').textContent='Tu retrouves maintenant la version gratuite de B².';
   $('#plusEndedData').innerHTML='<strong>Rien n’est supprimé.</strong><br>Tes données et tes anciens budgets sont conservés. Les fonctions B²+ sont simplement mises en pause.';
   const box=$('#plusEndedShared');
@@ -4357,15 +4426,17 @@ function billingCatalog(){
 }
 function earlyOfferRemaining(){const c=billingCatalog(),n=c.earlyOfferClaimed;return n==null?null:Math.max(0,c.earlyOfferLimit-n)}
 function earlyOfferAvailable(){return billingCatalog().earlyOfferAvailable}
-function hasFounderRate(){return hasPaidPlus()&&state.plan?.subscriptionOffer===B2_PLUS_FOUNDER_ID}
-function hasEarlyRate(){return hasPaidPlus()&&[B2_PLUS_EARLY_ID,'founder1000','founder500'].includes(state.plan?.subscriptionOffer)}
+function hasFounderRate(){return (hasPaidPlus()&&state.plan?.subscriptionOffer===B2_PLUS_FOUNDER_ID)||(hasServerPaidPlus()&&b2AccessStatus?.subscriptionOffer===B2_PLUS_FOUNDER_ID)}
+function hasEarlyRate(){return (hasPaidPlus()&&[B2_PLUS_EARLY_ID,'founder1000','founder500'].includes(state.plan?.subscriptionOffer))||(hasServerPaidPlus()&&b2AccessStatus?.subscriptionOffer===B2_PLUS_EARLY_ID)}
 function currentPlusPrice(){
-  if(hasReferralPlus()&&!hasPaidPlus())return 0;
+  if(hasLaunchTrialPlus()||hasReferralPlus()&&!hasPaidPlus()&&!hasServerPaidPlus())return 0;
+  if(hasServerPaidPlus()&&Number.isFinite(Number(b2AccessStatus?.subscriptionPrice))&&Number(b2AccessStatus.subscriptionPrice)>0)return Number(b2AccessStatus.subscriptionPrice);
   if(hasPaidPlus()){
     if(Number.isFinite(Number(state.plan?.subscriptionPrice))&&Number(state.plan.subscriptionPrice)>0)return num(state.plan.subscriptionPrice);
     if(hasFounderRate())return B2_PLUS_FOUNDER_PRICE;
     if(hasEarlyRate())return B2_PLUS_EARLY_PRICE;
   }
+  if(hasServerFounderOffer())return Number(b2AccessStatus.offerPreviewPrice)||B2_PLUS_FOUNDER_PRICE;
   return earlyOfferAvailable()?billingCatalog().earlyOfferPrice:billingCatalog().standardPrice
 }
 function earlyOfferText(){
@@ -10113,7 +10184,7 @@ async function chooseBankAssist(enabled){
 }
 window.chooseBankAssist=chooseBankAssist;
 window.addEventListener('focus',()=>{if(state?.settings?.bankAssist===true)setTimeout(()=>importNativeBankNotifications({silent:false}),450)});
-window.addEventListener('focus',()=>{if(cloudSession?.user)setTimeout(()=>Promise.all([refreshReferralStatus({render:false,silent:true}),refreshLaunchConfig({render:false})]).then(()=>{renderAll();syncOwnedSharedEntitlement({remote:true});checkB2EntitlementNotices()}),650)});
+window.addEventListener('focus',()=>{if(cloudSession?.user)setTimeout(()=>Promise.all([refreshReferralStatus({render:false,silent:true}),refreshLaunchConfig({render:false}),refreshB2AccessStatus({render:false,silent:true})]).then(()=>{renderAll();syncOwnedSharedEntitlement({remote:true});checkB2EntitlementNotices()}),650)});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&state?.settings?.bankAssist===true)setTimeout(()=>importNativeBankNotifications({silent:true}),500)});
 setTimeout(async()=>{
   if(state?.settings?.bankAssist===true&&active()){
@@ -10164,10 +10235,13 @@ function renderPlanBrand(){
   if(t)t.textContent=paidPlusCancellationPending()?'B²+ jusqu’à la fin de période':isPlus()?'B²+ actif':'B²+';
   if(copy){
     if(paidPlusCancellationPending())copy.textContent=`Résilié · accès conservé jusqu’au ${paidPlusPeriodEndText()} · aucun renouvellement ensuite.`;
-    else if(hasReferralPlus()&&!hasPaidPlus())copy.textContent=`B²+ offert jusqu’au ${referralPlusDateText()} · sans publicité.`;
-    else if(hasPaidPlus()&&hasFounderRate())copy.textContent='Tarif Fondateur 0,99 €/mois conservé · sans publicité.';
-    else if(hasPaidPlus()&&hasEarlyRate())copy.textContent='Tarif lancement 1,99 €/mois conservé · sans publicité.';
-    else if(hasPaidPlus())copy.textContent=`Abonnement ${euro(currentPlusPrice())}/mois · sans publicité.`;
+    else if(hasLaunchTrialPlus())copy.textContent=`Programme premiers utilisateurs · B²+ offert jusqu’au ${launchTrialDateText()} · sans publicité.`;
+    else if(hasReferralPlus()&&!hasPaidPlus()&&!hasServerPaidPlus())copy.textContent=`B²+ offert jusqu’au ${referralPlusDateText()} · sans publicité.`;
+    else if((hasPaidPlus()||hasServerPaidPlus())&&hasFounderRate())copy.textContent='Tarif Fondateur 0,99 €/mois conservé · sans publicité.';
+    else if((hasPaidPlus()||hasServerPaidPlus())&&hasEarlyRate())copy.textContent='Tarif lancement 1,99 €/mois conservé · sans publicité.';
+    else if(hasPaidPlus()||hasServerPaidPlus())copy.textContent=`Abonnement ${euro(currentPlusPrice())}/mois · sans publicité.`;
+    else if(b2AccessStatus?.trialEligible&&b2AccessStatus?.trialStartedAt==null)copy.textContent='Programme premiers utilisateurs · tes 30 jours de B²+ commenceront avec ton premier budget.';
+    else if(hasServerFounderOffer())copy.textContent='Tarif Fondateur 0,99 €/mois réservé à ton compte.';
     else if(earlyAccessOfferActive())copy.textContent=`Programme premiers utilisateurs · ${earlyAccessTrialDays()} jours de B²+ offerts.`;
     else copy.textContent=earlyOfferAvailable()?`Offre de lancement ${euro(billingCatalog().earlyOfferPrice)}/mois · ${earlyOfferRemaining()==null?'1 000 places maximum':`${earlyOfferRemaining().toLocaleString('fr-FR')} places restantes`}.`:`B²+ · ${euro(billingCatalog().standardPrice)}/mois · plusieurs budgets, partage et zéro publicité.`
   }
@@ -10200,7 +10274,16 @@ function openPlus(context='B²+',after=null){
   const btn=$('#plusPrimary'),note=$('#plusBillingNote'),secondary=$('#plusSecondary');
   const card=$('#founderOfferCard'),price=$('#founderPrice'),offerText=$('#founderOfferText'),lock=$('#founderLock'),standard=$('#founderStandard'),kicker=$('#founderKicker');
   const trialCard=$('#launchTrialCard'),trialTitle=$('#launchTrialTitle'),trialText=$('#launchTrialText');
-  if(trialCard){const on=!isPlus()&&earlyAccessOfferActive();trialCard.classList.toggle('show',on);if(on){trialTitle.textContent=`${earlyAccessTrialDays()} jours de B²+ offerts`;trialText.textContent=`Découvre B²+ en conditions réelles. À la fin de tes ${earlyAccessTrialDays()} jours, ton tarif Fondateur de 0,99 € / mois sera réservé si tu souhaites continuer.`}}
+  if(trialCard){
+    const pendingTrial=!isPlus()&&b2AccessStatus?.trialEligible===true&&!b2AccessStatus?.trialStartedAt;
+    const activeTrial=hasLaunchTrialPlus();
+    const on=pendingTrial||activeTrial||(!isPlus()&&earlyAccessOfferActive());
+    trialCard.classList.toggle('show',on);
+    if(on){
+      if(activeTrial){trialTitle.textContent='B²+ est offert sur ton compte';trialText.textContent=`Tes 30 jours sont en cours jusqu’au ${launchTrialDateText()}. Ton tarif Fondateur de 0,99 € / mois reste réservé si tu souhaites continuer ensuite.`}
+      else{trialTitle.textContent=`${earlyAccessTrialDays()} jours de B²+ offerts`;trialText.textContent=`Tes ${earlyAccessTrialDays()} jours commencent avec ton premier budget. Ensuite, ton tarif Fondateur de 0,99 € / mois reste réservé si tu souhaites continuer.`}
+    }
+  }
   if(lock&&!lock.querySelector('.ui-ico'))lock.innerHTML=`${ico('spark')}${lock.innerHTML}`;
 
   if(card){
@@ -10218,6 +10301,13 @@ function openPlus(context='B²+',after=null){
       offerText.textContent='Tu fais partie des 1 000 premiers nouveaux abonnés B²+.';
       lock.innerHTML=`${ico('spark')}<span>Tu gardes 1,99 € / mois tant que ton abonnement reste actif.</span>`;
       standard.innerHTML=`Tarif normal : <strong>${euro(B2_PLUS_STANDARD_PRICE)} / mois</strong>.`;
+    }else if(!isPlus()&&hasServerFounderOffer()){
+      card.style.display='';
+      kicker.textContent='TON TARIF FONDATEUR';
+      price.textContent=euro(Number(b2AccessStatus.offerPreviewPrice)||B2_PLUS_FOUNDER_PRICE);
+      offerText.textContent='Ce tarif est réservé à ton compte parce que tu fais partie des premiers utilisateurs de B².';
+      lock.innerHTML=`${ico('spark')}<span>Tu gardes 0,99 € / mois tant que ton abonnement reste actif.</span>`;
+      standard.innerHTML='Cette offre personnelle reste réservée à ton compte.';
     }else if(!isPlus()&&earlyOfferAvailable()){
       card.style.display='';
       kicker.textContent='OFFRE DE LANCEMENT';
@@ -10236,38 +10326,46 @@ function openPlus(context='B²+',after=null){
   }
 
   if(isPlus()){
-    btn.textContent='Gérer mon abonnement';
     btn.disabled=false;
     note.className='status good';
-    note.textContent=`Abonnement actif · ${euro(currentPlusPrice())} / mois${hasFounderRate()?' · tarif fondateur':''}.`;
+    if(hasLaunchTrialPlus()&&!hasPaidPlus()&&!hasServerPaidPlus()){
+      btn.textContent='J’ai compris';
+      note.textContent=`B²+ est offert jusqu’au ${launchTrialDateText()} · programme premiers utilisateurs.`;
+    }else{
+      btn.textContent='Gérer mon abonnement';
+      note.textContent=`Abonnement actif · ${euro(currentPlusPrice())} / mois${hasFounderRate()?' · tarif fondateur':''}.`;
+    }
     if(secondary)secondary.textContent='Fermer';
   }else{
-    const launch=earlyOfferAvailable(),early=earlyAccessOfferActive();
-    btn.textContent=early?`Découvrir B²+ · ${earlyAccessTrialDays()} jours offerts`:launch?`Profiter du tarif lancement · ${euro(billingCatalog().earlyOfferPrice)}/mois`:`Activer B²+ · ${euro(billingCatalog().standardPrice)}/mois`;
+    const launch=earlyOfferAvailable(),early=(b2AccessStatus?.trialEligible===true&&!b2AccessStatus?.trialStartedAt)||earlyAccessOfferActive(),founder=hasServerFounderOffer();
+    btn.textContent=early?`Découvrir B²+ · ${earlyAccessTrialDays()} jours offerts`:founder?`Continuer avec B²+ · ${euro(Number(b2AccessStatus.offerPreviewPrice)||B2_PLUS_FOUNDER_PRICE)}/mois`:launch?`Profiter du tarif lancement · ${euro(billingCatalog().earlyOfferPrice)}/mois`:`Activer B²+ · ${euro(billingCatalog().standardPrice)}/mois`;
     btn.disabled=false;
     note.className='status info';
-    note.textContent=early?'Tes 30 jours commencent avec ton premier budget. Ensuite, tu pourras conserver B²+ au tarif Fondateur de 0,99 € / mois.':"Prototype : le paiement n'est pas encore branché. Dans l’app Android, Google Play gérera l’achat et l’abonnement.";
+    note.textContent=early?'Tes 30 jours commencent avec ton premier budget. Ensuite, tu pourras conserver B²+ au tarif Fondateur de 0,99 € / mois.':founder?'Ton compte conserve son accès au tarif Fondateur de 0,99 € / mois. Le paiement Google Play sera branché avant le lancement public.':"Prototype : le paiement n'est pas encore branché. Dans l’app Android, Google Play gérera l’achat et l’abonnement.";
     if(secondary)secondary.textContent='Pas maintenant';
   }
   openModal('plusModal');
 }
 function activatePlusDemo(){
-  if(hasReferralPlus()&&!hasPaidPlus()){closeModal('plusModal');showPage('referral');return}
+  if(hasLaunchTrialPlus()){closeModal('plusModal');showToast(`B²+ est offert jusqu’au ${launchTrialDateText()}.`);return}
+  if(hasReferralPlus()&&!hasPaidPlus()&&!hasServerPaidPlus()){closeModal('plusModal');showPage('referral');return}
   if(hasPaidPlus()){closeModal('plusModal');openSubscriptionManager();return}
+  if(hasServerPaidPlus()){closeModal('plusModal');showToast('Ton abonnement B²+ est actif et vérifié côté serveur.');return}
+  if(b2AccessStatus?.trialEligible===true&&!b2AccessStatus?.trialStartedAt){closeModal('plusModal');showToast('Tes 30 jours de B²+ commenceront automatiquement avec ton premier budget.');return}
   if(earlyAccessOfferActive()){closeModal('plusModal');showToast(`B²+ est offert ${earlyAccessTrialDays()} jours dans le programme premiers utilisateurs.`);return}
-  const launch=earlyOfferAvailable();
+  const founder=hasServerFounderOffer(),launch=!founder&&earlyOfferAvailable();
   const startedAt=Date.now();
   state.plan={...(state.plan||{}),tier:'plus',plusSince:startedAt,freeBudgetId:state.plan?.freeBudgetId||activeBudgetGroup()?.id||null,
-    subscriptionOffer:launch?B2_PLUS_EARLY_ID:'standard',
-    subscriptionPrice:launch?B2_PLUS_EARLY_PRICE:B2_PLUS_STANDARD_PRICE,
-    priceLocked:launch,cancelAtPeriodEnd:false,subscriptionCanceledAt:null,
+    subscriptionOffer:founder?B2_PLUS_FOUNDER_ID:launch?B2_PLUS_EARLY_ID:'standard',
+    subscriptionPrice:founder?B2_PLUS_FOUNDER_PRICE:launch?B2_PLUS_EARLY_PRICE:B2_PLUS_STANDARD_PRICE,
+    priceLocked:founder||launch,cancelAtPeriodEnd:false,subscriptionCanceledAt:null,
     subscriptionPeriodEnd:new Date(plusAddMonth(startedAt)).toISOString()
   };
   state.budgetGroups.filter(isOwnedSharedBudget).forEach(g=>{g.ownerAccessUntil=null;if(g.remoteShared)queueRemoteSharedSave(g)});
   if(!state.plan.billingAccountId)state.plan.billingAccountId=active()?.id||state.budgets[0]?.id||null;
   ensurePlusBill(active());
   const next=plusAfterAction;plusAfterAction=null;closeModal('plusModal');save();
-  showToast(launch?'Tarif lancement B²+ activé · 1,99 €/mois.':'B²+ activé · 2,99 €/mois.');
+  showToast(founder?'Tarif Fondateur B²+ activé en mode prototype · 0,99 €/mois.':launch?'Tarif lancement B²+ activé · 1,99 €/mois.':'B²+ activé · 2,99 €/mois.');
   if(next)setTimeout(next,0)
 }
 function deactivatePlusDemo(){openCancelPlus()}
