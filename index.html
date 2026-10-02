@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#075a4d">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<title>B² v14.63 — soldes des comptes informatifs sur l’accueil</title>
+<title>B² v14.65 — compte actif et Carré cohérent</title>
 <style>
 :root{
   --brand:#075a4d;--brand2:#0a7965;--brand3:#0f8f72;--lime:#b9ef68;
@@ -734,9 +734,15 @@ opacity:.10;animation:b2SquareFade 8.8s ease-in-out infinite
 .home-accounts-wrap{margin:0 0 12px}.home-accounts-head{display:flex;align-items:center;justify-content:space-between;padding:0 2px 8px}.home-accounts-head strong{font-size:13px}.home-accounts-head span{font-size:10px;color:var(--muted)}
 .home-account-strip{display:flex;gap:8px;overflow-x:auto;padding:1px 1px 5px;scrollbar-width:none}.home-account-strip::-webkit-scrollbar{display:none}
 .home-account-pill,.home-account-add{border:1px solid var(--line);background:#fff;border-radius:16px;min-width:132px;padding:10px 12px;text-align:left;display:flex;flex-direction:column;gap:4px;flex:0 0 auto}
-.home-account-pill{cursor:default;user-select:none}
+.home-account-pill{cursor:pointer;user-select:none;position:relative;transition:border-color .16s ease,background .16s ease,transform .16s ease}
+.home-account-pill:active{transform:scale(.985)}
+.home-account-pill.on{border-color:rgba(7,122,98,.28);background:#f4fbf8}
 .home-account-pill span{font-size:10px;color:var(--muted);font-weight:750;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:135px}.home-account-pill strong{font-size:13px;color:var(--text)}
+.home-account-name{display:flex!important;align-items:center;gap:6px;max-width:145px!important}
+.home-account-dot{width:7px;height:7px;border-radius:50%;background:var(--brand);box-shadow:0 0 0 3px rgba(7,122,98,.10);flex:0 0 auto}
 .home-account-pill .bad{color:var(--red)}
+.hero-balance-estimate{margin-top:5px;font-size:9.5px;color:var(--muted);font-weight:750}
+.hero-balance-estimate strong{color:var(--text);font-weight:900}
 .home-account-add{min-width:88px;align-items:center;justify-content:center;text-align:center;color:var(--green)}.home-account-add span{font-size:20px;line-height:1}.home-account-add strong{font-size:10px}
 .account-detail-card{padding:13px}.account-detail-head{display:flex;align-items:center;gap:11px}.account-detail-copy{min-width:0;flex:1;display:flex;flex-direction:column;gap:3px}.account-detail-copy strong{font-size:13px}.account-detail-copy span{font-size:10px;color:var(--muted);line-height:1.35}.account-detail-actions{display:flex;gap:7px;margin-top:12px;flex-wrap:wrap}
 /* Keep the budget name readable on phones, without stretching the selector too far. */
@@ -3688,6 +3694,7 @@ function normalizeBudget(b){
   const oldPriority=x=>num(x.priority)>=3;
   return {
     id:b.id||uid(),name:b.name||'Compte principal',budgetGroupId:b.budgetGroupId||null,type:b.type==='shared'?'shared':'personal',accountKind:['personal','pro','other'].includes(b.accountKind)?b.accountKind:'personal',active:!!b.active,remoteSharedId:b.remoteSharedId||null,
+    budgetUseMode:['full','track','limited'].includes(b.budgetUseMode)?b.budgetUseMode:null,budgetContribution:Math.max(0,num(b.budgetContribution)),
     startMode:b.startMode==='now'?'now':'next',nextIncomeDate:b.nextIncomeDate||b.cycleEnd||addMonthsISO(todayISO(),1),
     cycleStart:b.cycleStart||todayISO(),cycleEnd:b.cycleEnd||addMonthsISO(todayISO(),1),startBalance:num(b.startBalance),startCash:Math.max(0,num(b.startCash)),heldAside:num(b.heldAside),
     openingCarry:num(b.openingCarry),openingIncomeAmount:num(b.openingIncomeAmount),openingIncomeSourceId:b.openingIncomeSourceId||null,openingIncomeAt:b.openingIncomeAt||null,openingIncomeRepairV1416:b.openingIncomeRepairV1416===true,
@@ -4347,12 +4354,13 @@ function accountIcon(a){return a?.accountKind==='pro'?'briefcase':'accounts'}
 function accountMetaLabel(){return 'Compte'}
 function accountChargeCount(b){return (b?.fixed||[]).length+(b?.oneOffs||[]).length}
 function recurringIncomeTotal(b){
-  if(Array.isArray(b.incomeSources)&&b.incomeSources.length)return b.incomeSources.reduce((s,x)=>s+Math.max(0,num(x.amount)),0);
+  const list=budgetIncomeSourcesV1464(b);
+  if(list.length)return list.reduce((s,x)=>s+Math.max(0,num(x.amount)),0);
   if(b.type==='shared'&&b.incomeMode==='contributions'&&b.members.length)return sum(b.members,'contribution');
   return num(b.income)
 }
 function primaryIncomeSource(b){
-  const list=Array.isArray(b.incomeSources)?b.incomeSources:[];
+  const list=budgetIncomeSourcesV1464(b);
   return list.find(x=>x.primary)||list[0]||null
 }
 /* v14.48 conserve v14.47 et verrouille les protections financières : épargne et cagnottes ne peuvent plus être réduites par le Carré.
@@ -4367,7 +4375,8 @@ function primaryIncomeSource(b){
    il ne devient pas en plus de l'argent libre dans Piloter. Seule une éventuelle
    part excédentaire (au-delà de la dépense réellement remboursable) redevient libre. */
 function plannedIncome(b){
-  if(Array.isArray(b.incomeSources)&&b.incomeSources.length){
+  const eligibleIncomeSources=budgetIncomeSourcesV1464(b);
+  if(eligibleIncomeSources.length){
     /* Lors du premier budget, les revenus futurs servent à préparer la suite
        mais ne sont pas ajoutés à l'argent réellement disponible aujourd'hui.
        Si un revenu prévu a déjà été confirmé par un mouvement, on remplace la
@@ -4376,13 +4385,13 @@ function plannedIncome(b){
     const settled=new Set(budgetTransactions(b)
       .filter(t=>t.type==='income'&&t.kind!=='refund'&&t.plannedKind==='income'&&t.plannedId)
       .map(t=>String(t.plannedId)));
-    return r2((b.incomeSources||[]).reduce((s,x)=>s+(settled.has(String(x.id))?0:Math.max(0,num(x.amount))),0))
+    return r2(eligibleIncomeSources.reduce((s,x)=>s+(settled.has(String(x.id))?0:Math.max(0,num(x.amount))),0))
   }
   if(b.type==='shared'&&b.incomeMode==='contributions'&&b.members.length)return sum(b.members,'contribution');
   return num(b.income)
 }
-function extraIncome(b){return r2(budgetTransactions(b).filter(t=>t.type==='income'&&t.kind!=='refund').reduce((s,t)=>s+num(t.amount),0))}
-function unplannedIncome(b){return r2(budgetTransactions(b).filter(t=>t.type==='income'&&t.kind!=='refund'&&!['income','exceptionalIncome'].includes(t.plannedKind)).reduce((s,t)=>s+num(t.amount),0))}
+function extraIncome(b){return r2(budgetTransactions(b).filter(t=>t.type==='income'&&t.kind!=='refund'&&accountIncomeFeedsBudgetV1464(t._accountId||t.accountId,b)).reduce((s,t)=>s+num(t.amount),0))}
+function unplannedIncome(b){return r2(budgetTransactions(b).filter(t=>t.type==='income'&&t.kind!=='refund'&&!['income','exceptionalIncome'].includes(t.plannedKind)&&accountIncomeFeedsBudgetV1464(t._accountId||t.accountId,b)).reduce((s,t)=>s+num(t.amount),0))}
 function refundIncome(b){return r2(budgetTransactions(b).filter(t=>t.type==='income'&&t.kind==='refund').reduce((s,t)=>s+num(t.amount),0))}
 function effectiveRefundCategoryId(b,t){
   if(!t||t.type!=='income'||t.kind!=='refund')return null;
@@ -4630,7 +4639,7 @@ function incomeForecastHorizon(b){
   return monthEndISO(primary?.nextDate||b.cycleEnd||todayISO())
 }
 function forecastIncomeUntil(b,endISO){
-  const list=Array.isArray(b.incomeSources)?b.incomeSources:[];
+  const list=budgetIncomeSourcesV1464(b);
   if(!list.length)return 0;
   const from=todayISO();
   return r2(list.reduce((s,x)=>{
@@ -4799,7 +4808,7 @@ function essentialityOfEnvelope(e,b){
   return clamp(v,.03,1)
 }
 function normalCycleIncome(b){
-  const sources=(b.incomeSources||[]).filter(x=>num(x.amount)>0);
+  const sources=budgetIncomeSourcesV1464(b).filter(x=>num(x.amount)>0);
   if(sources.length)return r2(sources.reduce((sum,x)=>sum+num(x.amount),0));
   return r2(Math.max(0,plannedIncome(b)))
 }
@@ -6626,12 +6635,12 @@ function smartPlanningCapacity(b){
 
 function currentCashEstimate(b){
   const g=b?.budgetGroupId?budgetById(b.budgetGroupId):null;
-  if(g&&String(planAccountForBudget(g)?.id)===String(b.id))return r2(accountsForBudget(g.id).reduce((sum,a)=>sum+accountCashEstimate(a),0));
+  if(g&&String(planAccountForBudget(g)?.id)===String(b.id))return r2(accountsForBudget(g.id).reduce((sum,a)=>sum+accountBudgetCashContributionV1464(a),0));
   return accountCashEstimate(b)
 }
 function futureIncomeSources(b){
   const today=todayISO();
-  return (b.incomeSources||[]).filter(x=>x.nextDate&&x.nextDate>=today&&num(x.amount)>0).sort((a,z)=>{
+  return budgetIncomeSourcesV1464(b).filter(x=>x.nextDate&&x.nextDate>=today&&num(x.amount)>0).sort((a,z)=>{
     if(!!a.primary!==!!z.primary)return a.primary?-1:1;
     return String(a.nextDate).localeCompare(String(z.nextDate))
   })
@@ -10320,18 +10329,22 @@ function renderHome(){
   }
 
   sw.disabled=false;if(swLabel)swLabel.textContent=g.name;
-  const future=b.startMode==='next'&&String(b.cycleStart)>todayISO(),rem=remaining(b),days=daysUntil(b.cycleEnd),homeCtx=shortTermMoneyContext(b),repereDays=homeCtx.nextIncome?homeCtx.daysToIncome:days,perDay=repereDays&&rem>0?rem/Math.max(1,repereDays):null,spent=netExpenses(b),setAside=provisionsThisCycle(b),sav=periodSavingsProtected(b);
+  const account=selectedAccountForBudget(g)||b;
+  const future=b.startMode==='next'&&String(b.cycleStart)>todayISO(),globalRem=remaining(b),rem=accountAvailableV1465(b,account),accountBalance=accountCashEstimate(account),days=daysUntil(b.cycleEnd),homeCtx=shortTermMoneyContext(b),repereDays=homeCtx.nextIncome?homeCtx.daysToIncome:days,perDay=repereDays&&rem>0?rem/Math.max(1,repereDays):null,spent=netExpenses(b),setAside=provisionsThisCycle(b),sav=periodSavingsProtected(b);
   if(future){
     const adjusted=expenses(b)>0||extraIncome(b)>0;
-    const futureTitle=rem<0?'Prévision à rééquilibrer':(adjusted?'Prévision ajustée':'Prévision du budget');
+    const futureTitle=rem<0?'Prévision à rééquilibrer':(adjusted?'Prévision ajustée':'Prévision du compte');
     const futureCaption=rem<0?'Les mouvements enregistrés mettent déjà le budget en déséquilibre.':(adjusted?'Après les mouvements déjà enregistrés.':'Montant prévu pour cette période.');
-    hero.innerHTML=`<div class="eyebrow">${esc(b.name)} · à partir du ${fmtDate(b.cycleStart)}</div><div class="hero-title">${futureTitle}</div><div class="hero-amount ${rem<0?'bad':''}">${rem<0?'− ':''}${euro(Math.abs(rem))}</div><div class="hero-caption">${futureCaption}</div><div class="hero-facts"><span class="hero-pill">📅 ${fmtDate(b.cycleStart)}</span></div>`
+    hero.innerHTML=`<div class="eyebrow">${esc(account.name)} · à partir du ${fmtDate(b.cycleStart)}</div><div class="hero-title">${futureTitle}</div><div class="hero-amount ${rem<0?'bad':''}">${rem<0?'− ':''}${euro(Math.abs(rem))}</div><div class="hero-caption">${futureCaption}</div><div class="hero-balance-estimate">Solde estimé : <strong>${euro(accountBalance)}</strong></div><div class="hero-facts"><span class="hero-pill">📅 ${fmtDate(b.cycleStart)}</span></div>`
   }else{
-    hero.innerHTML=`<div class="eyebrow">${esc(g.name)} · jusqu’au ${fmtDate(b.cycleEnd)}</div><div class="hero-title">Disponible à utiliser</div><div class="hero-amount ${rem<0?'bad':''}">${rem<0?'− ':''}${euro(Math.abs(rem))}</div><div class="hero-caption">Après charges, réserve et argent mis de côté.</div><div class="hero-facts"><span class="hero-pill">${repereDays} j avant revenu</span>${perDay!=null?`<span class="hero-pill">≈ ${euro(perDay)}/j repère</span>`:''}</div>`
+    hero.innerHTML=`<div class="eyebrow">${esc(account.name)} · jusqu’au ${fmtDate(b.cycleEnd)}</div><div class="hero-title">Disponible à utiliser</div><div class="hero-amount ${rem<0?'bad':''}">${rem<0?'− ':''}${euro(Math.abs(rem))}</div><div class="hero-caption">Après charges, réserve et argent mis de côté.</div><div class="hero-balance-estimate">Solde estimé : <strong>${euro(accountBalance)}</strong></div><div class="hero-facts"><span class="hero-pill">${repereDays} j avant revenu</span>${perDay!=null?`<span class="hero-pill">≈ ${euro(perDay)}/j repère</span>`:''}</div>`
   }
 
-  const health=future?futurePreparedHealth(b):budgetHealth(b),statusClass=homeHealthClass(health.level),watch=future?[]:homeWatchList(b,health),recent=budgetTransactions(b).sort((a,c)=>(c.createdAt||0)-(a.createdAt||0)).slice(0,3);
-  const protectedTotal=protectedThisCycle(b)+num(b.reserve),fixedTotal=fixedThisCycle(b)+sum(b.oneOffs),buckets=moneyBuckets(b);
+  /* Le Carré reste volontairement calculé sur le périmètre choisi par l'utilisateur
+     via « Comment utilises-tu ce compte ? ». Sélectionner un PEL pour saisir un
+     mouvement ne l'ajoute donc pas soudainement à l'analyse du budget. */
+  const health=future?futurePreparedHealth(b):budgetHealth(b),statusClass=homeHealthClass(health.level),watch=future?[]:homeWatchList(b,health),recent=[...(account.transactions||[])].sort((a,c)=>(c.createdAt||0)-(a.createdAt||0)).slice(0,3);
+  const protectedTotal=protectedThisCycle(b)+num(b.reserve),fixedTotal=fixedThisCycle(b)+sum(b.oneOffs),buckets={...moneyBuckets(b),accountBalance:r2(accountBalance),spendable:r2(rem)};
   const essential=`<div class="home-essential"><div class="home-essential-main"><div class="home-essential-item"><span>Dépensé cette période</span><strong>${euro(spent)}</strong><small>${refundAppliedTotal(b)>.01?'net après remboursements':'ce qui est déjà sorti'}</small></div><div class="home-essential-item"><span>Argent protégé</span><strong>${euro(protectedTotal)}</strong><small>non disponible pour les dépenses courantes</small></div></div><details><summary>Comprendre où est mon argent</summary><div class="money-buckets"><div class="money-bucket">${ico('money')}<div class="money-bucket-copy"><strong>Solde du compte</strong><span>L’argent réellement présent, avant protections B².</span></div><b>${euro(buckets.accountBalance)}</b></div><div class="money-bucket">${ico('wallet')}<div class="money-bucket-copy"><strong>Disponible à utiliser</strong><span>Après charges, réserve et argent mis de côté.</span></div><b class="${buckets.spendable<0?'bad':''}">${euro(buckets.spendable)}</b></div><div class="money-bucket">${ico('shield')}<div class="money-bucket-copy"><strong>Réserve de sécurité</strong><span>Protégée pour les vrais imprévus.</span></div><b>${euro(buckets.reserve)}</b></div><div class="money-bucket">${ico('calendar')}<div class="money-bucket-copy"><strong>Déjà mis de côté pour des factures</strong><span>Cagnottes et charges irrégulières en préparation.</span></div><b>${euro(buckets.futureBills)}</b></div><div class="money-bucket">${ico('target')}<div class="money-bucket-copy"><strong>Épargne déjà constituée</strong><span>Suivie séparément du budget courant.</span></div><b>${euro(buckets.savings)}</b></div>${buckets.heldAside>0?`<div class="money-bucket">${ico('money')}<div class="money-bucket-copy"><strong>Mis de côté hors budget</strong><span>Conservé, mais pas réutilisé dans la période.</span></div><b>${euro(buckets.heldAside)}</b></div>`:''}</div><div class="home-detail-grid"><div class="home-detail-row"><span>Charges prévues cette période</span><b>${euro(fixedTotal)}</b></div><div class="home-detail-row"><span>À mettre de côté cette période</span><b>${euro(setAside)}</b></div><div class="home-detail-row"><span>Épargne prévue cette période</span><b>${euro(sav)}</b></div>${plannedExceptionalIncome(b)>0?`<div class="home-detail-row"><span>Revenu exceptionnel prévu</span><b>＋ ${euro(plannedExceptionalIncome(b))}</b></div>`:''}</div></details></div>`;
   const watchBlock=watch.length?`<div class="section-title"><h3>À regarder</h3><button class="btn-link" data-home-go="pilot" type="button">Piloter</button></div><div class="card"><div class="env-preview">${watch.map(e=>envMini(b,e)).join('')}</div></div>`:'';
   const readyFunds=readyProvisions(b),readyFundsCard=readyFunds.length?`<button class="card status-action" id="readyProvisionCard" type="button"><div class="status-icon-row"><div class="status-icon">${ico('gift')}</div><div class="square-copy"><strong>${esc(readyFunds[0].name)} est prêt${readyFunds.length>1?` · +${readyFunds.length-1}`:''}</strong><span>${euro(readyFunds[0].savedAmount)} sont prêts à être utilisés.</span><span class="status-cta">Choisir quoi en faire →</span></div></div></button>`:'';
@@ -10370,6 +10383,7 @@ function renderHome(){
   });
   $('#homeAcceptSharedInvite')?.addEventListener('click',()=>acceptSharedInvite(b2PendingSharedInvites[0]));
   $('#homeDeclineSharedInvite')?.addEventListener('click',()=>declineSharedInvite(b2PendingSharedInvites[0]));
+  $$('[data-home-account]',content).forEach(x=>x.addEventListener('click',()=>activateAccountV11(x.dataset.homeAccount,true)));
   $('#homeAddAccount')?.addEventListener('click',()=>startAccountWizard(g.id));
   $('#homeSalaryReceivedToday')?.addEventListener('click',()=>forceEarlySalaryReceivedToday(b));
   $('#homeStatusCard')?.addEventListener('click',()=>future
@@ -10745,9 +10759,9 @@ function renderBudgetDetail(){
   $('#budgetDetailTitle').textContent=g.name;const accounts=accountsForBudget(g.id),locked=!canUseBudgetGroup(g);if(g.type==='shared')ensureBudgetOwner(g);
   const sharedOwner=g.type==='shared'&&(isOwnedSharedBudget(g)||(!g.remoteShared&&isPlus()));
   const sharedTop=g.type==='shared'?`<div class="shared-hero"><div class="small">BUDGET PARTAGÉ · ${sharedOwner?'PROPRIÉTAIRE':'MEMBRE'}</div><strong>${esc(g.name)}</strong><div class="small" style="margin-top:5px">${g.members.filter(m=>m.status==='joined').length} membre${g.members.filter(m=>m.status==='joined').length>1?'s':''} actif${g.members.filter(m=>m.status==='joined').length>1?'s':''} · plusieurs personnes peuvent participer · tes autres budgets restent privés</div><div class="shared-actions">${sharedOwner?'<button class="btn btn-white" id="detailInviteMember" type="button">Inviter une personne</button>':''}<button class="btn btn-white" id="detailManageMembers" type="button">${sharedOwner?'Gérer les membres':'Voir les membres'}</button></div></div>`:'';
-  c.innerHTML=`${sharedTop}${locked?`<div class="status warn"><strong>Budget partagé en pause.</strong><br>${isOwnedSharedBudget(g)?'Réactive B²+ pour le rendre de nouveau utilisable par tous les membres.':'Le propriétaire doit réactiver B²+ pour reprendre les modifications.'} Les données sont conservées.</div>`:''}<button class="btn ${locked?'btn-soft':'btn-primary'} btn-full" id="detailEditBudget" type="button">${locked?'Débloquer ce budget avec B²+':'Modifier le budget'}</button><div class="card" style="margin-top:10px"><div class="card-title"><h3>Comptes de ce budget</h3><span class="badge">${accounts.length}</span></div><div class="small muted">Le budget est commun. Ici, tu gères seulement les comptes et leurs soldes.</div></div>${accounts.map(a=>{const future=a.startMode==='next'&&String(a.cycleStart)>todayISO(),on=g.active&&String(g.activeAccountId)===String(a.id);return `<div class="card account-detail-card"><div class="account-detail-head"><div class="budget-icon">${ico(accountIcon(a))}</div><div class="account-detail-copy"><strong>${esc(a.name)}</strong><span>Solde ${euro(accountCashEstimate(a))}${String(g.planAccountId)===String(a.id)?' · compte principal':''}</span></div>${on?'<span class="badge">ACTIF</span>':''}</div><div class="account-detail-actions">${locked?'<button class="mini-btn" data-unlock-detail type="button">B²+</button>':`<button class="mini-btn account-action-main" data-view-account="${a.id}" type="button">Voir le résumé</button><button class="mini-btn" data-edit-account="${a.id}" type="button">Modifier</button>${accounts.length>1?`<button class="mini-btn danger" data-delete-account="${a.id}" type="button">Supprimer</button>`:''}`}</div></div>`}).join('')}<button class="btn ${locked?'btn-soft':'btn-primary'} btn-full" id="detailAddAccount" type="button">${locked?'Débloquer ce budget avec B²+':'＋ Ajouter un compte'}</button>${g.type!=='shared'&&isPlus()?`<button class="btn btn-white btn-full" id="detailShareBudget" type="button" style="margin-top:8px">${ico('group')} Partager ce budget</button>`:''}${g.type==='shared'&&sharedOwner?`<button class="btn btn-white btn-full" id="detailStopSharing" type="button" style="margin-top:8px">Arrêter le partage</button>`:''}${g.type==='shared'&&sharedOwner&&shareArchiveForGroup(g.id)?`<button class="btn btn-white btn-full" id="detailPrivateArchive" type="button" style="margin-top:8px">${ico('shield')} Historique privé avant partage</button>`:''}`;
+  c.innerHTML=`${sharedTop}${locked?`<div class="status warn"><strong>Budget partagé en pause.</strong><br>${isOwnedSharedBudget(g)?'Réactive B²+ pour le rendre de nouveau utilisable par tous les membres.':'Le propriétaire doit réactiver B²+ pour reprendre les modifications.'} Les données sont conservées.</div>`:''}<div class="card"><div class="card-title"><h3>Comptes de ce budget</h3><span class="badge">${accounts.length}</span></div><div class="small muted">Modifie un compte pour retrouver le parcours complet : solde, rôle, revenus, charges, sommes à préparer et épargne. Les enveloppes restent communes.</div></div>${accounts.map(a=>`<div class="card account-detail-card"><div class="account-detail-head"><div class="budget-icon">${ico(accountIcon(a))}</div><div class="account-detail-copy"><strong>${esc(a.name)}</strong><span>Solde ${euro(accountCashEstimate(a))} · ${esc(accountBudgetUseLabelV1464(a))}</span></div></div><div class="account-detail-actions">${locked?'<button class="mini-btn" data-unlock-detail type="button">B²+</button>':`<button class="mini-btn account-action-main" data-view-account="${a.id}" type="button">Voir le résumé</button><button class="mini-btn" data-edit-account="${a.id}" type="button">Modifier</button>${accounts.length>1?`<button class="mini-btn danger" data-delete-account="${a.id}" type="button">Supprimer</button>`:''}`}</div></div>`).join('')}<button class="btn ${locked?'btn-soft':'btn-primary'} btn-full" id="detailAddAccount" type="button">${locked?'Débloquer ce budget avec B²+':'＋ Ajouter un compte'}</button><div class="card" style="margin-top:12px"><div class="card-title"><h3>Enveloppes communes</h3><span class="badge">${planAccountForBudget(g)?.envelopes?.length||0}</span></div><div class="small muted">Une seule enveloppe Courses, Carburant, Loisirs… quel que soit le compte utilisé.</div><button class="btn btn-white btn-full" id="detailEditEnvelopes" type="button" style="margin-top:10px">Modifier les enveloppes</button></div>${g.type!=='shared'&&isPlus()?`<button class="btn btn-white btn-full" id="detailShareBudget" type="button" style="margin-top:8px">${ico('group')} Partager ce budget</button>`:''}${g.type==='shared'&&sharedOwner?`<button class="btn btn-white btn-full" id="detailStopSharing" type="button" style="margin-top:8px">Arrêter le partage</button>`:''}${g.type==='shared'&&sharedOwner&&shareArchiveForGroup(g.id)?`<button class="btn btn-white btn-full" id="detailPrivateArchive" type="button" style="margin-top:8px">${ico('shield')} Historique privé avant partage</button>`:''}`;
   if(g.type==='shared'){$('#detailInviteMember')?.addEventListener('click',()=>shareBudget(g.id));$('#detailManageMembers')?.addEventListener('click',()=>openSharedMembers(g.id))}
-  $('#detailEditBudget')?.addEventListener('click',()=>locked?openPlus('Plusieurs budgets'):startBudgetPlanEditorV1462(g.id));
+  $('#detailEditEnvelopes')?.addEventListener('click',()=>locked?openPlus('Plusieurs budgets'):startBudgetPlanEditorV1462(g.id,6));
   $('#detailShareBudget')?.addEventListener('click',()=>shareBudget(g.id));
   $('#detailStopSharing')?.addEventListener('click',()=>stopSharingBudget(g.id));
   $('#detailPrivateArchive')?.addEventListener('click',()=>renderShareArchive(g.id));
@@ -12639,7 +12653,7 @@ function startWizard(id=null,jump=null,opts=null){
   v11WizardCreatingBudget=!!opts?.newBudget;v11WizardGroupId=opts?.groupId||editing?.budgetGroupId||null;v11WizardShared=opts?.shared!=null?!!opts.shared:(budgetById(v11WizardGroupId)?.type==='shared');v11WizardBudgetName=opts?.budgetName||budgetById(v11WizardGroupId)?.name||(v11WizardShared?'Mon budget partagé':'Mon budget');
   if(saved){v11WizardCreatingBudget=!!saved.v11WizardCreatingBudget;v11WizardGroupId=saved.v11WizardGroupId||null;v11WizardShared=!!saved.v11WizardShared;v11WizardBudgetName=saved.v11WizardBudgetName||'Mon budget'}
   const g=budgetById(v11WizardGroupId),first=g?accountsForBudget(g.id)[0]:null,defaultName=editing?.name||(g?`Compte ${accountsForBudget(g.id).length+1}`:'Compte principal');
-  wizard=saved?normalizeBudget(saved.wizard):(editing?normalizeBudget(JSON.parse(JSON.stringify(editing))):makeBlankAccountV11(v11WizardGroupId,defaultName,v11WizardShared));wizard.budgetGroupId=v11WizardGroupId;wizard.type=v11WizardShared?'shared':'personal';
+  wizard=saved?normalizeBudget(saved.wizard):(editing?normalizeBudget(JSON.parse(JSON.stringify(editing))):makeBlankAccountV11(v11WizardGroupId,defaultName,v11WizardShared));wizard.budgetGroupId=v11WizardGroupId;wizard.type=v11WizardShared?'shared':'personal';if(v11WizardCreatingBudget&&!wizard.budgetUseMode)wizard.budgetUseMode='full';
   wizardWorkingAccountId=opts?.workingAccountId||wizardWorkingAccountId||g?.activeAccountId||g?.planAccountId||editing?.id||wizard.id;
   if(!editing&&first){
     wizard.household=JSON.parse(JSON.stringify(first.household||{adults:1,children:0}));
@@ -13408,7 +13422,7 @@ function nextWizard(){
   if(v11WizardCreatingBudget){const gid=uid();g=normalizeBudgetGroupV11({id:gid,name:v11WizardBudgetName,type:v11WizardShared?'shared':'personal',active:true,accountIds:[],members:v11WizardShared?wizard.members:[]});state.budgetGroups.forEach(x=>x.active=false);state.budgetGroups.push(g);v11WizardGroupId=gid;wizard.budgetGroupId=gid;wizard.type=g.type==='shared'?'shared':'personal';if(g.type==='shared'){ensureBudgetOwner(g);wizard.members=JSON.parse(JSON.stringify(g.members))}}
   else if(g){wizard.budgetGroupId=g.id;wizard.type=g.type==='shared'?'shared':'personal';if(g.type==='shared')wizard.members=JSON.parse(JSON.stringify(g.members));if(wizardEditBudgetMode)g.name=v11WizardBudgetName.trim()||g.name}
   if(!g){showToast('Budget introuvable.');return}
-  const wasActive=wizardEditId&&String(active()?.id)===String(wizardEditId);
+  const wasActive=wizardEditId&&String(selectedAccountForBudget(g)?.id)===String(wizardEditId);
   if(wizardEditId){const i=state.budgets.findIndex(a=>String(a.id)===String(wizardEditId));wizard.id=wizardEditId;if(i>=0)state.budgets[i]=normalizeBudget(wizard)}
   else state.budgets.push(normalizeBudget(wizard));
   g.accountIds=accountsForBudget(g.id).map(a=>a.id);
@@ -13952,6 +13966,18 @@ function accountsForBudget(id,s=state){return (s?.budgets||[]).filter(a=>String(
    planAccountId désigne l'objet historique qui conserve le plan budgétaire afin de
    rester compatible avec toutes les versions précédentes. Les autres objets sont
    des comptes financiers légers : ils ne possèdent aucune répartition autonome. */
+/* v14.65 — système de compte actif :
+   - les cartes de comptes de l'accueil sont de nouveau sélectionnables ;
+   - un simple point vert indique le compte actuellement sélectionné ;
+   - le nom du compte remplace le nom du budget au-dessus du Disponible ;
+   - le Solde estimé revient juste sous l'explication du Disponible ;
+   - le Carré n'est PAS piloté par le clic : son périmètre vient de l'usage déclaré
+     du compte (quotidien / argent gardé de côté / contribution limitée) ;
+   - les enveloppes restent uniques et communes à tout le budget. */
+/* v14.64 — rôle des comptes :
+   full = solde/revenus utilisables dans le budget ; track = suivi uniquement ;
+   limited = seule une contribution définie par période entre dans le Disponible.
+   Les enveloppes restent uniques au niveau du budget. */
 /* v14.62 — architecture retenue :
    - un budget possède une seule collection d'enveloppes ;
    - plusieurs comptes peuvent alimenter/consommer ces mêmes enveloppes ;
@@ -13976,13 +14002,49 @@ function selectedAccountForBudget(groupOrId,s=state){
 }
 function budgetTransactions(b){
   const g=b?.budgetGroupId?budgetById(b.budgetGroupId):null;
-  if(!g)return b?.transactions||[];
+  if(!g||String(planAccountForBudget(g)?.id)!==String(b.id))return b?.transactions||[];
   return accountsForBudget(g.id).flatMap(a=>(a.transactions||[]).map(t=>({...t,_accountId:a.id,_accountName:a.name})))
+}
+function accountBudgetUseModeV1464(a,g=null){
+  if(!a)return 'track';
+  if(['full','track','limited'].includes(a.budgetUseMode))return a.budgetUseMode;
+  g=g||budgetById(a.budgetGroupId);
+  return g&&String(planAccountForBudget(g)?.id)===String(a.id)?'full':'track'
+}
+function accountBudgetUseLabelV1464(a){
+  const mode=accountBudgetUseModeV1464(a);
+  if(mode==='full')return 'Utilisé au quotidien';
+  if(mode==='limited')return `${euro(Math.max(0,num(a?.budgetContribution)))} disponibles / période`;
+  return 'Argent gardé de côté'
+}
+function accountBudgetOpeningContributionV1464(a){
+  const mode=accountBudgetUseModeV1464(a);
+  if(mode==='full')return num(a?.startBalance);
+  if(mode==='limited')return Math.min(Math.max(0,num(a?.budgetContribution)),Math.max(0,num(a?.startBalance)));
+  return 0
+}
+function accountBudgetCashContributionV1464(a){
+  const mode=accountBudgetUseModeV1464(a),cash=accountCashEstimate(a);
+  if(mode==='full')return cash;
+  if(mode==='limited')return Math.min(Math.max(0,num(a?.budgetContribution)),Math.max(0,cash));
+  return 0
+}
+function accountIncomeFeedsBudgetV1464(accountId,b){
+  const g=b?.budgetGroupId?budgetById(b.budgetGroupId):null;
+  if(!g)return true;
+  const a=byId(accountId||g.planAccountId)||planAccountForBudget(g);
+  return accountBudgetUseModeV1464(a,g)==='full'
+}
+function budgetIncomeSourcesV1464(b){
+  const rows=Array.isArray(b?.incomeSources)?b.incomeSources:[];
+  const g=b?.budgetGroupId?budgetById(b.budgetGroupId):null;
+  if(!g||String(planAccountForBudget(g)?.id)!==String(b.id))return rows;
+  return rows.filter(x=>accountIncomeFeedsBudgetV1464(itemAccountId(x,b),b))
 }
 function budgetOpeningBalanceV1462(b){
   const g=b?.budgetGroupId?budgetById(b.budgetGroupId):null;
   if(!g||String(planAccountForBudget(g)?.id)!==String(b.id))return num(b?.startBalance);
-  return r2(accountsForBudget(g.id).reduce((sum,a)=>sum+num(a.startBalance),0))
+  return r2(accountsForBudget(g.id).reduce((sum,a)=>sum+accountBudgetOpeningContributionV1464(a),0))
 }
 function accountCashEstimate(a){
   if(!a)return 0;
@@ -13990,6 +14052,50 @@ function accountCashEstimate(a){
   const out=(a.transactions||[]).filter(t=>t.type==='expense').reduce((x,t)=>x+num(t.amount),0);
   const transfers=(a.transactions||[]).filter(t=>t.type==='transfer').reduce((x,t)=>x+(t.direction==='in'?num(t.amount):-num(t.amount)),0);
   return r2(num(a.startBalance)+income+transfers-out)
+}
+/* v14.65 — le compte actif pilote l'accueil sans dupliquer le budget.
+   Les enveloppes restent globales. Le Disponible global est simplement réparti entre
+   les comptes qui servent au quotidien ; un compte « gardé de côté » affiche 0 €
+   disponible mais conserve son vrai solde. Le Carré continue, lui, d'analyser tous
+   les comptes que l'utilisateur a déclarés comme participant au budget. */
+function accountPlannedIncomeV1465(plan,a){
+  if(!plan||!a)return 0;
+  return r2((plan.incomeSources||[]).filter(x=>String(itemAccountId(x,plan))===String(a.id)).reduce((sum,x)=>sum+Math.max(0,num(x.amount)),0))
+}
+function accountProtectedV1465(plan,a){
+  if(!plan||!a)return 0;
+  const own=x=>String(itemAccountId(x,plan))===String(a.id);
+  const fixed=(plan.fixed||[]).filter(x=>own(x)&&x.dueThisCycle!==false).reduce((sum,x)=>sum+Math.max(0,num(x.amount)),0);
+  const oneOffs=(plan.oneOffs||[]).filter(own).reduce((sum,x)=>sum+Math.max(0,num(x.amount)),0);
+  const provisions=(plan.provisions||[]).filter(own).reduce((sum,x)=>sum+Math.max(0,num(provisionContribution(x,plan))),0);
+  const savings=(plan.savings||[]).filter(x=>own(x)&&x.dueThisCycle!==false).reduce((sum,x)=>sum+Math.max(0,num(x.monthlyAmount)),0);
+  const g=budgetById(plan.budgetGroupId),reserve=String(g?.planAccountId)===String(a.id)?Math.max(0,num(plan.reserve)):0;
+  return r2(fixed+oneOffs+provisions+savings+reserve)
+}
+function accountBudgetWeightV1465(plan,a){
+  const mode=accountBudgetUseModeV1464(a);
+  if(mode==='track')return 0;
+  const raw=Math.max(0,r2(accountCashEstimate(a)+accountPlannedIncomeV1465(plan,a)-accountProtectedV1465(plan,a)));
+  if(mode==='limited')return r2(Math.min(raw,Math.max(0,num(a.budgetContribution))));
+  return r2(raw)
+}
+function accountAvailableV1465(plan,a){
+  if(!plan||!a)return 0;
+  const mode=accountBudgetUseModeV1464(a);
+  if(mode==='track')return 0;
+  const g=budgetById(plan.budgetGroupId),global=r2(remaining(plan));
+  if(!g)return global;
+  const participating=accountsForBudget(g.id).filter(x=>accountBudgetUseModeV1464(x)!=='track');
+  if(participating.length<=1)return global;
+  const rows=participating.map(x=>({a:x,w:accountBudgetWeightV1465(plan,x)})),total=rows.reduce((sum,x)=>sum+x.w,0);
+  if(total<=.01){
+    const limited=mode==='limited'?Math.max(0,num(a.budgetContribution)):null;
+    return r2(limited==null?global/participating.length:Math.min(Math.max(0,global),limited))
+  }
+  const own=rows.find(x=>String(x.a.id)===String(a.id))?.w||0;
+  let share=r2(global*(own/total));
+  if(mode==='limited'&&share>0)share=Math.min(share,Math.max(0,num(a.budgetContribution)));
+  return r2(share)
 }
 function itemAccountId(item,b){
   const g=b?.budgetGroupId?budgetById(b.budgetGroupId):null;
@@ -14098,6 +14204,7 @@ function convertBudgetToShared(g){if(!g)return;g.type='shared';ensureBudgetOwner
 function makeBlankAccountV11(groupId,name='Compte principal',shared=false){
   return normalizeBudget({
     id:uid(),name,budgetGroupId:groupId,type:shared?'shared':'personal',accountKind:'personal',active:false,
+    budgetUseMode:null,budgetContribution:0,
     startMode:'now',nextIncomeDate:addMonthsISO(todayISO(),1),cycleStart:todayISO(),cycleEnd:addMonthsISO(todayISO(),1),
     startBalance:0,household:{adults:1,children:0},budgetProfile:{meals:'mixed',mobility:'regular',housing:'tenant',pets:'none',clothing:'regular',leisure:'balanced',cushion:'full',childStages:[],childNeeds:[],priorities:[]},members:shared?[{id:uid(),name:'Moi',contribution:0,current:true,status:'joined',role:'owner',recipient:''}]:[],
     incomeMode:'global',income:0,incomeSources:[],fixed:[],oneOffs:[],exceptionalIncomes:[],provisions:[],provisionHistory:[],savings:[],reserve:0,buildMode:'manual',lifestyle:[],
@@ -14134,7 +14241,16 @@ function makeBlankAccountV11(groupId,name='Compte principal',shared=false){
     const old=byId(state.plan.freeAccountId);if(old)state.plan.freeBudgetId=old.budgetGroupId
   }
   delete state.plan.freeAccountId
-  try{state.budgetGroups.forEach(g=>{if(accountsForBudget(g.id).length>1)ensurePlanAccountLinksV1459(g)})}catch(e){console.warn('B² : rattachement des anciens éléments impossible',e)}
+  try{
+    state.budgetGroups.forEach(g=>{
+      const p=planAccountForBudget(g);
+      accountsForBudget(g.id).forEach(a=>{
+        if(!['full','track','limited'].includes(a.budgetUseMode))a.budgetUseMode=String(a.id)===String(p?.id)?'full':'track';
+        if(a.budgetContribution==null)a.budgetContribution=0
+      });
+      if(accountsForBudget(g.id).length>1)ensurePlanAccountLinksV1459(g)
+    })
+  }catch(e){console.warn('B² : migration des rôles de comptes impossible',e)}
 })();;
 
 
@@ -14186,92 +14302,25 @@ ensureActive();
 
 
 function homeAccountStripV11(g,current){
-  const accounts=accountsForBudget(g.id);
-  return `<div class="home-accounts-wrap"><div class="home-accounts-head"><strong>Soldes estimés de mes comptes</strong><span>${accounts.length===1?'1 compte':`${accounts.length} comptes · un seul budget`}</span></div><div class="home-account-strip">${accounts.map(a=>`<div class="home-account-pill" aria-label="${esc(a.name)} : ${euro(accountCashEstimate(a))}"><span>${esc(a.name)}</span><strong class="${accountCashEstimate(a)<0?'bad':''}">${euro(accountCashEstimate(a))}</strong></div>`).join('')}<button class="home-account-add" id="homeAddAccount" type="button"><span aria-hidden="true">+</span><strong>Ajouter</strong></button></div></div>`
+  const accounts=accountsForBudget(g.id),selected=selectedAccountForBudget(g)||current;
+  return `<div class="home-accounts-wrap"><div class="home-account-strip">${accounts.map(a=>{const on=String(a.id)===String(selected?.id);return `<button class="home-account-pill ${on?'on':''}" data-home-account="${a.id}" aria-pressed="${on?'true':'false'}" aria-label="Afficher ${esc(a.name)}"><span class="home-account-name">${on?'<i class="home-account-dot" aria-hidden="true"></i>':''}${esc(a.name)}</span><strong class="${accountCashEstimate(a)<0?'bad':''}">${euro(accountCashEstimate(a))}</strong></button>`}).join('')}<button class="home-account-add" id="homeAddAccount" type="button"><span aria-hidden="true">+</span><strong>Ajouter</strong></button></div></div>`
 }
 function openAccountSummary(id){
-  const a=byId(id),g=a?budgetById(a.budgetGroupId):null;
-  if(!a||!g)return;
-
-  const isCurrent=g.active&&String(g.activeAccountId)===String(a.id);
-  const fixed=r2(fixedThisCycle(a));
-  const oneOff=r2((a.oneOffs||[]).reduce((s,x)=>s+Math.max(0,num(x.amount)),0));
-  const aside=r2(provisionsThisCycle(a));
-  const savings=r2(savingsThisCycle(a));
-  const reserve=Math.max(0,num(a.reserve));
-  const primary=primaryIncomeSource(a);
-  const next=nextExpectedIncome(a)||primary;
-  const accountBalance=r2(currentCashEstimate(a));
-  const spendable=r2(remaining(a));
-
-  const envelopes=(a.envelopes||[]).map(e=>{
-    const amount=Math.max(0,num(e.amount)),spent=Math.max(0,spentFor(a,e.id)),left=Math.max(0,r2(amount-spent));
-    const pct=amount>0?clamp(spent/amount*100,0,100):0;
-    return `<div class="account-summary-env">
-      <div class="account-summary-env-top">
-        <span>${ico(e.icon)} <strong>${esc(e.name)}</strong></span>
-        <b>${euro(left)}</b>
-      </div>
-      <div class="account-summary-env-sub"><span>${euro(amount)} prévus${spent>.01?` · ${euro(spent)} utilisés`:''}</span><span>reste</span></div>
-      <div class="account-summary-env-bar"><i style="width:${pct}%"></i></div>
-    </div>`
-  }).join('')||'<div class="help">Aucune enveloppe enregistrée.</div>';
-
-  const nextIncomeHTML=next?.amount>0
-    ?`<div class="account-summary-next">
-        <div><span>Prochain revenu</span><strong>${esc(next.name||'Revenu')}</strong></div>
-        <div><b>＋ ${euro(next.amount)}</b><small>${next.nextDate?fmtDateFull(next.nextDate):'date non renseignée'}</small></div>
-      </div>`
-    :'';
-
-  const statusLine=isCurrent
-    ?'<div class="status good compact"><strong>Compte actif</strong><br>C’est celui actuellement utilisé par l’accueil et Piloter.</div>'
-    :`<button class="btn btn-primary btn-full" id="summaryUseAccount" type="button">Utiliser ce compte sur l’accueil</button>`;
-
-  openSimple(
-    `Résumé · ${a.name}`,
-    `Une vue simple de ce que B² a enregistré dans « ${g.name} ».`,
-    `<div class="account-summary-hero">
-      <div><span>Disponible à utiliser</span><strong class="${spendable<0?'bad':''}">${euro(spendable)}</strong></div>
-      <div><span>Solde estimé du compte</span><b>${euro(accountBalance)}</b></div>
-    </div>
-
-    <div class="account-summary-grid">
-      <div><span>Charges</span><strong>${euro(fixed+oneOff)}</strong><small>cette période</small></div>
-      <div><span>À préparer</span><strong>${euro(aside)}</strong><small>mis de côté</small></div>
-      <div><span>Épargne</span><strong>${euro(savings)}</strong><small>cette période</small></div>
-      <div><span>Réserve</span><strong>${euro(reserve)}</strong><small>protégée</small></div>
-    </div>
-
-    ${nextIncomeHTML}
-
-    <div class="section-title account-summary-section"><h3>Mes enveloppes</h3></div>
-    <div class="card flat account-summary-env-list">${envelopes}</div>
-
-    <div class="section-title account-summary-section"><h3>Repères du compte</h3></div>
-    <div class="card flat">
-      <div class="summary-line"><span>Période</span><strong>${fmtDate(a.cycleStart)} → ${fmtDate(a.cycleEnd)}</strong></div>
-      <div class="summary-line"><span>Foyer</span><strong>${esc(householdLabel(a))}</strong></div>
-      <div class="summary-line"><span>Sécurité du budget</span><strong>${esc(profileMarginLabel(a))}</strong></div>
-    </div>
-
-    ${statusLine}`,
-    ()=>true
-  );
-
-  $('#simpleModal')?.classList.add('ack-only','account-summary-modal');
-  $('#simpleSave').textContent='Fermer';
-
-  $('#summaryUseAccount')?.addEventListener('click',()=>{
-    closeModal('simpleModal');
-    activateAccountV11(a.id)
-  })
+  const a=byId(id),g=a?budgetById(a.budgetGroupId):null,plan=g?planAccountForBudget(g):null;
+  if(!a||!g||!plan)return;
+  const linked=arr=>(arr||[]).filter(x=>String(itemAccountId(x,plan))===String(a.id));
+  const incomes=linked(plan.incomeSources),fixed=linked(plan.fixed),oneOffs=linked(plan.oneOffs),provisions=linked(plan.provisions),savings=linked(plan.savings);
+  const recent=[...(a.transactions||[])].sort((x,z)=>(z.createdAt||0)-(x.createdAt||0)).slice(0,6);
+  openSimple(`Résumé · ${a.name}`,`Ce compte appartient à « ${g.name} ». Les enveloppes sont communes à tous les comptes.`,
+    `<div class="account-summary-hero"><div><span>Solde estimé</span><strong class="${accountCashEstimate(a)<0?'bad':''}">${euro(accountCashEstimate(a))}</strong></div><div><span>Rôle dans le budget</span><b>${esc(accountBudgetUseLabelV1464(a))}</b></div></div>
+     <div class="section-title"><h3>Rattaché à ce compte</h3></div><div class="card flat"><div class="b2-details-row"><span>Revenus</span><b>${incomes.length}</b></div><div class="b2-details-row"><span>Charges</span><b>${fixed.length+oneOffs.length}</b></div><div class="b2-details-row"><span>Sommes à préparer</span><b>${provisions.length}</b></div><div class="b2-details-row"><span>Épargnes</span><b>${savings.length}</b></div></div>
+     <div class="section-title"><h3>Derniers mouvements</h3></div><div class="card flat">${recent.length?recent.map(t=>`<div class="b2-details-row"><span>${esc(t.label||t.category||'Mouvement')} · ${fmtDate(t.date)}</span><b class="${t.type==='expense'?'bad':''}">${t.type==='expense'?'− ':t.type==='income'?'＋ ':''}${euro(t.amount)}</b></div>`).join(''):'<div class="empty">Aucun mouvement sur ce compte.</div>'}</div>
+     <div class="status info compact"><strong>Enveloppes communes.</strong><br>Une dépense payée avec ce compte consomme les mêmes enveloppes que les autres comptes.</div>`,()=>true)
 }
-
 function activateAccountV11(id,quiet=false){
   const a=byId(id),g=a?budgetById(a.budgetGroupId):null;if(!a||!g)return;
   if(!canUseBudgetGroup(g)){openPlus('Plusieurs budgets');return}
-  state.budgetGroups.forEach(x=>x.active=String(x.id)===String(g.id));g.activeAccountId=a.id;ensureActive();save();if(!quiet)showToast(`${a.name} affiché sur l’accueil.`);showPage('home')
+  state.budgetGroups.forEach(x=>x.active=String(x.id)===String(g.id));g.activeAccountId=a.id;ensureActive();save();if(!quiet)showToast(`${a.name} sélectionné.`);showPage('home')
 }
 
 
@@ -14326,36 +14375,51 @@ function ensurePlanAccountLinksV1459(g){
   });
   return changed
 }
+function accountRoleEditorHTMLV1464(a,g){
+  const mode=accountBudgetUseModeV1464(a,g),amount=Math.max(0,num(a?.budgetContribution));
+  return `<div class="section-title"><h3>Comment utilises-tu ce compte ?</h3></div>
+    <div class="choice-stack">
+      <button class="choice ${mode==='full'?'on':''}" data-simple-budget-mode="full" type="button"><span class="choice-icon">${ico('wallet')}</span><div><strong>Je l’utilise pour mes dépenses courantes</strong><span>Son argent fait partie de mon budget au quotidien.</span></div></button>
+      <button class="choice ${mode==='track'?'on':''}" data-simple-budget-mode="track" type="button"><span class="choice-icon">${ico('target')}</span><div><strong>Je garde surtout de l’argent dessus</strong><span>Je veux suivre son solde, sans compter cet argent dans mon budget quotidien.</span></div></button>
+      <button class="choice ${mode==='limited'?'on':''}" data-simple-budget-mode="limited" type="button"><span class="choice-icon">${ico('euro')}</span><div><strong>Un peu des deux</strong><span>Je choisis la somme que je peux utiliser pour mon budget.</span></div></button>
+    </div>
+    ${mode==='limited'?`<div class="field" style="margin-top:10px"><label for="simpleBudgetContribution">Combien souhaites-tu rendre disponible pour ton budget à chaque période ?</label><input id="simpleBudgetContribution" type="number" min="0" step="0.01" inputmode="decimal" value="${amount||''}" placeholder="Ex. 5"><div class="help">Le reste du solde reste simplement suivi et n’est pas compté comme disponible.</div></div>`:''}`
+}
+let simpleAccountBudgetModeV1464=null;
 function openAccountEditorV1457(accountId=null,groupId=null){
   const a=accountId?byId(accountId):null,g=budgetById(groupId||a?.budgetGroupId);if(!g)return;
   const isPlan=a&&String(planAccountForBudget(g)?.id)===String(a.id);
-  openSimple(accountId?'Modifier le compte':'Ajouter un compte',
-    accountId?'Modifie uniquement les informations bancaires de ce compte. Le budget et sa répartition ne changent pas.':
-    `Ce compte rejoint « ${g.name} ». B² garde une seule organisation budgétaire et ne demandera le compte concerné que lorsque plusieurs choix existent.`,
-    `<div class="field"><label for="simpleName">Nom du compte</label><input id="simpleName" maxlength="48" value="${esc(a?.name||'')}" placeholder="Ex. Compte courant, Compte joint"></div>
+  simpleAccountBudgetModeV1464=accountBudgetUseModeV1464(a||{budgetGroupId:g.id},g);
+  const renderRole=()=>{const box=$('#simpleAccountRoleBox');if(!box)return;const virtual={...(a||{}),budgetGroupId:g.id,budgetUseMode:simpleAccountBudgetModeV1464,budgetContribution:num($('#simpleBudgetContribution')?.value??a?.budgetContribution)};box.innerHTML=accountRoleEditorHTMLV1464(virtual,g);$$('[data-simple-budget-mode]',box).forEach(x=>x.addEventListener('click',()=>{simpleAccountBudgetModeV1464=x.dataset.simpleBudgetMode;renderRole()}))};
+  openSimple(accountId?'Modifier ce compte':'Ajouter un compte',
+    accountId?'Commence par le compte lui-même. Ensuite B² t’emmène dans son parcours complet : revenus, charges, sommes à préparer et épargne.':`Ce nouveau compte rejoint « ${g.name} ». Dis simplement comment tu l’utilises ; B² adaptera automatiquement ses calculs, sans créer de nouvelles enveloppes.`,
+    `<div class="field"><label for="simpleName">Nom du compte</label><input id="simpleName" maxlength="48" value="${esc(a?.name||'')}" placeholder="Ex. Compte courant, PEL, Compte joint"></div>
      <div class="field"><label for="simpleAccountBalance">Solde actuel</label><input id="simpleAccountBalance" inputmode="decimal" value="${a?String(accountCashEstimate(a)).replace('.',','):''}" placeholder="0,00"></div>
-     <div class="status info compact"><strong>Un seul budget, plusieurs comptes.</strong><br>Les dépenses de ce compte consommeront les mêmes enveloppes que celles des autres comptes. Les charges, l’épargne et les sommes à préparer pourront être rattachées au compte qui les paie.</div>
-     ${isPlan?'<div class="small muted">Compte principal du budget : sa suppression est protégée.</div>':''}`,
+     <div id="simpleAccountRoleBox"></div>
+     <div class="status info compact"><strong>Une seule série d’enveloppes.</strong><br>Quel que soit le compte utilisé, une dépense « Courses » consomme toujours la même enveloppe Courses du budget.</div>
+     ${isPlan?'<div class="small muted">Compte principal du budget : sa suppression reste protégée.</div>':''}`,
     ()=>{
       const name=$('#simpleName')?.value.trim(),balance=num(String($('#simpleAccountBalance')?.value||'').replace(',','.'));
+      const contribution=Math.max(0,num($('#simpleBudgetContribution')?.value??a?.budgetContribution));
       if(!name){showToast('Donne un nom au compte.');return false}
+      if(simpleAccountBudgetModeV1464==='limited'&&contribution<=0){showToast('Indique le montant utilisable par période.');return false}
+      let target=a;
       if(a){
-        const oldCash=accountCashEstimate(a);a.name=name;
-        // Rebase the opening balance so changing the displayed current balance does not erase history.
+        const oldCash=accountCashEstimate(a);a.name=name;a.budgetUseMode=simpleAccountBudgetModeV1464;a.budgetContribution=contribution;
         a.startBalance=r2(num(a.startBalance)+(balance-oldCash));
       }else{
         ensurePlanAccountLinksV1459(g);
         const n=makeBlankAccountV11(g.id,name,g.type==='shared');
-        n.startBalance=r2(balance);n.isLedgerAccount=true;
-        // A secondary account is deliberately empty of budget-planning structures.
-        n.income=0;n.incomeSources=[];n.fixed=[];n.oneOffs=[];n.exceptionalIncomes=[];
-        n.provisions=[];n.savings=[];n.reserve=0;n.envelopes=[];n.lifestyle=[];n.history=[];
-        state.budgets.push(n);g.accountIds=accountsForBudget(g.id).map(x=>x.id);g.activeAccountId=n.id;
+        n.startBalance=r2(balance);n.isLedgerAccount=true;n.budgetUseMode=simpleAccountBudgetModeV1464||'track';n.budgetContribution=contribution;
+        n.income=0;n.incomeSources=[];n.fixed=[];n.oneOffs=[];n.exceptionalIncomes=[];n.provisions=[];n.savings=[];n.reserve=0;n.envelopes=[];n.lifestyle=[];n.history=[];
+        state.budgets.push(n);g.accountIds=accountsForBudget(g.id).map(x=>x.id);g.activeAccountId=n.id;target=n
       }
-      save();renderAll();return true
-    })
+      save();renderAll();
+      setTimeout(()=>startBudgetPlanEditorV1462(g.id,2,target.id),80);
+      return true
+    });
+  setTimeout(renderRole,0)
 }
-
 
 
 
@@ -14371,7 +14435,7 @@ function renderWizard(){
   $('#wizardSteps').innerHTML=Array.from({length:total},(_,i)=>`<i class="step ${i<=visual?'on':''}"></i>`).join('');
   $('#wizardNext').textContent=wizardStep===STEPS-1?(wizardEditBudgetMode?'Enregistrer le budget':wizardEditId?'Enregistrer le compte':v11WizardCreatingBudget?'Créer le budget':'Ajouter le compte'):wizardStep===6?(wizard.envelopes.length?'Voir ma répartition':'Vérifier mon budget'):'Continuer';
   if(wizardStep===0){
-    c.innerHTML=v11WizardCreatingBudget?`<h2 class="wizard-title">${v11WizardShared?'Ton budget partagé':'Ton budget'}</h2><p class="wizard-lead">${v11WizardShared?'Commence par donner un nom au budget partagé.':'Crée ton budget et son premier compte. Les enveloppes appartiendront au budget ; les revenus, charges et épargnes pourront ensuite être rattachés au compte concerné.'}</p><div class="field"><label for="wBudgetName">Nom du budget</label><input id="wBudgetName" maxlength="48" value="${esc(v11WizardBudgetName)}" placeholder="Ex. Mon budget"></div><div class="section-title"><h3>Premier compte</h3></div><div class="field"><label for="wName">Nom du compte</label><input id="wName" maxlength="48" value="${esc(wizard.name)}" placeholder="Ex. Compte principal"></div><div class="help">Si tu ajoutes d’autres comptes ensuite, ils utiliseront les mêmes enveloppes.</div>`:wizardEditBudgetMode?`<h2 class="wizard-title">Modifier mon budget</h2><p class="wizard-lead">Ton budget reste unique. Choisis ensuite le compte sur lequel arrivent tes revenus ou passent tes charges et ton épargne. Les enveloppes restent communes.</p><div class="field"><label for="wBudgetName">Nom du budget</label><input id="wBudgetName" maxlength="48" value="${esc(v11WizardBudgetName)}" placeholder="Ex. Mon budget"></div>${wizardAccountContextHTMLV1462()}`:`<h2 class="wizard-title">${wizardEditId?'Modifier ce compte':'Ajouter un compte'}</h2><p class="wizard-lead">Ce compte sera ajouté à « ${esc(budgetById(v11WizardGroupId)?.name||'Mon budget')} ».</p><div class="field"><label for="wName">Nom du compte</label><input id="wName" maxlength="48" value="${esc(wizard.name)}" placeholder="Ex. Compte principal, Compte voiture"></div><div class="help">Ici tu modifies seulement le compte. L’organisation du budget se règle avec « Modifier le budget ».</div>`
+    c.innerHTML=v11WizardCreatingBudget?`<h2 class="wizard-title">${v11WizardShared?'Ton budget partagé':'Ton budget'}</h2><p class="wizard-lead">${v11WizardShared?'Commence par donner un nom au budget partagé.':'Crée ton budget et son premier compte. Les enveloppes appartiendront au budget ; les revenus, charges et épargnes pourront ensuite être rattachés au compte concerné.'}</p><div class="field"><label for="wBudgetName">Nom du budget</label><input id="wBudgetName" maxlength="48" value="${esc(v11WizardBudgetName)}" placeholder="Ex. Mon budget"></div><div class="section-title"><h3>Premier compte</h3></div><div class="field"><label for="wName">Nom du compte</label><input id="wName" maxlength="48" value="${esc(wizard.name)}" placeholder="Ex. Compte principal"></div><div class="status info compact"><strong>Ton compte principal.</strong><br>B² considère simplement que tu l’utilises pour ton quotidien. Tu pourras changer ce choix plus tard si besoin.</div><div class="help">Si tu ajoutes d’autres comptes ensuite, ils utiliseront les mêmes enveloppes.</div>`:wizardEditBudgetMode?`<h2 class="wizard-title">Modifier mon budget</h2><p class="wizard-lead">Ton budget reste unique. Choisis ensuite le compte sur lequel arrivent tes revenus ou passent tes charges et ton épargne. Les enveloppes restent communes.</p><div class="field"><label for="wBudgetName">Nom du budget</label><input id="wBudgetName" maxlength="48" value="${esc(v11WizardBudgetName)}" placeholder="Ex. Mon budget"></div>${wizardAccountContextHTMLV1462()}`:`<h2 class="wizard-title">${wizardEditId?'Modifier ce compte':'Ajouter un compte'}</h2><p class="wizard-lead">Ce compte sera ajouté à « ${esc(budgetById(v11WizardGroupId)?.name||'Mon budget')} ».</p><div class="field"><label for="wName">Nom du compte</label><input id="wName" maxlength="48" value="${esc(wizard.name)}" placeholder="Ex. Compte principal, Compte voiture"></div><div class="help">Ici tu modifies seulement le compte. L’organisation du budget se règle avec « Modifier le budget ».</div>`
   }
   if(wizardStep===7){
     const strong=c.querySelector('.switch-copy strong'),span=c.querySelector('.switch-copy span');if(strong)strong.textContent='Afficher ce compte sur l’accueil';if(span)span.textContent=wizard.startMode==='next'?'Il sera prêt pour la période choisie.':'Les prochains mouvements iront sur ce compte.'
