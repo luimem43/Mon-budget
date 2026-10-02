@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#075a4d">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<title>B² v14.67 — sélecteur de compte au-dessus du Carré</title>
+<title>B² v14.72 — sélecteur de compte au-dessus du Carré</title>
 <style>
 :root{
   --brand:#075a4d;--brand2:#0a7965;--brand3:#0f8f72;--lime:#b9ef68;
@@ -445,6 +445,7 @@ opacity:.10;animation:b2SquareFade 8.8s ease-in-out infinite
 .plus-badge{display:inline-flex;align-items:center;justify-content:center;border-radius:999px;padding:4px 7px;background:#13252b;color:var(--lime);font-size:9px;font-weight:950;letter-spacing:.02em;white-space:nowrap}
 .premium-card{position:relative;overflow:hidden;background:linear-gradient(135deg,#102f2b,#075a4d);color:#fff;border:0}.premium-card:after{content:"+";position:absolute;right:11px;bottom:-25px;font-size:104px;line-height:1;font-weight:950;color:rgba(185,239,104,.12)}.premium-card .big-icon{background:rgba(255,255,255,.12);color:var(--lime)}.premium-card span:last-child{color:rgba(255,255,255,.74)}
 .plus-hero{background:linear-gradient(145deg,#102f2b,#075a4d);color:#fff;border-radius:21px;padding:17px;margin-bottom:13px;position:relative;overflow:hidden}.plus-hero:after{content:"B²+";position:absolute;right:-10px;bottom:-18px;font-size:60px;font-weight:950;color:rgba(255,255,255,.06)}.plus-hero strong{font-size:23px}.plus-hero p{font-size:11px;line-height:1.5;margin:7px 0 0;color:rgba(255,255,255,.78);max-width:80%}
+.launch-trial-card{display:none;margin:0 0 12px;padding:14px 15px;border-radius:17px;background:linear-gradient(145deg,#effbf5,#e5f7ee);border:1px solid #bfe9d3;color:#174d3f}.launch-trial-card.show{display:block}.launch-trial-card .launch-trial-kicker{display:block;font-size:9px;font-weight:950;letter-spacing:.09em;color:#11835f;margin-bottom:5px}.launch-trial-card strong{display:block;font-size:16px;line-height:1.2}.launch-trial-card p{margin:5px 0 0;font-size:11px;line-height:1.45;color:#497268}
 .plus-feature{display:grid;grid-template-columns:48px 1fr;gap:12px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line)}.plus-feature:last-child{border-bottom:0}.plus-feature .ico{width:48px;height:48px;border-radius:15px;background:var(--mint);display:flex;align-items:center;justify-content:center;color:#526b70}.plus-feature .ico .ui-ico{width:27px;height:27px}.plus-feature .ico .ui-ico svg{stroke-width:2.05}.plus-feature strong{display:block;font-size:12px}.plus-feature span{display:block;font-size:10px;color:var(--muted);line-height:1.4;margin-top:3px}
 .ad-card{background:#fff;border:1px solid #dfe5e6;border-radius:17px;padding:12px 13px;margin:12px 0;box-shadow:0 5px 16px rgba(14,46,50,.05)}.ad-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:7px}.ad-label{font-size:8px;font-weight:950;letter-spacing:.12em;color:#849095}.ad-slot{font-size:8px;color:#a3adb0}.ad-body{display:grid;grid-template-columns:36px 1fr auto;align-items:center;gap:10px}.ad-icon{width:36px;height:36px;border-radius:11px;background:#f1f4f4;display:flex;align-items:center;justify-content:center}.ad-copy{min-width:0}.ad-copy strong{display:block;font-size:11px}.ad-copy span{display:block;font-size:9px;color:var(--muted);line-height:1.35;margin-top:2px}.ad-cta{border:0;background:#eef4f3;color:var(--brand);border-radius:10px;padding:8px 9px;font-size:9px;font-weight:900;white-space:nowrap}.ad-plus-note{display:block;margin:9px auto 0;border:0;background:transparent;color:#7b888c;font-size:8.5px;font-weight:750;padding:2px 7px}.ad-plus-note b{color:var(--brand);font-weight:950}.more-ad-slot{grid-column:1/-1}.more-ad-slot .ad-card{margin:1px 0 3px}
 .partner-card{position:relative}.partner-label{display:inline-flex;border-radius:999px;background:#eef4f3;color:#687579;font-size:8px;font-weight:900;letter-spacing:.08em;padding:4px 6px;margin-bottom:8px}.locked-feature{opacity:1;background:#f5f7f7!important;border-color:#d9e0e1!important;color:#758286}
@@ -741,7 +742,7 @@ opacity:.10;animation:b2SquareFade 8.8s ease-in-out infinite
 .home-account-name{display:flex!important;align-items:center;gap:6px;max-width:145px!important}
 .home-account-dot{width:9px;height:9px;border-radius:50%;background:#21f477;box-shadow:0 0 0 3px rgba(33,244,119,.18),0 0 10px rgba(33,244,119,.72);flex:0 0 auto}
 .home-account-pill .bad{color:var(--red)}
-/* v14.67 — dans le hero vert, le solde estimé reste une information secondaire mais lisible. */
+/* v14.68 — dans le hero vert, le solde estimé reste une information secondaire mais lisible. */
 .hero-main .hero-balance-estimate{display:inline-flex;align-items:center;gap:5px;width:max-content;max-width:100%;margin-top:10px;margin-bottom:1px;padding:5px 8px;border:1px solid rgba(255,255,255,.18);border-radius:9px;background:rgba(0,0,0,.12);color:rgba(255,255,255,.82);font-size:10.5px;line-height:1.25;font-weight:700}
 .hero-main .hero-balance-estimate strong{color:#fff;font-size:10.5px;font-weight:900}
 .home-account-add{min-width:88px;align-items:center;justify-content:center;text-align:center;color:var(--green)}.home-account-add span{font-size:20px;line-height:1}.home-account-add strong{font-size:10px}
@@ -2106,6 +2107,20 @@ button{
 
 .bank-source-list>b{display:inline-flex;align-items:center;gap:5px}
 .bank-source-list>b button{border:0;background:transparent;color:inherit;font:inherit;font-weight:950;padding:0 1px;cursor:pointer}
+
+/* B² v14.71 — cartes de partage cohérentes avec le Carré B² */
+.share-brand-card{position:relative;overflow:hidden;border-radius:22px;padding:17px;background:linear-gradient(135deg,#075a47 0%,#08765b 52%,#b9f2ce 145%);color:#fff;box-shadow:0 14px 32px rgba(6,91,69,.18);margin:13px 0}
+.share-brand-card:after{content:"";position:absolute;width:170px;height:170px;right:-58px;top:-65px;border-radius:50%;background:radial-gradient(circle,rgba(147,255,195,.30),transparent 68%);pointer-events:none}
+.share-brand-main{display:grid;grid-template-columns:84px 1fr;gap:15px;align-items:center;position:relative;z-index:1}
+.share-square-wrap{width:84px;height:84px;display:flex;align-items:center;justify-content:center;filter:drop-shadow(0 10px 15px rgba(0,31,22,.18))}
+.share-square-wrap .square-mark{transform:scale(1.32);animation:none!important}.share-square-wrap .square-mark i{animation:none!important}
+.share-brand-copy strong{display:block;font-size:19px;line-height:1.12;letter-spacing:-.3px}.share-brand-copy span{display:block;margin-top:7px;font-size:11.5px;line-height:1.42;color:rgba(255,255,255,.86)}
+.share-benefits{display:flex;gap:6px;flex-wrap:wrap;margin-top:13px;position:relative;z-index:1}.share-benefits span{font-size:10px;font-weight:800;padding:7px 9px;border-radius:10px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.12)}
+.share-link-card{background:#f7faf9;border:1px solid #dce9e5;border-radius:17px;padding:13px;margin-top:12px}.share-link-card label{display:block;font-size:10px;font-weight:900;letter-spacing:.08em;color:#55716a;margin-bottom:7px}.share-link-row{display:flex;align-items:center;gap:8px}.share-link-value{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;font-weight:800;color:#123c34;background:#fff;border:1px solid #e0e9e7;border-radius:12px;padding:11px}.share-link-copy{width:42px;height:42px;border:0;border-radius:12px;background:#e8f7f0;color:#08705a;font-size:18px;font-weight:900}
+.share-primary{margin-top:10px;min-height:51px;border-radius:15px;font-size:14px}.share-secondary{margin-top:8px}
+.share-message-preview{margin-top:12px;padding:12px 13px;border-radius:15px;background:#f1f7f5;border:1px solid #dce9e5;color:#365b53;font-size:11px;line-height:1.5}.share-message-preview strong{color:#0b4338}
+.shared-share-intro{margin-top:4px}
+
 </style>
 </head>
 <body>
@@ -2172,7 +2187,7 @@ button{
       <button class="more-card" id="economiesCard" type="button"><span class="big-icon"><span class="ui-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="16" cy="7" r="3"/><path d="M5 13h4l2 2h4.5a2 2 0 0 1 0 4H10l-3-2H4"/><path d="M4 11v8"/></svg></span></span><strong>Mes économies</strong><span>Repérer où réduire les charges si tu le souhaites.</span></button>
       <button class="more-card" id="accountCard" type="button"><span class="big-icon"><span class="ui-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.2"/><path d="M5.5 19a6.5 6.5 0 0 1 13 0"/></svg></span></span><strong>Mon profil</strong><span>Identifiant, e-mail, mot de passe et sécurité.</span></button><button class="more-card" id="settingsCard" type="button"><span class="big-icon"><span class="ui-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 8.5a3.5 3.5 0 1 0 0 7a3.5 3.5 0 0 0 0-7Z"/><path d="M19 12a7.6 7.6 0 0 0-.08-1l2.03-1.57-2-3.46-2.47 1a8.33 8.33 0 0 0-1.72-1L14.4 3h-4.8l-.36 2.97c-.6.24-1.18.57-1.72 1l-2.47-1-2 3.46L5.08 11a8.6 8.6 0 0 0 0 2l-2.03 1.57 2 3.46 2.47-1c.54.43 1.12.76 1.72 1L9.6 21h4.8l.36-2.97c.6-.24 1.18-.57 1.72-1l2.47 1 2-3.46L18.92 13c.05-.33.08-.67.08-1Z"/></svg></span></span><strong>Réglages</strong><span>Alertes, saisie vocale et préférences.</span></button>
       <div class="more-ad-slot" id="moreAdSlot"></div>
-      <button class="more-card" id="referralCard" type="button"><span class="big-icon"><span class="ui-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="8" cy="9" r="2.3"/><circle cx="16" cy="9" r="2.3"/><circle cx="12" cy="7" r="2.3"/><path d="M4.8 18a3.6 3.6 0 0 1 6.4-2.2"/><path d="M12.8 15.8A3.6 3.6 0 0 1 19.2 18"/><path d="M8 18a4 4 0 0 1 8 0"/></svg></span></span><strong>Parrainage</strong><span>1 filleul actif = 1 mois de B²+ pour chacun · jusqu’à 3 mois pour toi.</span></button>
+      <button class="more-card" id="referralCard" type="button"><span class="big-icon"><span class="ui-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="8" cy="9" r="2.3"/><circle cx="16" cy="9" r="2.3"/><circle cx="12" cy="7" r="2.3"/><path d="M4.8 18a3.6 3.6 0 0 1 6.4-2.2"/><path d="M12.8 15.8A3.6 3.6 0 0 1 19.2 18"/><path d="M8 18a4 4 0 0 1 8 0"/></svg></span></span><strong>Parrainage</strong><span>1er filleul validé = 2 mois de B²+ pour chacun · puis +1 mois par filleul, jusqu’à 4 mois.</span></button>
       <button class="more-card premium-card" id="plusCard" type="button"><span class="big-icon"><span class="ui-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 4 13.8 8.2 18 10l-4.2 1.8L12 16l-1.8-4.2L6 10l4.2-1.8L12 4Z"/></svg></span></span><strong id="plusCardTitle">B²+</strong><span id="plusCardCopy">B² comprend ton budget aujourd’hui. B²+ apprend ta façon de gérer ton argent avec le temps.</span></button>
       <button class="more-card hidden" id="analysisCard" type="button"><span class="big-icon"><span class="ui-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 19V12M10 19V8M15 19v-5M20 19V5"/><path d="M4 19h17"/></svg></span></span><strong>Analyse <span class="plus-badge">B²+</span></strong><span>Graphiques, tendances et recommandations dans le temps.</span></button>
     </div>
@@ -2280,8 +2295,12 @@ button{
 <div class="field" style="display:none"><label for="shareName">Prénom <span class="muted">(facultatif)</span></label><input id="shareName" autocomplete="off" placeholder="Ex. Léa"></div>
 <div class="field" style="display:none"><label for="shareRecipient">E-mail de la personne</label><input id="shareRecipient" type="email" autocomplete="email" placeholder="ex. nom@exemple.fr"></div>
 <button class="btn btn-primary btn-full" id="sendShareInvite" type="button" style="display:none">${ico('mail')} Envoyer l’invitation par e-mail</button>
-<button class="btn btn-primary btn-full" id="createShareLink" type="button">Partager par lien</button>
-<div class="help" style="margin-top:10px">Envoie ce lien à une personne. Pour en ajouter une autre, crée simplement une nouvelle invitation : tout le monde rejoindra le même budget.</div>
+<div class="share-brand-card shared-share-intro">
+<div class="share-brand-main"><div class="share-square-wrap"><span class="square-mark good"><i>B²</i><i>B²</i><i>B²</i><i>B²</i><i>B²</i><i>B²</i><i>B²</i><i>B²</i><i>B²</i><i>B²</i><i>B²</i><i>B²</i></span></div><div class="share-brand-copy"><strong>Un budget à plusieurs,<br>c’est plus simple.</strong><span>Invitez une personne à suivre et gérer ce budget avec vous dans B².</span></div></div>
+<div class="share-benefits"><span>Vision commune</span><span>Toujours à jour</span><span>Un seul budget</span></div>
+</div>
+<button class="btn btn-primary btn-full share-primary" id="createShareLink" type="button">${ico('share')} Partager l’invitation</button>
+<div class="help" style="margin-top:10px">B² crée un lien personnel pour ce budget et ouvre les applications de partage de ton téléphone. Le lien est directement intégré au message.</div>
 <button class="btn btn-soft btn-full" data-close="shareBudgetModal" type="button" style="margin-top:12px">Fermer</button>
 </div></div>
 <div class="modal" id="sharedMembersModal"><div class="sheet"><div class="grab"></div>
@@ -2427,10 +2446,11 @@ button{
 </div></div>
 
 <div class="modal" id="plusModal"><div class="sheet"><div class="grab"></div><div class="plus-hero"><strong>B²+</strong><p id="plusContext">B² comprend ce qui se passe maintenant. B²+ apprend ta façon de gérer ton argent au fil des mois.</p></div>
+<div class="launch-trial-card" id="launchTrialCard"><span class="launch-trial-kicker">PROGRAMME PREMIERS UTILISATEURS</span><strong id="launchTrialTitle">1 mois de B²+ offert</strong><p id="launchTrialText">Découvre B²+ en conditions réelles et aide-nous à améliorer l’application avec tes retours.</p></div>
 <div class="founder-offer" id="founderOfferCard">
-  <span class="founder-kicker" id="founderKicker">OFFRE DE LANCEMENT · TARIF FONDATEUR</span>
+  <span class="founder-kicker" id="founderKicker">OFFRE DE LANCEMENT</span>
   <div class="founder-price"><strong id="founderPrice">1,99 €</strong><span>/ mois</span></div>
-  <p id="founderOfferText">Réservé aux 500 premiers abonnés.</p>
+  <p id="founderOfferText">Réservé aux 1 000 premiers nouveaux abonnés B²+.</p>
   <div class="founder-lock" id="founderLock"><span>Tu gardes ce tarif tant que ton abonnement reste actif.</span></div>
   <div class="founder-standard" id="founderStandard">Ensuite : <strong>2,99 € / mois</strong> pour les nouveaux abonnés.</div>
 </div>
@@ -2815,7 +2835,7 @@ function loadReferralStatusCache(){
       pendingCount:Math.max(0,Math.round(num(raw.pendingCount))),
       confirmedCount:clamp(Math.round(num(raw.confirmedCount)),0,3),
       totalConfirmed:Math.max(0,Math.round(num(raw.totalConfirmed))),
-      rewardMonths:clamp(Math.round(num(raw.rewardMonths)),0,3),
+      rewardMonths:clamp(Math.round(num(raw.rewardMonths)),0,4),
       plusUntil:raw.plusUntil||null,
       active:!!raw.active,
       welcomeGranted:!!raw.welcomeGranted,
@@ -2860,7 +2880,7 @@ function applyReferralStatusPayload(x={}){
     pendingCount:Math.max(0,Math.round(num(x.pending_count))),
     confirmedCount:clamp(Math.round(num(x.rewarded_count??x.confirmed_count)),0,3),
     totalConfirmed:Math.max(0,Math.round(num(x.total_confirmed))),
-    rewardMonths:clamp(Math.round(num(x.reward_months??x.rewarded_count)),0,3),
+    rewardMonths:clamp(Math.round(num(x.reward_months??referralRewardMonthsForCount(x.rewarded_count??x.confirmed_count))),0,4),
     plusUntil:x.plus_until||null,
     active:!!x.active,
     welcomeGranted:!!x.welcome_granted,
@@ -2903,7 +2923,7 @@ async function evaluateReferralActivation({silent=true}={}){
     if(data?.state==='confirmed'||data?.state==='rejected'){
       await refreshReferralStatus({render:true,silent:true});
       if(data.state==='confirmed'&&!wasReferralPlus&&hasReferralPlus()){
-        showToast('Parrainage validé · 1 mois de B²+ offert.')
+        showToast(`Parrainage validé · ${referralRewardMonthsForCount(confirmedReferralCount())} mois de B²+ cumulés.`)
       }
     }
     return data||null
@@ -3420,10 +3440,10 @@ async function sendSharedInviteEmail(inviteId){
   }
 }
 
-async function shareInviteLink(token){
+async function shareInviteLink(token,budgetName='notre budget'){
   const link=`${B2_SITE_URL}?join=${encodeURIComponent(token)}`;
-  try{if(navigator.share){await navigator.share({title:'Invitation B²',text:'Rejoins mon budget partagé B².',url:link});return}}catch(e){}
-  try{await navigator.clipboard.writeText(link);showToast('Lien d’invitation copié.')}catch(e){openSimple('Lien d’invitation','Envoie ce lien à la personne que tu veux inviter.',`<div class="field"><input readonly value="${esc(link)}"></div>`,()=>true)}
+  try{if(navigator.share){await navigator.share({title:'B² · Invitation au budget partagé',text:sharedBudgetMessage(link,budgetName)});return}}catch(e){if(e?.name==='AbortError')return}
+  try{await navigator.clipboard.writeText(link);showToast('Lien d’invitation copié.')}catch(e){openSimple('Lien d’invitation','Partage ce lien pour rejoindre le budget.',`<div class="field"><input readonly value="${esc(link)}"></div>`,()=>true)}
 }
 
 function rememberStored(){try{const v=localStorage.getItem(B2_REMEMBER_KEY);return v===null?true:v==='1'}catch(e){return true}}
@@ -3534,6 +3554,7 @@ async function loadCloudBackupOrSeed(){
   await registerReferralDevice();
   await evaluateReferralActivation({silent:true});
   await refreshReferralStatus({render:false,silent:true});
+  await refreshLaunchConfig({render:false});
   await syncRemoteSharedBudgets({render:false});
   restoreLastActiveBudgetSelection();
   persistB2LocalOnly();
@@ -4263,46 +4284,95 @@ function freeAccount(){
 }
 function canUseAccount(a){return !!a&&canUseBudgetGroup(budgetById(a.budgetGroupId))}
 const B2_PLUS_STANDARD_PRICE=2.99;
-const B2_PLUS_FOUNDER_PRICE=1.99;
-const B2_PLUS_FOUNDER_LIMIT=500;
-const B2_PLUS_FOUNDER_ID='founder500';
+const B2_PLUS_FOUNDER_PRICE=.99;
+const B2_PLUS_EARLY_PRICE=1.99;
+const B2_PLUS_EARLY_LIMIT=1000;
+const B2_PLUS_FOUNDER_ID='founder099';
+const B2_PLUS_EARLY_ID='early1000';
 
-/*
-  La vraie app recevra ces infos du backend / RevenueCat.
-  Tant qu'aucun compteur serveur n'est branché, B² n'invente jamais un nombre de places restantes.
-  Pour tester la fermeture de l'offre dans le prototype :
-  window.B2_BILLING_CATALOG={founderAvailable:false,founderClaimed:500}
-*/
-function billingCatalog(){
-  const raw=window.B2_BILLING_CATALOG||{};
-  const claimed=Number.isFinite(Number(raw.founderClaimed))?Math.max(0,Math.round(Number(raw.founderClaimed))):null;
+/* v14.72 — parcours commercial B².
+   1) fenêtre Premiers utilisateurs : 30 jours B²+ individuels puis tarif Fondateur 0,99 € garanti ;
+   2) après fermeture : 1 000 nouveaux abonnés à 1,99 € ;
+   3) ensuite : tarif normal 2,99 €.
+   Les phases restent OFF tant que Supabase ne les active pas explicitement. */
+let b2LaunchConfig={
+  earlyAccessActive:false,
+  earlyAccessTrialDays:30,
+  earlyAccessTrigger:'first_budget',
+  founderPrice:B2_PLUS_FOUNDER_PRICE,
+  earlyOfferActive:false,
+  earlyOfferClaimed:null,
+  earlyOfferLimit:B2_PLUS_EARLY_LIMIT,
+  earlyOfferPrice:B2_PLUS_EARLY_PRICE,
+  standardPrice:B2_PLUS_STANDARD_PRICE
+};
+function normalizeLaunchConfig(raw={}){
+  const limit=Math.max(1,Math.round(num(raw.early_offer_limit??raw.earlyOfferLimit??raw.founder_limit??B2_PLUS_EARLY_LIMIT))||B2_PLUS_EARLY_LIMIT);
+  const claimedRaw=raw.early_offer_claimed??raw.earlyOfferClaimed??raw.founder_claimed;
+  const claimed=Number.isFinite(Number(claimedRaw))?Math.max(0,Math.round(Number(claimedRaw))):null;
   return {
-    founderAvailable:raw.founderAvailable!==false&&(claimed==null||claimed<B2_PLUS_FOUNDER_LIMIT),
-    founderClaimed:claimed
+    earlyAccessActive:(raw.early_access_active??raw.earlyAccessActive)===true,
+    earlyAccessTrialDays:Math.max(1,Math.round(num(raw.early_access_trial_days??raw.earlyAccessTrialDays??30))||30),
+    earlyAccessTrigger:String(raw.early_access_trigger??raw.earlyAccessTrigger??'first_budget'),
+    founderPrice:num(raw.founder_price??raw.founderPrice)||B2_PLUS_FOUNDER_PRICE,
+    earlyOfferActive:(raw.early_offer_active??raw.earlyOfferActive??raw.founder_active)===true,
+    earlyOfferClaimed:claimed,
+    earlyOfferLimit:limit,
+    earlyOfferPrice:num(raw.early_offer_price??raw.earlyOfferPrice??raw.launch_price)||B2_PLUS_EARLY_PRICE,
+    standardPrice:num(raw.standard_price??raw.standardPrice)||B2_PLUS_STANDARD_PRICE
   }
 }
-function founderRemaining(){
-  const n=billingCatalog().founderClaimed;
-  return n==null?null:Math.max(0,B2_PLUS_FOUNDER_LIMIT-n)
+function launchConfig(){
+  const local=window.B2_LAUNCH_CONFIG;
+  return local?normalizeLaunchConfig({...b2LaunchConfig,...local}):b2LaunchConfig
 }
-function founderOfferAvailable(){return billingCatalog().founderAvailable}
-function hasFounderRate(){
-  return hasPaidPlus()&&(state.plan?.subscriptionOffer===B2_PLUS_FOUNDER_ID||
-    (!state.plan?.subscriptionOffer&&state.plan?.subscriptionPrice==null));
+async function refreshLaunchConfig({render=false}={}){
+  if(!b2supabase)return launchConfig();
+  try{
+    const {data,error}=await b2supabase.rpc('b2_launch_config');
+    if(error)throw error;
+    const row=Array.isArray(data)?(data[0]||{}):(data||{});
+    b2LaunchConfig=normalizeLaunchConfig(row);
+    if(render)renderAll()
+  }catch(e){
+    console.info('B² launch config indisponible — offres de lancement masquées.');
+  }
+  return launchConfig()
 }
+function earlyAccessOfferActive(){return launchConfig().earlyAccessActive===true}
+function earlyAccessTrialDays(){return launchConfig().earlyAccessTrialDays||30}
+function billingCatalog(){
+  const cfg=launchConfig(),legacy=window.B2_BILLING_CATALOG||{};
+  const claimed=Number.isFinite(Number(legacy.earlyOfferClaimed))?Math.max(0,Math.round(Number(legacy.earlyOfferClaimed))):cfg.earlyOfferClaimed;
+  const explicitLegacy=Object.prototype.hasOwnProperty.call(legacy,'earlyOfferAvailable');
+  const active=explicitLegacy?legacy.earlyOfferAvailable===true:cfg.earlyOfferActive===true;
+  return {
+    founderPrice:cfg.founderPrice,
+    earlyOfferAvailable:active&&(claimed==null||claimed<cfg.earlyOfferLimit),
+    earlyOfferClaimed:claimed,
+    earlyOfferLimit:cfg.earlyOfferLimit,
+    earlyOfferPrice:cfg.earlyOfferPrice,
+    standardPrice:cfg.standardPrice
+  }
+}
+function earlyOfferRemaining(){const c=billingCatalog(),n=c.earlyOfferClaimed;return n==null?null:Math.max(0,c.earlyOfferLimit-n)}
+function earlyOfferAvailable(){return billingCatalog().earlyOfferAvailable}
+function hasFounderRate(){return hasPaidPlus()&&state.plan?.subscriptionOffer===B2_PLUS_FOUNDER_ID}
+function hasEarlyRate(){return hasPaidPlus()&&[B2_PLUS_EARLY_ID,'founder1000','founder500'].includes(state.plan?.subscriptionOffer)}
 function currentPlusPrice(){
   if(hasReferralPlus()&&!hasPaidPlus())return 0;
   if(hasPaidPlus()){
     if(Number.isFinite(Number(state.plan?.subscriptionPrice))&&Number(state.plan.subscriptionPrice)>0)return num(state.plan.subscriptionPrice);
     if(hasFounderRate())return B2_PLUS_FOUNDER_PRICE;
+    if(hasEarlyRate())return B2_PLUS_EARLY_PRICE;
   }
-  return founderOfferAvailable()?B2_PLUS_FOUNDER_PRICE:B2_PLUS_STANDARD_PRICE
+  return earlyOfferAvailable()?billingCatalog().earlyOfferPrice:billingCatalog().standardPrice
 }
-function founderOfferText(){
-  const left=founderRemaining();
-  if(!founderOfferAvailable())return `L’offre fondateur est terminée. B²+ est maintenant à ${euro(B2_PLUS_STANDARD_PRICE)} / mois.`;
-  if(left==null)return `Réservé aux ${B2_PLUS_FOUNDER_LIMIT} premiers abonnés.`;
-  return left===1?'Plus qu’une place au tarif fondateur.':`${left} places restantes au tarif fondateur.`
+function earlyOfferText(){
+  const c=billingCatalog(),left=earlyOfferRemaining();
+  if(!earlyOfferAvailable())return `L’offre de lancement n’est pas disponible actuellement. B²+ est à ${euro(c.standardPrice)} / mois.`;
+  if(left==null)return `Réservé aux ${c.earlyOfferLimit.toLocaleString('fr-FR')} premiers nouveaux abonnés B²+.`;
+  return left===1?'Plus qu’une place à 1,99 € / mois.':`${left.toLocaleString('fr-FR')} places restantes à 1,99 € / mois.`
 }
 function ensurePlusBill(candidate=active()){
   if(!hasPaidPlus()||paidPlusCancellationPending()){
@@ -4478,7 +4548,7 @@ function transferNet(b){
   const txs=g&&String(planAccountForBudget(g)?.id)===String(b.id)?budgetTransactions(b):(b.transactions||[]);
   return r2(txs.filter(t=>t.type==='transfer').reduce((s,t)=>s+(t.direction==='in'?num(t.amount):-num(t.amount)),0))
 }
-function plannedExceptionalIncome(b){return r2((b.exceptionalIncomes||[]).reduce((s,x)=>s+Math.max(0,num(x.amount)),0))}
+function plannedExceptionalIncome(b){return r2((b.exceptionalIncomes||[]).filter(x=>accountIncomeFeedsBudgetV1464(itemAccountId(x,b),b)).reduce((s,x)=>s+Math.max(0,num(x.amount)),0))}
 function expenses(b){return r2(budgetTransactions(b).filter(t=>t.type==='expense').reduce((s,t)=>s+num(t.amount),0))}
 function netExpenses(b){return r2(Math.max(0,expenses(b)-refundAppliedTotal(b)))}
 function spentFor(b,id){
@@ -4538,9 +4608,9 @@ function syncProvisionStatuses(b,ref=todayISO()){
   return changed
 }
 function readyProvisions(b){syncProvisionStatuses(b);return (b.provisions||[]).filter(p=>p.status==='ready')}
-function provisionsThisCycle(b){return b.provisions.reduce((s,p)=>s+provisionContribution(p,b),0)} function savingsThisCycle(b){return b.savings.reduce((s,g)=>s+savingContribution(g),0)}
+function provisionsThisCycle(b){return b.provisions.filter(p=>accountPlanItemFeedsBudgetV1468(p,b)).reduce((s,p)=>s+provisionContribution(p,b),0)} function savingsThisCycle(b){return b.savings.filter(g=>accountPlanItemFeedsBudgetV1468(g,b)).reduce((s,g)=>s+savingContribution(g),0)}
 /* v14.51 — source comptable unique pour l'épargne protégée de la période. */
-function periodSavingsProtected(b){return r2((b?.savings||[]).reduce((sum,g)=>sum+(g?.dueThisCycle===false?0:Math.max(0,num(g.monthlyAmount))),0))}
+function periodSavingsProtected(b){return r2((b?.savings||[]).filter(g=>accountPlanItemFeedsBudgetV1468(g,b)).reduce((sum,g)=>sum+(g?.dueThisCycle===false?0:Math.max(0,num(g.monthlyAmount))),0))}
 function monthlyDueDateInWindow(day,startISO,endISO){
   const d=clamp(Math.round(num(day)),1,31);if(!d||!startISO||!endISO)return null;
   const s=dateParts(startISO);
@@ -4604,7 +4674,7 @@ function fixedIsDueNow(b,x){
   if(x.dueDay==null)return true;
   return !!fixedDueDate(b,x)
 }
-function fixedThisCycle(b){return (b.fixed||[]).filter(x=>fixedIsDueNow(b,x)).reduce((s,x)=>s+num(x.amount),0)}
+function fixedThisCycle(b){return (b.fixed||[]).filter(x=>accountPlanItemFeedsBudgetV1468(x,b)&&fixedIsDueNow(b,x)).reduce((s,x)=>s+num(x.amount),0)}
 function upcomingFixedCharges(b){return (b.fixed||[]).map(x=>{const dueDate=fixedDueDate(b,x);return dueDate?{charge:x,dueDate,days:daysUntil(dueDate)}:null}).filter(Boolean).filter(x=>x.dueDate>=todayISO()).sort((a,z)=>a.dueDate.localeCompare(z.dueDate))}
 function fixedTimingText(b,x){
   if(x.dueThisCycle===false)return 'Déjà payée';
@@ -4630,7 +4700,7 @@ function fixedChargeConfirmationCardHTML(b,row){
   const x=row.charge,due=row.dueDate,late=due&&due<todayISO(),when=late?`Prévue le ${fmtDate(due)}`:'Prévue aujourd’hui';
   return `<div class="card bank-card plan charge-confirm-card"><div class="tx-row"><div class="tx-icon">${ico('receipt')}</div><div class="tx-body"><strong>${esc(x.name)}</strong><span>− ${euro(x.amount)} prévus</span><div class="bank-match-meta"><span class="bank-confidence medium">${esc(when)}</span></div><div class="bank-reason">Est-ce que cette charge a bien été prélevée ?</div></div></div><div class="two" style="margin-top:10px"><button class="btn btn-mint" data-fixed-notif-paid="${x.id}" type="button">Oui, prélevée</button><button class="btn btn-white" data-fixed-notif-defer="${x.id}" type="button">Pas encore</button></div><div class="small muted" style="margin-top:8px">En confirmant, tu peux corriger le montant réel avant de l’enregistrer.</div></div>`
 }
-function protectedThisCycle(b){return fixedThisCycle(b)+sum(b.oneOffs)+provisionsThisCycle(b)+periodSavingsProtected(b)}
+function protectedThisCycle(b){return fixedThisCycle(b)+(b.oneOffs||[]).filter(x=>accountPlanItemFeedsBudgetV1468(x,b)).reduce((sum,x)=>sum+num(x.amount),0)+provisionsThisCycle(b)+periodSavingsProtected(b)}
 function monthEndISO(iso){
   const p=dateParts(iso||todayISO()),last=new Date(Date.UTC(p.y,p.m,0)).getUTCDate();
   return `${p.y}-${String(p.m).padStart(2,'0')}-${String(last).padStart(2,'0')}`
@@ -4649,7 +4719,7 @@ function forecastIncomeUntil(b,endISO){
   },0))
 }
 function forecastIncomeCurrentPeriod(b,endISO){
-  const list=Array.isArray(b.incomeSources)?b.incomeSources:[];
+  const list=budgetIncomeSourcesV1464(b);
   if(!list.length)return 0;
   const from=todayISO(),primary=primaryIncomeSource(b);
   return r2(list.reduce((s,x)=>{
@@ -4663,7 +4733,7 @@ function forecastIncomeCurrentPeriod(b,endISO){
 }
 function forecastFixedUntil(b,endISO){
   const from=todayISO();
-  return r2((b.fixed||[]).reduce((s,x)=>{
+  return r2((b.fixed||[]).filter(x=>accountPlanItemFeedsBudgetV1468(x,b)).reduce((s,x)=>{
     if(x.dueThisCycle===false)return s;
     if(x.dueDay==null)return s+num(x.amount);
     const due=monthlyDueDateInWindow(x.dueDay,from,endISO);
@@ -4671,15 +4741,15 @@ function forecastFixedUntil(b,endISO){
   },0))
 }
 function forecastProtectedUntil(b,endISO){
-  return r2(forecastFixedUntil(b,endISO)+sum(b.oneOffs)+provisionsThisCycle(b)+periodSavingsProtected(b))
+  return r2(forecastFixedUntil(b,endISO)+(b.oneOffs||[]).filter(x=>accountPlanItemFeedsBudgetV1468(x,b)).reduce((sum,x)=>sum+num(x.amount),0)+provisionsThisCycle(b)+periodSavingsProtected(b))
 }
 function forecastPool(b){
   const end=incomeForecastHorizon(b);
-  return r2(num(b.startBalance)+forecastIncomeUntil(b,end)+plannedExceptionalIncome(b)+allocatableCashIncome(b)+transferNet(b)-forecastProtectedUntil(b,end)-num(b.reserve)-nonEnvelopeNetExpenses(b))
+  return r2(budgetOpeningBalanceV1462(b)+forecastIncomeUntil(b,end)+plannedExceptionalIncome(b)+allocatableCashIncome(b)+transferNet(b)-forecastProtectedUntil(b,end)-num(b.reserve)-nonEnvelopeNetExpenses(b))
 }
 function forecastEndBalance(b){
   const end=b.cycleEnd||incomeForecastHorizon(b);
-  return r2(num(b.startBalance)+forecastIncomeCurrentPeriod(b,end)+plannedExceptionalIncome(b)+allocatableCashIncome(b)+transferNet(b)-forecastProtectedUntil(b,end)-allocated(b)-nonEnvelopeNetExpenses(b))
+  return r2(budgetOpeningBalanceV1462(b)+forecastIncomeCurrentPeriod(b,end)+plannedExceptionalIncome(b)+allocatableCashIncome(b)+transferNet(b)-forecastProtectedUntil(b,end)-allocated(b)-nonEnvelopeNetExpenses(b))
 }
 function recoveryTarget(b){
   if(num(b.startBalance)>=0)return 0;
@@ -5152,7 +5222,7 @@ function learnedEnvelopePattern(b,e,baselineAmount=null){
   if(benchmarkFloorDaily>.01)learned=Math.max(learned,benchmarkFloorDaily);
 
   const elapsed=Math.max(0,daysBetweenISO(b.cycleStart,todayISO()));
-  const txCount=(b.transactions||[]).filter(t=>(t.type==='expense'||(t.type==='income'&&t.kind==='refund'))&&String(t.categoryId)===String(e.id)).length;
+  const txCount=budgetTransactions(b).filter(t=>(t.type==='expense'||(t.type==='income'&&t.kind==='refund'))&&String(t.categoryId)===String(e.id)).length;
   const currentRate=elapsed>=6&&txCount>=2?spentFor(b,e.id)/Math.max(1,elapsed):null;
   let currentWeight=0;
   if(currentRate!=null){
@@ -5191,7 +5261,7 @@ function adaptiveLearningSummary(b){
   const patterns=(b.envelopes||[]).map(e=>learnedEnvelopePattern(b,e));
   const historyPeriods=(b.history||[]).length;
   const historyDays=(b.history||[]).reduce((sum,h)=>sum+Math.min(35,Math.max(1,daysBetweenISO(h.cycleStart||addDaysISO(h.cycleEnd||todayISO(),-30),h.cycleEnd||todayISO()))),0);
-  const trackedTxCount=(b.transactions||[]).filter(t=>t.type==='expense').length;
+  const trackedTxCount=budgetTransactions(b).filter(t=>t.type==='expense').length;
   const historySpend=(b.history||[]).reduce((sum,h)=>sum+Math.max(0,num(h.expenses)),0);
   const evidence=patterns.reduce((sum,p)=>sum+p.historyCount+(p.currentRate!=null?1:0),0);
   const localConfidenceAvg=patterns.length?r2(patterns.reduce((sum,p)=>sum+num(p.reliability?.score),0)/patterns.length):0;
@@ -6518,7 +6588,7 @@ function predictiveCyclePlan(b,reserveUse=0){
   const ctx=shortTermMoneyContext(b),days=Math.max(0,ctx.daysToIncome||daysUntil(b.cycleEnd));
   const elapsed=Math.max(0,daysBetweenISO(b.cycleStart||todayISO(),todayISO()));
   const forecasts=(b.envelopes||[]).map(e=>predictiveEnvelopeForecast(b,e,days));
-  const enoughSignal=elapsed>=4&&(b.transactions||[]).filter(t=>t.type==='expense').length>=2;
+  const enoughSignal=elapsed>=4&&budgetTransactions(b).filter(t=>t.type==='expense').length>=2;
   const risks=forecasts.filter(x=>{
     const threshold=Math.max(8,x.allocated*.06);
     return x.shortage>=threshold&&(enoughSignal||x.spent>x.allocated+.01)
@@ -8449,7 +8519,7 @@ function b2EnvelopeAdjustmentOpportunity(b){
 function budgetHealth(b){
   const advanced=advancedIntelligenceEnabled();
   const rem=remaining(b),u=unallocated(b),totalDays=Math.max(1,daysBetweenISO(b.cycleStart,b.cycleEnd)),elapsedDays=clamp(daysBetweenISO(b.cycleStart,todayISO()),0,totalDays),progress=clamp(elapsedDays/totalDays,0,1);
-  const alloc=Math.max(0,allocated(b)),spent=netVariableExpenses(b),spentPct=alloc>0?spent/alloc:0,timePct=Math.round(progress*100),overallPct=Math.round(spentPct*100),txExpenses=(b.transactions||[]).filter(t=>t.type==='expense'&&!t.plannedKind),signals=[];
+  const alloc=Math.max(0,allocated(b)),spent=netVariableExpenses(b),spentPct=alloc>0?spent/alloc:0,timePct=Math.round(progress*100),overallPct=Math.round(spentPct*100),txExpenses=budgetTransactions(b).filter(t=>t.type==='expense'&&!t.plannedKind),signals=[];
   const envSignals=b.envelopes.map(e=>{
     const used=spentFor(b,e.id),pct=e.amount>0?used/e.amount:0,txCount=txExpenses.filter(t=>String(t.categoryId)===String(e.id)).length,hist=envelopeHistoryStats(b,e);
     return {env:e,used,pct,txCount,remain:envRemain(b,e),hist}
@@ -10037,7 +10107,7 @@ async function chooseBankAssist(enabled){
 }
 window.chooseBankAssist=chooseBankAssist;
 window.addEventListener('focus',()=>{if(state?.settings?.bankAssist===true)setTimeout(()=>importNativeBankNotifications({silent:false}),450)});
-window.addEventListener('focus',()=>{if(cloudSession?.user)setTimeout(()=>refreshReferralStatus({render:true,silent:true}).then(()=>{syncOwnedSharedEntitlement({remote:true});checkB2EntitlementNotices()}),650)});
+window.addEventListener('focus',()=>{if(cloudSession?.user)setTimeout(()=>Promise.all([refreshReferralStatus({render:false,silent:true}),refreshLaunchConfig({render:false})]).then(()=>{renderAll();syncOwnedSharedEntitlement({remote:true});checkB2EntitlementNotices()}),650)});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&state?.settings?.bankAssist===true)setTimeout(()=>importNativeBankNotifications({silent:true}),500)});
 setTimeout(async()=>{
   if(state?.settings?.bankAssist===true&&active()){
@@ -10089,9 +10159,11 @@ function renderPlanBrand(){
   if(copy){
     if(paidPlusCancellationPending())copy.textContent=`Résilié · accès conservé jusqu’au ${paidPlusPeriodEndText()} · aucun renouvellement ensuite.`;
     else if(hasReferralPlus()&&!hasPaidPlus())copy.textContent=`B²+ offert jusqu’au ${referralPlusDateText()} · sans publicité.`;
-    else if(hasPaidPlus()&&hasFounderRate())copy.textContent='Tarif fondateur 1,99 €/mois conservé · sans publicité.';
+    else if(hasPaidPlus()&&hasFounderRate())copy.textContent='Tarif Fondateur 0,99 €/mois conservé · sans publicité.';
+    else if(hasPaidPlus()&&hasEarlyRate())copy.textContent='Tarif lancement 1,99 €/mois conservé · sans publicité.';
     else if(hasPaidPlus())copy.textContent=`Abonnement ${euro(currentPlusPrice())}/mois · sans publicité.`;
-    else copy.textContent=founderOfferAvailable()?'Tarif fondateur 1,99 €/mois · réservé aux 500 premiers abonnés.':'B²+ · 2,99 €/mois · plusieurs budgets, partage et zéro publicité.'
+    else if(earlyAccessOfferActive())copy.textContent=`Programme premiers utilisateurs · ${earlyAccessTrialDays()} jours de B²+ offerts.`;
+    else copy.textContent=earlyOfferAvailable()?`Offre de lancement ${euro(billingCatalog().earlyOfferPrice)}/mois · ${earlyOfferRemaining()==null?'1 000 places maximum':`${earlyOfferRemaining().toLocaleString('fr-FR')} places restantes`}.`:`B²+ · ${euro(billingCatalog().standardPrice)}/mois · plusieurs budgets, partage et zéro publicité.`
   }
 }
 function renderMore(){
@@ -10121,6 +10193,8 @@ function openPlus(context='B²+',after=null){
   $('#plusContext').textContent=context==='B²+'?'Ton budget apprend de tes habitudes.':`${context} est inclus dans B²+.`;
   const btn=$('#plusPrimary'),note=$('#plusBillingNote'),secondary=$('#plusSecondary');
   const card=$('#founderOfferCard'),price=$('#founderPrice'),offerText=$('#founderOfferText'),lock=$('#founderLock'),standard=$('#founderStandard'),kicker=$('#founderKicker');
+  const trialCard=$('#launchTrialCard'),trialTitle=$('#launchTrialTitle'),trialText=$('#launchTrialText');
+  if(trialCard){const on=!isPlus()&&earlyAccessOfferActive();trialCard.classList.toggle('show',on);if(on){trialTitle.textContent=`${earlyAccessTrialDays()} jours de B²+ offerts`;trialText.textContent=`Découvre B²+ en conditions réelles. À la fin de tes ${earlyAccessTrialDays()} jours, ton tarif Fondateur de 0,99 € / mois sera réservé si tu souhaites continuer.`}}
   if(lock&&!lock.querySelector('.ui-ico'))lock.innerHTML=`${ico('spark')}${lock.innerHTML}`;
 
   if(card){
@@ -10128,23 +10202,30 @@ function openPlus(context='B²+',after=null){
       card.style.display='';
       kicker.textContent='TON TARIF FONDATEUR';
       price.textContent=euro(B2_PLUS_FOUNDER_PRICE);
-      offerText.textContent='Tu fais partie des abonnés fondateurs B².';
-      lock.innerHTML=`${ico('spark')}<span>Tu gardes 1,99 € / mois tant que ton abonnement reste actif.</span>`;
-      standard.innerHTML='Le tarif actuel pour les nouveaux abonnés sera de <strong>2,99 € / mois</strong> après l’offre de lancement.';
-    }else if(!isPlus()&&founderOfferAvailable()){
+      offerText.textContent='Tu fais partie des premiers utilisateurs qui ont aidé B² à démarrer.';
+      lock.innerHTML=`${ico('spark')}<span>Tu gardes 0,99 € / mois tant que ton abonnement reste actif.</span>`;
+      standard.innerHTML='Ce tarif est réservé aux premiers utilisateurs de la phase de test.';
+    }else if(isPlus()&&hasEarlyRate()){
       card.style.display='';
-      kicker.textContent='OFFRE DE LANCEMENT · TARIF FONDATEUR';
-      price.textContent=euro(B2_PLUS_FOUNDER_PRICE);
-      offerText.textContent=founderOfferText();
+      kicker.textContent='TON TARIF DE LANCEMENT';
+      price.textContent=euro(B2_PLUS_EARLY_PRICE);
+      offerText.textContent='Tu fais partie des 1 000 premiers nouveaux abonnés B²+.';
+      lock.innerHTML=`${ico('spark')}<span>Tu gardes 1,99 € / mois tant que ton abonnement reste actif.</span>`;
+      standard.innerHTML=`Tarif normal : <strong>${euro(B2_PLUS_STANDARD_PRICE)} / mois</strong>.`;
+    }else if(!isPlus()&&earlyOfferAvailable()){
+      card.style.display='';
+      kicker.textContent='OFFRE DE LANCEMENT';
+      price.textContent=euro(B2_PLUS_EARLY_PRICE);
+      offerText.textContent=earlyOfferText();
       lock.innerHTML=`${ico('spark')}<span>Tu gardes ce tarif tant que ton abonnement reste actif.</span>`;
       standard.innerHTML=`Ensuite : <strong>${euro(B2_PLUS_STANDARD_PRICE)} / mois</strong> pour les nouveaux abonnés.`;
     }else{
-      card.style.display='';
+      card.style.display=isPlus()?'':'none';
       kicker.textContent='B²+';
       price.textContent=euro(currentPlusPrice());
-      offerText.textContent=isPlus()?'Ton abonnement B²+ est actif.':'L’offre fondateur est terminée.';
+      offerText.textContent=isPlus()?'Ton abonnement B²+ est actif.':'';
       lock.innerHTML='';
-      standard.innerHTML=`Tarif : <strong>${euro(B2_PLUS_STANDARD_PRICE)} / mois</strong>.`;
+      standard.innerHTML=`Tarif : <strong>${euro(billingCatalog().standardPrice)} / mois</strong>.`;
     }
   }
 
@@ -10155,11 +10236,11 @@ function openPlus(context='B²+',after=null){
     note.textContent=`Abonnement actif · ${euro(currentPlusPrice())} / mois${hasFounderRate()?' · tarif fondateur':''}.`;
     if(secondary)secondary.textContent='Fermer';
   }else{
-    const founder=founderOfferAvailable();
-    btn.textContent=founder?`Profiter du tarif fondateur · ${euro(B2_PLUS_FOUNDER_PRICE)}/mois`:`Activer B²+ · ${euro(B2_PLUS_STANDARD_PRICE)}/mois`;
+    const launch=earlyOfferAvailable(),early=earlyAccessOfferActive();
+    btn.textContent=early?`Découvrir B²+ · ${earlyAccessTrialDays()} jours offerts`:launch?`Profiter du tarif lancement · ${euro(billingCatalog().earlyOfferPrice)}/mois`:`Activer B²+ · ${euro(billingCatalog().standardPrice)}/mois`;
     btn.disabled=false;
     note.className='status info';
-    note.textContent="Prototype : le paiement n'est pas encore branché. Dans l’app Android, Google Play gérera l’achat et l’abonnement.";
+    note.textContent=early?'Tes 30 jours commencent avec ton premier budget. Ensuite, tu pourras conserver B²+ au tarif Fondateur de 0,99 € / mois.':"Prototype : le paiement n'est pas encore branché. Dans l’app Android, Google Play gérera l’achat et l’abonnement.";
     if(secondary)secondary.textContent='Pas maintenant';
   }
   openModal('plusModal');
@@ -10167,37 +10248,40 @@ function openPlus(context='B²+',after=null){
 function activatePlusDemo(){
   if(hasReferralPlus()&&!hasPaidPlus()){closeModal('plusModal');showPage('referral');return}
   if(hasPaidPlus()){closeModal('plusModal');openSubscriptionManager();return}
-  const founder=founderOfferAvailable();
+  if(earlyAccessOfferActive()){closeModal('plusModal');showToast(`B²+ est offert ${earlyAccessTrialDays()} jours dans le programme premiers utilisateurs.`);return}
+  const launch=earlyOfferAvailable();
   const startedAt=Date.now();
   state.plan={...(state.plan||{}),tier:'plus',plusSince:startedAt,freeBudgetId:state.plan?.freeBudgetId||activeBudgetGroup()?.id||null,
-    subscriptionOffer:founder?B2_PLUS_FOUNDER_ID:'standard',
-    subscriptionPrice:founder?B2_PLUS_FOUNDER_PRICE:B2_PLUS_STANDARD_PRICE,
-    priceLocked:founder,cancelAtPeriodEnd:false,subscriptionCanceledAt:null,
+    subscriptionOffer:launch?B2_PLUS_EARLY_ID:'standard',
+    subscriptionPrice:launch?B2_PLUS_EARLY_PRICE:B2_PLUS_STANDARD_PRICE,
+    priceLocked:launch,cancelAtPeriodEnd:false,subscriptionCanceledAt:null,
     subscriptionPeriodEnd:new Date(plusAddMonth(startedAt)).toISOString()
   };
   state.budgetGroups.filter(isOwnedSharedBudget).forEach(g=>{g.ownerAccessUntil=null;if(g.remoteShared)queueRemoteSharedSave(g)});
   if(!state.plan.billingAccountId)state.plan.billingAccountId=active()?.id||state.budgets[0]?.id||null;
   ensurePlusBill(active());
   const next=plusAfterAction;plusAfterAction=null;closeModal('plusModal');save();
-  showToast(founder?'Tarif fondateur B²+ activé · 1,99 €/mois.':'B²+ activé · 2,99 €/mois.');
+  showToast(launch?'Tarif lancement B²+ activé · 1,99 €/mois.':'B²+ activé · 2,99 €/mois.');
   if(next)setTimeout(next,0)
 }
 function deactivatePlusDemo(){openCancelPlus()}
 function openSubscriptionManager(){
   if(hasReferralPlus()&&!hasPaidPlus()){showPage('referral');return}
   if(!hasPaidPlus()){openPlus('B²+');return}
-  const sel=$('#subscriptionBillingAccount'),price=currentPlusPrice(),founder=hasFounderRate();
+  const sel=$('#subscriptionBillingAccount'),price=currentPlusPrice(),founder=hasFounderRate(),earlyRate=hasEarlyRate();
   sel.innerHTML=state.budgets.map(a=>`<option value="${a.id}">${esc(budgetById(a.budgetGroupId)?.name||'Budget')} · ${esc(a.name)}</option>`).join('');
   const current=byId(state.plan?.billingAccountId)||active()||state.budgets[0];if(current)sel.value=current.id;
-  $('#subscriptionOfferName').textContent=founder?'Tarif fondateur B²+':'B²+';
+  $('#subscriptionOfferName').textContent=founder?'Tarif Fondateur B²+':earlyRate?'Tarif lancement B²+':'B²+';
   $('#subscriptionPrice').textContent=`${euro(price)} / mois`;
   const cancelPending=paidPlusCancellationPending();
   $('#subscriptionStatus').className=`status ${cancelPending?'warn':'good'}`;
   $('#subscriptionStatus').innerHTML=cancelPending
     ?`<strong>Résiliation programmée</strong><br>B²+ reste actif jusqu’au ${paidPlusPeriodEndText()}. Aucun renouvellement ensuite.`
     :founder
-      ?`<strong>B²+ est actif · tarif fondateur</strong><br>Tu gardes ${euro(B2_PLUS_FOUNDER_PRICE)} / mois tant que l’abonnement reste actif.`
-      :`<strong>B²+ est actif</strong><br>${euro(price)} / mois.`;
+      ?`<strong>B²+ est actif · tarif Fondateur</strong><br>Tu gardes ${euro(B2_PLUS_FOUNDER_PRICE)} / mois tant que l’abonnement reste actif.`
+      :earlyRate
+        ?`<strong>B²+ est actif · tarif lancement</strong><br>Tu gardes ${euro(B2_PLUS_EARLY_PRICE)} / mois tant que l’abonnement reste actif.`
+        :`<strong>B²+ est actif</strong><br>${euro(price)} / mois.`;
   $('#subscriptionBillingHelp').textContent=cancelPending
     ?'Le renouvellement est arrêté. Aucun nouveau mois B²+ ne sera ajouté après cette date.'
     :`La charge de ${euro(price)} apparaît uniquement dans le budget du compte choisi.`;
@@ -10889,8 +10973,16 @@ async function saveReferralInvite(channel,target){
 function confirmedReferralCount(){
   return clamp(Math.round(num(b2ReferralStatus?.confirmedCount)),0,3)
 }
+function referralRewardMonthsForCount(count){
+  const n=clamp(Math.round(num(count)),0,3);
+  return n===0?0:n+1
+}
+function shareGreenSquareHTML(){return `<span class="square-mark good"><i>B²</i><i>B²</i><i>B²</i><i>B²</i><i>B²</i><i>B²</i><i>B²</i><i>B²</i><i>B²</i><i>B²</i><i>B²</i><i>B²</i></span>`}
 function referralMessage(){
-  return `Je teste B², une appli simple pour préparer et suivre son budget. Si tu veux l’essayer, voici mon lien : ${referralLink()}`
+  return `🟩 Mon budget ? C’est carré !\n\nJe te partage B², une appli simple pour organiser ton budget et savoir ce que tu peux vraiment utiliser au quotidien.\n\n🎁 Avec mon lien, notre premier parrainage validé nous offre 2 mois de B²+ à chacun :\n${referralLink()}`
+}
+function sharedBudgetMessage(link,budgetName='notre budget'){
+  return `🟩 Un budget à plusieurs, c’est plus simple !\n\nJe t’invite à rejoindre « ${budgetName} » sur B² pour gérer et suivre ce budget ensemble.\n\n👥 Rejoins le budget directement ici :\n${link}`
 }
 async function copyReferralLink(){
   try{await navigator.clipboard.writeText(referralLink());showToast('Lien de parrainage copié.')}
@@ -10913,7 +11005,7 @@ async function inviteReferralBySms(){
 async function shareReferralNative(){
   if(navigator.share){
     try{
-      await navigator.share({title:'Découvrir B²',text:'Je t’invite à découvrir B².',url:referralLink()});
+      await navigator.share({title:'B² · Mon budget ? C’est carré !',text:referralMessage()});
       await saveReferralInvite('share','partage système');renderReferral();return
     }catch(e){if(e?.name==='AbortError')return}
   }
@@ -10932,21 +11024,23 @@ function renderReferral(){
     }),0)
   }
 
+  const rewardMonths=referralRewardMonthsForCount(confirmed);
   const rewardStatus=hasReferralPlus()
     ?`B²+ actif jusqu’au ${referralPlusDateText()}`
-    :(confirmed>=3?'3 mois gagnés · plafond atteint':confirmed?`${confirmed} mois gagné${confirmed>1?'s':''}`:'Aucun mois débloqué pour l’instant');
+    :(confirmed>=3?'4 mois gagnés · plafond atteint':confirmed?`${rewardMonths} mois gagnés`:'Aucun mois débloqué pour l’instant');
 
   c.innerHTML=`
     <div class="referral-hero">
       <div class="referral-kicker">PARRAINAGE B²</div>
-      <h3>1 filleul actif = 1 mois pour chacun</h3>
-      <p>Ton filleul découvre B²+ pendant 1 mois et tu gagnes toi aussi 1 mois. Tu peux cumuler jusqu’à 3 mois offerts en parrainant.</p>
+      <h3>Ton premier filleul = 2 mois pour chacun</h3>
+      <p>Ton premier filleul validé vous offre 2 mois de B²+ à chacun. Les deux suivants ajoutent 1 mois chacun : tu peux ainsi cumuler jusqu’à 4 mois offerts.</p>
       <div class="referral-reward">
+        <i class="referral-month ${confirmed>=1?'on':''}"></i>
         <i class="referral-month ${confirmed>=1?'on':''}"></i>
         <i class="referral-month ${confirmed>=2?'on':''}"></i>
         <i class="referral-month ${confirmed>=3?'on':''}"></i>
       </div>
-      <div class="referral-progress-label"><span>${confirmed}/3 mois gagnés</span><span>Maximum 3 mois pour toi</span></div>
+      <div class="referral-progress-label"><span>${rewardMonths}/4 mois gagnés</span><span>Maximum 4 mois pour toi</span></div>
       <div class="referral-progress-label" style="margin-top:9px"><span>${esc(rewardStatus)}</span><span>${pending?`${pending} en attente`:''}</span></div>
     </div>
 
@@ -10969,29 +11063,15 @@ function renderReferral(){
 
     <div class="card">
       <div class="card-title"><h3>Inviter un filleul</h3></div>
-      <div class="small muted">La personne reçoit ton lien personnel. Le code de parrainage est attaché automatiquement à son nouveau compte.</div>
-
-      <div class="field" style="margin-top:13px">
-        <label for="referralEmail">Par e-mail</label>
-        <input id="referralEmail" type="email" autocomplete="email" placeholder="nom@exemple.fr">
+      <div class="small muted">Partage ton lien personnel. Le code de parrainage est ajouté automatiquement à l’inscription.</div>
+      <div class="share-brand-card">
+        <div class="share-brand-main"><div class="share-square-wrap">${shareGreenSquareHTML()}</div><div class="share-brand-copy"><strong>Mon budget ?<br>C’est carré !</strong><span>Une façon simple de préparer, suivre et ajuster son budget au quotidien.</span></div></div>
+        <div class="share-benefits"><span>Budget plus clair</span><span>Projets mieux préparés</span><span>Plus serein au quotidien</span></div>
       </div>
-      <button class="btn btn-primary btn-full" id="referralEmailSend" type="button">Inviter par e-mail</button>
-
-      <div class="field" style="margin-top:14px">
-        <label for="referralPhone">Par téléphone</label>
-        <input id="referralPhone" type="tel" autocomplete="tel" inputmode="tel" placeholder="06 12 34 56 78">
-      </div>
-      <button class="btn btn-white btn-full" id="referralSmsSend" type="button">Inviter par SMS</button>
-
-      <div class="referral-methods">
-        <button class="btn btn-soft" id="referralShare" type="button">Partager</button>
-        <button class="btn btn-soft" id="referralCopy" type="button">Copier le lien</button>
-      </div>
-
-      <div class="referral-code">
-        <div><span>TON CODE</span><strong>${esc(code)}</strong></div>
-        <button class="btn-link" id="referralCopyCode" type="button">Copier</button>
-      </div>
+      <div class="share-link-card"><label>TON LIEN DE PARRAINAGE</label><div class="share-link-row"><div class="share-link-value">${esc(referralLink())}</div><button class="share-link-copy" id="referralCopy" type="button" aria-label="Copier le lien">⧉</button></div></div>
+      <button class="btn btn-primary btn-full share-primary" id="referralShare" type="button">${ico('share')} Partager mon lien</button>
+      <div class="share-message-preview"><strong>Message envoyé avec ton lien :</strong><br>« Mon budget ? C’est carré ! » · une invitation courte à découvrir B² avec ton lien personnel directement intégré.</div>
+      <div class="referral-code"><div><span>TON CODE</span><strong>${esc(code)}</strong></div><button class="btn-link" id="referralCopyCode" type="button">Copier</button></div>
     </div>
 
     <div class="card">
@@ -11001,11 +11081,9 @@ function renderReferral(){
         <div class="referral-stat"><span>En attente</span><strong>${pending}</strong></div>
         <div class="referral-stat"><span>Validés</span><strong>${confirmed}/3</strong></div>
       </div>
-      <div class="referral-note">Un filleul ne peut déclencher qu’une seule récompense. Le même compte ne peut avoir qu’un seul parrain. Les récompenses du parrain sont plafonnées à 3 mois.</div>
+      <div class="referral-note">Un filleul ne peut déclencher qu’une seule récompense. Le même compte ne peut avoir qu’un seul parrain. Les récompenses du parrain sont plafonnées à 4 mois : 2 mois au premier filleul validé, puis 1 mois pour chacun des deux suivants.</div>
     </div>`;
 
-  $('#referralEmailSend')?.addEventListener('click',inviteReferralByEmail);
-  $('#referralSmsSend')?.addEventListener('click',inviteReferralBySms);
   $('#referralShare')?.addEventListener('click',shareReferralNative);
   $('#referralCopy')?.addEventListener('click',copyReferralLink);
   $('#referralCopyCode')?.addEventListener('click',async()=>{
@@ -14036,6 +14114,12 @@ function accountIncomeFeedsBudgetV1464(accountId,b){
   const a=byId(accountId||g.planAccountId)||planAccountForBudget(g);
   return accountBudgetUseModeV1464(a,g)==='full'
 }
+function accountPlanItemFeedsBudgetV1468(item,b){
+  const g=b?.budgetGroupId?budgetById(b.budgetGroupId):null;
+  if(!g)return true;
+  const a=byId(itemAccountId(item,b))||planAccountForBudget(g);
+  return accountBudgetUseModeV1464(a,g)!=='track'
+}
 function budgetIncomeSourcesV1464(b){
   const rows=Array.isArray(b?.incomeSources)?b.incomeSources:[];
   const g=b?.budgetGroupId?budgetById(b.budgetGroupId):null;
@@ -14495,13 +14579,13 @@ $('#sendShareInvite')?.addEventListener('click',async()=>{
     if(mailResult?.ok&&data?.existing_user)showToast('Invitation envoyée par e-mail et dans B².');
     else if(mailResult?.ok)showToast('Invitation envoyée par e-mail.');
     else if(data?.existing_user)showToast('Invitation créée dans B². L’envoi e-mail doit encore être activé côté serveur.');
-    else{showToast('Invitation créée. L’envoi e-mail doit encore être activé côté serveur.');await shareInviteLink(data?.token)}
+    else{showToast('Invitation créée. L’envoi e-mail doit encore être activé côté serveur.');await shareInviteLink(data?.token,g.name)}
     await syncRemoteSharedBudgets({render:false});detailId=g.id;showPage('budget-detail')
   }catch(e){console.warn('B² shared invite',e);const m=String(e?.message||e);showToast(m.includes('already_member')?'Cette personne est déjà membre.':m.includes('cannot_invite_self')?'Tu ne peux pas t’inviter toi-même.':'Impossible d’envoyer cette invitation pour le moment.')}
 });
 $('#createShareLink')?.addEventListener('click',async()=>{
   const id=$('#shareBudgetModal').dataset.budgetId,g=budgetById(id);if(!g||!await ensureRemoteSharedBudget(g))return;
-  try{const {data,error}=await b2supabase.rpc('b2_shared_create_link',{p_budget_id:g.remoteSharedId});if(error)throw error;closeModal('shareBudgetModal');await shareInviteLink(data?.token);await syncRemoteSharedBudgets({render:false});detailId=g.id;showPage('budget-detail')}catch(e){console.warn(e);showToast('Impossible de créer le lien pour le moment.')}
+  try{const {data,error}=await b2supabase.rpc('b2_shared_create_link',{p_budget_id:g.remoteSharedId});if(error)throw error;closeModal('shareBudgetModal');await shareInviteLink(data?.token,g.name);await syncRemoteSharedBudgets({render:false});detailId=g.id;showPage('budget-detail')}catch(e){console.warn(e);showToast('Impossible de créer le lien pour le moment.')}
 });
 $('#sharedInviteAnother')?.addEventListener('click',()=>{const id=$('#sharedMembersModal').dataset.budgetId;closeModal('sharedMembersModal');shareBudget(id)});
 $('#sharedStopSharing')?.addEventListener('click',()=>{const id=$('#sharedMembersModal').dataset.budgetId;stopSharingBudget(id)});
