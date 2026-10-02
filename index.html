@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#075a4d">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<title>B² v14.72 — sélecteur de compte au-dessus du Carré</title>
+<title>B² v14.75 — parrainage harmonisé</title>
 <style>
 :root{
   --brand:#075a4d;--brand2:#0a7965;--brand3:#0f8f72;--lime:#b9ef68;
@@ -10984,7 +10984,7 @@ function referralRewardMonthsForCount(count){
   return n===0?0:n+1
 }
 function shareGreenSquareHTML(){return `<span class="square-mark good"><i>B²</i><i>B²</i><i>B²</i><i>B²</i><i>B²</i><i>B²</i><i>B²</i><i>B²</i><i>B²</i><i>B²</i><i>B²</i><i>B²</i></span>`}
-/* B² v14.74 — message de parrainage raccourci et recentré sur la promesse principale */
+/* B² v14.75 — message + page parrainage harmonisés */
 function referralMessage(){
   return `🟩 Mon budget ? C’est carré !\n\nTu regardes ton compte et tu te demandes combien tu peux réellement dépenser sans te mettre dans le rouge ?\n\nB² t’aide à voir ce qu’il te reste vraiment, en tenant compte de tes charges, de ton épargne et de tes dépenses du quotidien.\n\n🎁 Avec mon lien, on profite chacun de 2 mois de B²+ :\n${referralLink()}`
 }
@@ -11070,14 +11070,14 @@ function renderReferral(){
 
     <div class="card">
       <div class="card-title"><h3>Inviter un filleul</h3></div>
-      <div class="small muted">Partage ton lien personnel. Le code de parrainage est ajouté automatiquement à l’inscription.</div>
+      <div class="small muted">Partage ton lien personnel. Le code de parrainage est ajouté automatiquement à l’inscription, avec un message aligné sur la vraie promesse de B².</div>
       <div class="share-brand-card">
-        <div class="share-brand-main"><div class="share-square-wrap">${shareGreenSquareHTML()}</div><div class="share-brand-copy"><strong>Mon budget ?<br>C’est carré !</strong><span>Une façon simple de préparer, suivre et ajuster son budget au quotidien.</span></div></div>
-        <div class="share-benefits"><span>Budget plus clair</span><span>Projets mieux préparés</span><span>Plus serein au quotidien</span></div>
+        <div class="share-brand-main"><div class="share-square-wrap">${shareGreenSquareHTML()}</div><div class="share-brand-copy"><strong>Mon budget ?<br>C’est carré !</strong><span>Vois ce qu’il te reste vraiment, sans perdre de vue tes charges, ton épargne et ton quotidien.</span></div></div>
+        <div class="share-benefits"><span>Reste vraiment dispo</span><span>Charges anticipées</span><span>Budget plus serein</span></div>
       </div>
       <div class="share-link-card"><label>TON LIEN DE PARRAINAGE</label><div class="share-link-row"><div class="share-link-value">${esc(referralLink())}</div><button class="share-link-copy" id="referralCopy" type="button" aria-label="Copier le lien">⧉</button></div></div>
       <button class="btn btn-primary btn-full share-primary" id="referralShare" type="button">${ico('share')} Partager mon lien</button>
-      <div class="share-message-preview"><strong>Message envoyé avec ton lien :</strong><br>« Mon budget ? C’est carré ! » · une invitation courte à découvrir B² avec ton lien personnel directement intégré.</div>
+      <div class="share-message-preview"><strong>Aperçu du message envoyé :</strong><br>« Mon budget ? C’est carré ! »<br>Tu regardes ton compte et tu te demandes combien tu peux réellement dépenser sans te mettre dans le rouge ?<br>B² t’aide à voir ce qu’il te reste vraiment, en tenant compte de tes charges, de ton épargne et de tes dépenses du quotidien.</div>
       <div class="referral-code"><div><span>TON CODE</span><strong>${esc(code)}</strong></div><button class="btn-link" id="referralCopyCode" type="button">Copier</button></div>
     </div>
 
