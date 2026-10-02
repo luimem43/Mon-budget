@@ -9273,7 +9273,8 @@ function bankMatchScore(tx,n){
   return s
 }
 function findBankCandidate(b,n){
-  const candidates=(b.transactions||[]).filter(t=>t.type===n.type&&!t.bankNotificationId)
+  const notifDate=bankISO(n.createdAt);
+  const candidates=(b.transactions||[]).filter(t=>t.type===n.type&&!t.bankNotificationId&&String(t.date||'')===notifDate)
     .map(t=>({t,score:bankMatchScore(t,n)})).filter(x=>x.score>=7).sort((a,z)=>z.score-a.score);
   if(!candidates.length)return null;
   const top=candidates[0],second=candidates[1];
@@ -9640,19 +9641,24 @@ function parseBankNotificationText(raw,{sourceFinance=false,sourceTrusted=false,
   }
   return {type,amount,merchant,rawText:t,sign,format}
 }
+/* B² v14.73 — doublons bancaires limités à la même journée + messages simplifiés */
 function bankNotificationFingerprint(n){
   const source=String(n?.sourceApp||'').trim().toLowerCase(),type=String(n?.type||'expense');
   const amount=r2(Math.abs(num(n?.amount))),raw=bankAliasKey(n?.rawText||''),merchant=bankAliasKey(n?.merchant||'');
-  return `${source}|${type}|${amount}|${raw||merchant}`
+  // v14.73 — une même dépense chez le même commerçant un autre jour n'est pas un doublon.
+  const day=bankISO(n?.createdAt||Date.now());
+  return `${day}|${source}|${type}|${amount}|${raw||merchant}`
 }
 function repeatedBankNotification(b,n){
   const fp=bankNotificationFingerprint(n),rawKey=bankAliasKey(n.rawText||''),merchantKey=bankAliasKey(n.merchant||'');
   return (b.bankNotifications||[]).find(x=>{
     if(x.id===n.id||x.type!==n.type||Math.abs(num(x.amount)-num(n.amount))>.01)return false;
     if(String(x.sourceApp||'')!==String(n.sourceApp||''))return false;
+    // Un doublon de notification doit appartenir à la même journée locale.
+    if(bankISO(x.createdAt)!==bankISO(n.createdAt))return false;
     const dt=Math.abs(num(x.createdAt)-num(n.createdAt)),otherRaw=bankAliasKey(x.rawText||''),otherMerchant=bankAliasKey(x.merchant||'');
-    const exactFingerprint=fp&&fp===bankNotificationFingerprint(x)&&dt<=24*3600000;
-    const exactRaw=rawKey&&otherRaw&&rawKey===otherRaw&&dt<=24*3600000;
+    const exactFingerprint=fp&&fp===bankNotificationFingerprint(x);
+    const exactRaw=rawKey&&otherRaw&&rawKey===otherRaw;
     const sameMerchant=merchantKey&&otherMerchant&&merchantKey===otherMerchant&&dt<=45*1000;
     return exactFingerprint||exactRaw||sameMerchant
   })
@@ -9772,7 +9778,7 @@ function registerBankNotification(data,{silent=false,force=false}={}){
     if(n.matchKind==='fixed'||n.matchKind==='oneoff'||n.matchKind==='income'){
       const p=bankPlannedEntity(b,n);
       showToast(`${euro(n.amount)} détectés · B² pense reconnaître ${p?.name||'un élément prévu'}.`)
-    }else if(n.matchKind==='duplicate')showToast(`${euro(n.amount)} détectés · possible doublon à confirmer.`);
+    }else if(n.matchKind==='duplicate')showToast(`${euro(n.amount)} détectés · B² pense que cette dépense a peut-être déjà été ajoutée aujourd’hui.`);
     else if(n.matchKind==='category'){
       const e=b.envelopes.find(x=>String(x.id)===String(n.suggestedCategoryId));
       showToast(`${euro(n.amount)} détectés · probablement ${e?.name||'une dépense connue'}.`)
@@ -9882,18 +9888,18 @@ function markBankAlreadyAdded(){
   n.status='ignored';save();closeModal('bankReviewModal');showToast('D’accord. B² ne crée pas de deuxième dépense.')
 }
 function findRecordedBankDuplicate(b,tx){
-  const rows=(b.transactions||[]).filter(t=>String(t.id)!==String(tx.id)&&(t.bankVerified||t.source==='bank')&&t.type===tx.type)
+  const rows=(b.transactions||[]).filter(t=>String(t.id)!==String(tx.id)&&(t.bankVerified||t.source==='bank')&&t.type===tx.type&&String(t.date||'')===String(tx.date||todayISO()))
     .map(t=>{
       const a=bankAmountScore(t.amount,tx.amount);if(a<7)return null;
-      const sameDate=String(t.date||'')===String(tx.date||todayISO()),nearDate=Math.abs(daysBetweenISO(t.date||todayISO(),tx.date||todayISO()))<=1;
-      let score=a+(sameDate?4:nearDate?2:0)+Math.min(4,textAffinity(t.label,tx.label)*2);
+      const sameDate=true;
+      let score=a+4+Math.min(4,textAffinity(t.label,tx.label)*2);
       if(tx.type==='expense'&&t.categoryId&&tx.categoryId&&String(t.categoryId)===String(tx.categoryId))score+=4;
       return {t,score}
     }).filter(Boolean).sort((a,z)=>z.score-a.score);
   return rows[0]?.score>=11?rows[0].t:null
 }
 function askPossibleDuplicate(dup,tx,onDifferent){
-  openConfirm('Possible doublon',`B² a déjà enregistré ${euro(tx.amount)}${dup?.label?` · ${dup.label}`:''} à partir d’une notification bancaire. Si c’est bien une deuxième dépense différente, confirme l’ajout. Sinon, annule.`,onDifferent)
+  openConfirm('Tu as peut-être déjà ajouté cette dépense',`B² a trouvé aujourd’hui une dépense similaire de ${euro(tx.amount)}${dup?.label?` chez ${dup.label}`:''}. Est-ce la même dépense ou une nouvelle ?`,onDifferent,{cancelLabel:'Je l’ai déjà ajoutée',confirmLabel:'C’est une nouvelle dépense',confirmClass:'btn-primary'})
 }
 function restorePlannedAfterDelete(b,t){
   if(t.plannedKind==='fixed'&&t.plannedId){const x=(b.fixed||[]).find(y=>String(y.id)===String(t.plannedId));if(x)x.dueThisCycle=true}
@@ -9963,16 +9969,16 @@ function bankNotificationCardHTML(b,n){
   else if(planned)sub+=` · B² pense reconnaître « ${planned.name} »`;
   else if(env)sub+=` · B² propose ${env.name}`;
 
-  const conf=`<span class="bank-confidence ${esc(n.confidence||'low')}">${bankConfidenceLabel(n.confidence||'low')}</span>`;
+  const conf=n.matchKind==='duplicate'?'':`<span class="bank-confidence ${esc(n.confidence||'low')}">${bankConfidenceLabel(n.confidence||'low')}</span>`;
   const sourceName=bankSourceFriendlyName(n.sourceApp,n.sourceAppLabel);
   const recognizedSource=n.sourceFinance===true||n.sourceTrusted===true||bankSourceLooksFinancial(n.sourceApp,n.sourceAppLabel);
   const sourceAction=recognizedSource
-    ?`<button class="btn btn-white" data-bank-dismiss="${n.id}" type="button">Ignorer ce mouvement</button>`
+    ?`<button class="btn btn-white" data-bank-dismiss="${n.id}" type="button">Ignorer</button>`
     :`<button class="btn btn-white" data-bank-not-bank="${n.id}" type="button">Ce n’est pas bancaire</button>`;
-  const laterAndSource=`<div class="two" style="margin-top:8px"><button class="btn btn-soft" data-bank-ignore="${n.id}" type="button">Me le rappeler</button>${sourceAction}</div>`;
+  const laterAndSource=`<div class="two" style="margin-top:8px"><button class="btn btn-soft" data-bank-ignore="${n.id}" type="button">Plus tard</button>${sourceAction}</div>`;
 
   let actions='';
-  if(candidate)actions=`<div class="two" style="margin-top:10px"><button class="btn btn-mint" data-bank-link="${n.id}" type="button">Oui, même dépense</button><button class="btn btn-white" data-bank-add="${n.id}" type="button">Non, autre dépense</button></div>${laterAndSource}`;
+  if(candidate)actions=`<div class="status info compact" style="margin-top:10px">B² a trouvé une dépense similaire aujourd’hui. Est-ce la même dépense ?</div><div class="two" style="margin-top:10px"><button class="btn btn-mint" data-bank-link="${n.id}" type="button">Je l’ai déjà ajoutée</button><button class="btn btn-primary" data-bank-add="${n.id}" type="button">C’est une nouvelle dépense</button></div>${laterAndSource}`;
   else if(planned)actions=`<div class="two" style="margin-top:10px"><button class="btn btn-mint" data-bank-plan="${n.id}" type="button">Confirmer</button><button class="btn btn-white" data-bank-reject-plan="${n.id}" type="button">Ce n’est pas ça</button></div>${laterAndSource}`;
   else if(n.type==='expense')actions=`<div class="two" style="margin-top:10px"><button class="btn btn-primary" data-bank-add="${n.id}" type="button">${env?`Ajouter à ${esc(env.name)}`:'Vérifier et ajouter'}</button><button class="btn btn-white" data-bank-already="${n.id}" type="button">Déjà saisie</button></div>${laterAndSource}`;
   else actions=`<div class="two" style="margin-top:10px"><button class="btn btn-primary" data-bank-add-income="${n.id}" type="button">Ajouter ce revenu</button><button class="btn btn-white" data-bank-already="${n.id}" type="button">Déjà saisi</button></div>${laterAndSource}`;
@@ -9984,7 +9990,7 @@ function bankNotificationCardHTML(b,n){
         <strong>${esc(title)}</strong>
         <span>${sub}</span>
         <div class="bank-match-meta">${conf}</div>
-        <div class="bank-reason">${esc(n.reason||'Mouvement à confirmer.')}${sourceName?` · Source : ${esc(sourceName)}`:''}</div>
+        <div class="bank-reason">${esc(candidate?'B² vérifie simplement pour ne pas compter deux fois la même dépense.':(n.reason||'Mouvement à confirmer.'))}${sourceName?` · Source : ${esc(sourceName)}`:''}</div>
       </div>
     </div>
     ${actions}
@@ -10978,8 +10984,9 @@ function referralRewardMonthsForCount(count){
   return n===0?0:n+1
 }
 function shareGreenSquareHTML(){return `<span class="square-mark good"><i>B²</i><i>B²</i><i>B²</i><i>B²</i><i>B²</i><i>B²</i><i>B²</i><i>B²</i><i>B²</i><i>B²</i><i>B²</i><i>B²</i></span>`}
+/* B² v14.74 — message de parrainage raccourci et recentré sur la promesse principale */
 function referralMessage(){
-  return `🟩 Mon budget ? C’est carré !\n\nJe te partage B², une appli simple pour organiser ton budget et savoir ce que tu peux vraiment utiliser au quotidien.\n\n🎁 Avec mon lien, notre premier parrainage validé nous offre 2 mois de B²+ à chacun :\n${referralLink()}`
+  return `🟩 Mon budget ? C’est carré !\n\nTu regardes ton compte et tu te demandes combien tu peux réellement dépenser sans te mettre dans le rouge ?\n\nB² t’aide à voir ce qu’il te reste vraiment, en tenant compte de tes charges, de ton épargne et de tes dépenses du quotidien.\n\n🎁 Avec mon lien, on profite chacun de 2 mois de B²+ :\n${referralLink()}`
 }
 function sharedBudgetMessage(link,budgetName='notre budget'){
   return `🟩 Un budget à plusieurs, c’est plus simple !\n\nJe t’invite à rejoindre « ${budgetName} » sur B² pour gérer et suivre ce budget ensemble.\n\n👥 Rejoins le budget directement ici :\n${link}`
@@ -12716,7 +12723,13 @@ function confirmDeleteTx(id){
     b.transactions.splice(idx,1);restorePlannedAfterDelete(b,t);save();showToast('Mouvement supprimé.','Annuler',()=>{b.transactions.splice(Math.min(idx,b.transactions.length),0,t);reapplyPlannedAfterUndo(b,t);save();showToast('Suppression annulée.')})
   })
 }
-function openConfirm(title,lead,fn){$('#confirmTitle').textContent=title;$('#confirmLead').textContent=lead;confirmHandler=fn;openModal('confirmModal')}
+function openConfirm(title,lead,fn,opts={}){
+  $('#confirmTitle').textContent=title;$('#confirmLead').textContent=lead;confirmHandler=fn;
+  const modal=$('#confirmModal'),cancel=modal?.querySelector('[data-close="confirmModal"]'),action=$('#confirmAction');
+  if(cancel)cancel.textContent=opts.cancelLabel||'Annuler';
+  if(action){action.textContent=opts.confirmLabel||'Confirmer';action.className=`btn ${opts.confirmClass||'btn-danger'}`}
+  openModal('confirmModal')
+}
 function startBudgetPlanEditorV1462(groupId,jump=null,workingAccountId=null){
   const g=budgetById(groupId);if(!g)return;
   const plan=planAccountForBudget(g);if(!plan)return;
