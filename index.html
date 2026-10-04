@@ -4514,6 +4514,7 @@ function primaryIncomeSource(b){
   const list=budgetIncomeSourcesV1464(b);
   return list.find(x=>x.primary)||list[0]||null
 }
+/* v14.85 — bouton de répartition contextuel : B² peut finir uniquement le reste disponible ; rappel cadenas affiché sous le bouton seulement si nécessaire. */
 /* v14.48 conserve v14.47 et verrouille les protections financières : épargne et cagnottes ne peuvent plus être réduites par le Carré.
    v14.47 ajoute la consultation des dépenses par enveloppe.
    v14.46 conserve intégralement v14.45 et stabilise les prévisions sur toutes les enveloppes.
@@ -6055,6 +6056,36 @@ function b2PlusConfidenceModel(b,living=null){
       :'profil + repères publics + budget';
 
   return {score,label,basis,historyDays:a.historyDays,historyPeriods:a.historyPeriods,transactions:a.trackedTxCount,officialCoverage:r2(officialCoverage),continuity}
+}
+/* v14.85 — prudence d'expression pour les nouveaux utilisateurs.
+   Le moteur continue de calculer exactement comme avant, mais une projection seule
+   ne peut pas rendre le Carré rouge tant que B² ne connaît pas encore suffisamment
+   le fonctionnement réel de l'utilisateur. Les faits certains (dépassement réel,
+   disponible négatif, charge/revenu en retard, événement connu) restent immédiats. */
+function b2ForecastLearningGuard(b,ctx=null,plusConfidence=null){
+  ctx=ctx||shortTermMoneyContext(b);
+  const learning=adaptiveLearningSummary(b);
+  const elapsed=Math.max(0,daysBetweenISO(b?.cycleStart||todayISO(),todayISO()));
+  const currentTx=budgetTransactions(b).filter(t=>t.type==='expense'&&!t.plannedKind).length;
+  const hasCompletedPeriod=num(learning.historyPeriods)>=1;
+  const hasPersonalHistory=num(learning.historyDays)>=21;
+  const veryNew=!hasCompletedPeriod&&!hasPersonalHistory&&elapsed<=7;
+  const learningPhase=!hasCompletedPeriod&&!hasPersonalHistory;
+
+  return {
+    active:learningPhase,
+    veryNew,
+    elapsedDays:elapsed,
+    currentTx,
+    historyPeriods:num(learning.historyPeriods),
+    historyDays:num(learning.historyDays),
+    confidenceScore:num(plusConfidence?.score),
+    // 0 = vert, 1 = vigilance légère, 2 = vraie alerte orange. Le rouge reste réservé
+    // aux faits objectifs tant que B² n'a pas encore une période personnelle complète.
+    maxPredictiveSeverity:veryNew?1:2,
+    maxPredictivePressure:veryNew?44:60,
+    suppressExactHomeForecast:learningPhase
+  }
 }
 function b2PlusScenarioNeedFactor(kind,b){
   const p=budgetProfileOf(b);
@@ -8523,8 +8554,8 @@ function b2KnownEventInsight(b,ctx=null){
 
   return null
 }
-function b2ForecastNumberInsight(b,gate,plusScenarios=null,living=null){
-  if(!gate||gate.mode!=='danger')return null;
+function b2ForecastNumberInsight(b,gate,plusScenarios=null,living=null,learningGuard=null){
+  if(!gate||gate.mode!=='danger'||learningGuard?.suppressExactHomeForecast)return null;
   const advanced=advancedIntelligenceEnabled();
   const shortfall=advanced&&plusScenarios
     ?Math.max(0,num(plusScenarios.probable.shortfall))
@@ -8544,10 +8575,10 @@ function b2ForecastNumberInsight(b,gate,plusScenarios=null,living=null){
       :'C’est un repère prudent basé sur ton foyer, ton budget et la période actuelle.'
   }
 }
-function b2SquareCommunication(b,ctx,living,gate,plusScenarios,plusConfidence,primary){
+function b2SquareCommunication(b,ctx,living,gate,plusScenarios,plusConfidence,primary,learningGuard=null){
   const advanced=advancedIntelligenceEnabled();
   const eventInsight=b2KnownEventInsight(b,ctx);
-  const forecastInsight=b2ForecastNumberInsight(b,gate,plusScenarios,living);
+  const forecastInsight=b2ForecastNumberInsight(b,gate,plusScenarios,living,learningGuard);
   const insight=eventInsight||forecastInsight||null;
 
   if(primary&&['over','income-late','fixed-late','rapid','habit','reserve'].includes(primary.id)){
@@ -8556,6 +8587,15 @@ function b2SquareCommunication(b,ctx,living,gate,plusScenarios,plusConfidence,pr
 
   if(insight){
     return {title:insight.title,text:insight.text,hint:insight.hint,numberInsight:insight}
+  }
+
+  if(learningGuard?.active&&gate?.mode==='danger'&&(!primary||['forecast-main','predictive','forecast-margin','plus-lifestyle'].includes(primary.id))){
+    return {
+      title:'Marge à surveiller',
+      text:'Ton disponible pourrait être un peu juste d’ici ton prochain revenu.',
+      hint:'B² apprend encore tes habitudes.',
+      numberInsight:null
+    }
   }
 
   if(gate?.mode==='watch'){
@@ -8618,6 +8658,7 @@ function budgetHealth(b){
   const plusScenarios=advanced&&ctx.nextIncome?b2PlusForecastScenarios(b,ctx,living):null;
   const plusConfidence=advanced?b2PlusConfidenceModel(b,living):null;
   const forecastAttention=b2ForecastAttentionGate(b,ctx,living,plusScenarios);
+  const forecastLearningGuard=b2ForecastLearningGuard(b,ctx,plusConfidence);
   const knownEventInsight=b2KnownEventInsight(b,ctx);
   const internalIntelligence=b2InternalIntelligenceContext(b,ctx,living,progress);
   // Un achat groupé qui ressemble au cycle habituel ne doit pas être lu comme une
@@ -8655,7 +8696,10 @@ function budgetHealth(b){
       const rawSev=advanced&&plusScenarios
         ?(plusScenarios.tight.remaining<-.01?4:debt>Math.max(80,num(plusScenarios.current)*.35)?3:2)
         :Math.max(2,trajectory.level);
-      const sev=nearIncomeRecoverable?Math.min(2,rawSev):rawSev;
+      const rawForecastSev=nearIncomeRecoverable?Math.min(2,rawSev):rawSev;
+      const sev=forecastLearningGuard.active
+        ?Math.min(rawForecastSev,forecastLearningGuard.maxPredictiveSeverity)
+        :rawForecastSev;
 
       const centralNeed=advanced&&plusScenarios
         ?num(plusScenarios.probable.need)
@@ -8738,7 +8782,10 @@ function budgetHealth(b){
     // que la trajectoire financière globale tant que le scénario Probable reste positif.
     // Sinon, augmenter une somme protégée (ex. épargne) pouvait paradoxalement rendre
     // le plan prédictif plus "facile à résoudre" et faire baisser le niveau du Carré.
-    const sev=unsolved?(forecastAttention.mode==='danger'?3:2):needsFlex?2:1;
+    const rawPredictiveSev=unsolved?(forecastAttention.mode==='danger'?3:2):needsFlex?2:1;
+    const sev=forecastLearningGuard.active
+      ?Math.min(rawPredictiveSev,forecastLearningGuard.maxPredictiveSeverity)
+      :rawPredictiveSev;
     const solution=predictivePlanSummary(predictive);
     signals.push(healthSignal(
       'predictive',
@@ -8826,7 +8873,7 @@ function budgetHealth(b){
       ?`Avec ce qui est enregistré aujourd’hui, B² estime qu’il resterait environ ${euro(projectedEnd)}.`
       :`Avec ce qui est enregistré aujourd’hui, il manquerait environ ${euro(Math.abs(projectedEnd))}.`);
 
-  const squareCommunication=b2SquareCommunication(b,ctx,living,forecastAttention,plusScenarios,plusConfidence,primary);
+  const squareCommunication=b2SquareCommunication(b,ctx,living,forecastAttention,plusScenarios,plusConfidence,primary,forecastLearningGuard);
   if(squareCommunication.title)title=squareCommunication.title;
   if(squareCommunication.text)text=squareCommunication.text;
 
@@ -8852,7 +8899,13 @@ function budgetHealth(b){
   // La résilience agit seulement sur la respiration/couleur continue, jamais comme
   // une alerte autonome : robuste = un peu plus calme, fragile = légère prudence en plus.
   const resilienceDelta=forecastAttention.mode==='quiet'&&resilience.status==='fragile'?0:num(resilience.pressureDelta);
-  const pressure=clamp(Math.max(basePressure,num(trajectory.score),negativePressure)+Math.min(5,bank.count*1.5)+(level===0&&ctx.safeDaily!=null&&ctx.safeDaily<10?5:0)+resilienceDelta,0,100);
+  const objectiveAlert=signals.some(sig=>num(sig.severity)>0&&['known-event','income-late','fixed-late','spendable-negative','over','projection','global'].includes(sig.id));
+  const learningPredictionOnly=forecastLearningGuard.active&&rem>=-.01&&!objectiveAlert;
+  const trajectoryPressure=learningPredictionOnly
+    ?Math.min(num(trajectory.score),forecastLearningGuard.maxPredictivePressure)
+    :num(trajectory.score);
+  let pressure=clamp(Math.max(basePressure,trajectoryPressure,negativePressure)+Math.min(5,bank.count*1.5)+(level===0&&ctx.safeDaily!=null&&ctx.safeDaily<10?5:0)+resilienceDelta,0,100);
+  if(learningPredictionOnly)pressure=Math.min(pressure,forecastLearningGuard.maxPredictivePressure);
   const secondary=[...signals.filter(s=>s!==primary&&s.severity>0),...signals.filter(s=>s.severity===0)].slice(0,2);
 
   return {
@@ -8863,7 +8916,7 @@ function budgetHealth(b){
     livingNeed:living.variableNeed,dailyEssential:living.dailyEssential,predictedBeforeIncome:living.predictedBeforeIncome,predictedSpendableBeforeIncome:spendableBeforeIncome,
     recoveryDebt:recovery.debt,recoveryFeasible:recovery.feasible,nextVariableCapacity:recovery.availableCapacity,
     learningLevel:living.learningLevel,learningReady:living.canShowEssential,learningMaturity:living.learningMaturity,livingBreakdown:living.breakdown,predictive,trajectory,trajectoryScore:trajectory.score,
-    plusScenarios,plusConfidence,forecastAttention,numberInsight:squareCommunication.numberInsight,
+    plusScenarios,plusConfidence,forecastAttention,forecastLearningGuard,numberInsight:squareCommunication.numberInsight,
     pressure,homeHint,intelligenceMode:advanced?'plus':'free',internalIntelligence,
     metaIntelligence,riskNature,decisionIntelligence,signalArbitration,forecastUncertainty,resilience
   }
@@ -13274,14 +13327,14 @@ function renderWizardBase(){
           <div><span>Reste à répartir</span><strong>${euro(margin)}</strong></div>
         </div>
 
-        ${wizardEditId&&margin>.01?`<div class="b2-auto-distribute">
-          <button class="btn btn-white" id="wizardAutoDistribute" type="button">⇄ ${allocated(wizard)>.01?`Répartir les ${euro(margin)} restants`:'Répartir automatiquement'}</button>
-          ${wizard.envelopes.some(e=>e.locked)?`<div style="margin-top:7px;text-align:center;font-size:12px;color:var(--muted);line-height:1.35">Les enveloppes verrouillées ne seront pas modifiées.</div>`:''}
+        ${margin>.01?`<div class="b2-auto-distribute">
+          <button class="btn btn-white" id="wizardAutoDistribute" type="button">${allocated(wizard)>.01?`⇄ Répartir les ${euro(margin)} restants`:'⇄ Répartir automatiquement'}</button>
+          ${wizard.envelopes.some(e=>e.locked)?`<div class="help" style="text-align:center;margin-top:7px">Les enveloppes verrouillées ne seront pas modifiées.</div>`:''}
           ${wizard._autoDistributionSnapshot?`<div class="b2-auto-distribute-result"><span>Répartition proposée par B²</span><button class="btn-link" id="wizardUndoAutoDistribute" type="button">Annuler</button></div>`:''}
-        </div>`:wizardEditId&&wizard._autoDistributionSnapshot?`<div class="b2-auto-distribute"><div class="b2-auto-distribute-result"><span>Répartition proposée par B²</span><button class="btn-link" id="wizardUndoAutoDistribute" type="button">Annuler</button></div></div>`:''}
+        </div>`:wizard._autoDistributionSnapshot?`<div class="b2-auto-distribute"><div class="b2-auto-distribute-result"><span>Répartition proposée par B²</span><button class="btn-link" id="wizardUndoAutoDistribute" type="button">Annuler</button></div></div>`:''}
 
         <div class="section-title"><h3>Tes enveloppes</h3></div>
-        <div class="b2-final-simple-note">${ico('spark')}<span>${wizardEditId?'Tu gardes le contrôle. Modifie tes enveloppes toi-même ou laisse B² répartir le montant restant.':wizard._initialAllocationChoice==='manual'?'Répartis librement ton disponible. Les enveloppes verrouillées restent intactes.':'Répartition proposée par B². Tu peux modifier chaque montant avant de valider. Une enveloppe protégée reste intacte.'}</span></div>
+        <div class="b2-final-simple-note">${ico('spark')}<span>${wizardEditId?'Tu gardes le contrôle. Modifie tes enveloppes toi-même ou laisse B² répartir le montant restant.':wizard._initialAllocationChoice==='manual'?'Répartis librement ton disponible.':'Répartition proposée par B². Tu peux modifier chaque montant avant de valider.'}</span></div>
         <div class="b2-final-env-list" id="wAlloc">${wizard.envelopes.map(wizardFinalEnvelopeRow).join('')}</div>
       `:''}
 
