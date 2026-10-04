@@ -1498,6 +1498,13 @@ opacity:.10;animation:b2SquareFade 8.8s ease-in-out infinite
   display:flex;gap:9px;align-items:flex-start;padding:11px 12px;border-radius:14px;background:rgba(3,105,88,.06);
   color:var(--muted);font-size:12px;line-height:1.45;margin:8px 0 14px
 }
+
+.b2-auto-distribute{margin:0 0 14px}
+.b2-auto-distribute .btn{width:100%;display:flex;align-items:center;justify-content:center;gap:8px}
+.b2-auto-distribute-result{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px;padding:0 2px;font-size:11px;color:var(--muted)}
+.b2-auto-distribute-result .btn-link{flex:0 0 auto}
+.b2-final-env-amount.locked{background:#fff7e7;border-color:#f1d8a6}
+.b2-final-env-amount.locked input{color:var(--text);opacity:.72}
 .b2-details-toggle{margin-top:4px}
 .b2-details-panel{margin-top:10px}
 .b2-details-section{margin-top:14px}
@@ -2007,6 +2014,7 @@ button{
 .bank-source-list>b{font-size:9px;color:var(--brand);background:var(--mint);padding:5px 7px;border-radius:8px}
 
 
+.env-adjustment-trace{display:inline-flex;align-items:center;gap:5px;margin-top:7px;padding:4px 8px;border-radius:999px;background:rgba(39,86,73,.07);font-size:12px;font-weight:750;color:var(--muted);line-height:1.2}.env-adjustment-trace.up{color:#2d705d}.env-adjustment-trace.down{color:#7a6544}.env-adjustment-trace b{font-weight:850;color:inherit}
 /* v14.04 — état du cadenas + rééquilibrage lisible */
 .b2-lock-state{
   display:inline-flex;
@@ -3770,7 +3778,7 @@ function normalizeBudget(b){
     reserve:num(b.reserve),reserveTarget:num(b.reserveTarget??b.reserve),reserveUsedThisCycle:num(b.reserveUsedThisCycle),
     buildMode:b.buildMode==='manual'?'manual':'auto',
     lifestyle:Array.isArray(b.lifestyle)?b.lifestyle:[],
-    envelopes:Array.isArray(b.envelopes)?b.envelopes.map(x=>{const name=canonicalEnvelopeName(x.name||'Enveloppe');return {id:x.id||uid(),name,icon:categoryIconForName(name,x.icon||'money'),amount:num(x.amount),priority:priorityOf(x),important:priorityOf(x)!=='flexible',locked:!!x.locked,bankAliases:Array.isArray(x.bankAliases)?x.bankAliases.slice(-8):[]}}):[],
+    envelopes:Array.isArray(b.envelopes)?b.envelopes.map(x=>{const name=canonicalEnvelopeName(x.name||'Enveloppe'),amount=num(x.amount),cycleStartAmount=x.cycleStartAmount==null?amount:num(x.cycleStartAmount);return {id:x.id||uid(),name,icon:categoryIconForName(name,x.icon||'money'),amount,cycleStartAmount,rebalanceNet:r2(amount-cycleStartAmount),rebalanceEvents:Array.isArray(x.rebalanceEvents)?x.rebalanceEvents.slice(-30).map(v=>({at:v.at||Date.now(),from:num(v.from),to:num(v.to),delta:num(v.delta),source:v.source||'adjust'})):[],priority:priorityOf(x),important:priorityOf(x)!=='flexible',locked:!!x.locked,bankAliases:Array.isArray(x.bankAliases)?x.bankAliases.slice(-8):[]}}):[],
     transactions:Array.isArray(b.transactions)?b.transactions.map(t=>({id:t.id||uid(),type:['income','expense','transfer'].includes(t.type)?t.type:'expense',kind:t.kind==='refund'?'refund':t.type==='transfer'?'transfer':'normal',direction:t.direction==='in'?'in':t.direction==='out'?'out':null,amount:Math.abs(num(t.amount)),label:t.label||'',categoryId:t.categoryId||null,category:t.category||'',date:t.date||todayISO(),createdAt:t.createdAt||Date.now(),memberId:t.memberId||null,source:t.source||'manual',bankVerified:!!t.bankVerified,bankNotificationId:t.bankNotificationId||null,plannedKind:t.plannedKind||null,plannedId:t.plannedId||null,plannedSnapshot:t.plannedSnapshot||null,linkedTxId:t.linkedTxId||null,transferId:t.transferId||null,transferAccountId:t.transferAccountId||null})):[],
     bankNotifications:Array.isArray(b.bankNotifications)?b.bankNotifications.map(n=>({id:n.id||uid(),type:n.type==='income'?'income':'expense',amount:Math.abs(num(n.amount)),merchant:n.merchant||'',rawText:n.rawText||'',sourceApp:n.sourceApp||'',sourceAppLabel:n.sourceAppLabel||'',sourceFinance:n.sourceFinance===true,sourceTrusted:n.sourceTrusted===true,createdAt:n.createdAt||Date.now(),status:n.status||'pending',candidateId:n.candidateId||null,matchedTxId:n.matchedTxId||null,kind:n.kind||'payment',matchKind:n.matchKind||null,plannedKind:n.plannedKind||null,plannedId:n.plannedId||null,suggestedCategoryId:n.suggestedCategoryId||null,confidence:n.confidence||'low',reason:n.reason||'',duplicateOfNotificationId:n.duplicateOfNotificationId||null})):[],
     shareInvites:Array.isArray(b.shareInvites)?b.shareInvites.map(i=>({id:i.id||uid(),memberId:i.memberId||null,recipient:i.recipient||'',token:i.token||'',status:i.status||'pending',createdAt:i.createdAt||Date.now()})):[],
@@ -4182,7 +4190,7 @@ function paidPlusPeriodEndText(){
   return new Intl.DateTimeFormat('fr-FR',{day:'numeric',month:'long',year:'numeric'}).format(new Date(t))
 }
 
-/* B² v14.77 — droits B²+ personnels pilotés par Supabase (essai / parrainage / abonnement vérifié) */
+/* B² v14.80 — droits B²+ personnels pilotés par Supabase (essai / parrainage / abonnement vérifié) */
 let b2AccessStatus={
   ready:false,plusActive:false,accessSource:'none',trialEligible:false,trialStartedAt:null,trialEndsAt:null,
   trialActive:false,founderEligible:false,founderOfferAvailable:false,referralPlusUntil:null,referralActive:false,
@@ -4904,7 +4912,7 @@ function latestUnusualExpense(b,progress){
 function roundSmartAmount(v){const n=Math.max(0,num(v));const step=n>=300?10:5;return Math.max(step,Math.round(n/step)*step)}
 function learningSuggestions(b,{internal=false}={}){
   const monthDays=daysInBudgetMonth(b.cycleStart||todayISO()),history=[...(b.history||[]).slice(-8)],totalHist=history.length,liveDays=Math.max(1,daysBetweenISO(b.cycleStart,todayISO()));
-  const live={cycleStart:b.cycleStart,cycleEnd:todayISO(),envelopes:(b.envelopes||[]).map(e=>({id:e.id,name:e.name,amount:e.amount,spent:spentFor(b,e.id)})),_weight:1};
+  const live={cycleStart:b.cycleStart,cycleEnd:todayISO(),envelopes:(b.envelopes||[]).map(e=>({id:e.id,name:e.name,amount:envelopeCycleStartAmount(e),currentAmount:e.amount,rebalanceDelta:envelopeRebalanceDelta(e),spent:spentFor(b,e.id)})),_weight:1};
   const rows=[...history.map((h,i)=>({...h,_weight:advancedIntelligenceEnabled()?b2ArchiveMemoryWeight(b,h,i,totalHist):0})),live].map(h=>({...h,_days:Math.max(1,daysBetweenISO(h.cycleStart||addDaysISO(h.cycleEnd||todayISO(),-30),h.cycleEnd||todayISO()))}));
   const useful=rows.filter(h=>h._days>=18&&num(h._weight)>.01);if(!useful.length)return [];
   const suggestions=(b.envelopes||[]).map(e=>{
@@ -4920,7 +4928,7 @@ function learningSuggestions(b,{internal=false}={}){
 }
 function envelopeHistoryStats(b,e){
   if(!advancedIntelligenceEnabled())return null;
-  const hist=(b.history||[]).slice(-6),totalHist=hist.length,rows=hist.map((h,i)=>{const x=(h.envelopes||[]).find(y=>String(y.id)===String(e.id)||String(y.name||'').toLocaleLowerCase()===String(e.name||'').toLocaleLowerCase());return x?{spent:num(x.spent),amount:num(x.amount),weight:b2ArchiveMemoryWeight(b,h,i,totalHist)}:null}).filter(x=>x&&x.weight>=.18);
+  const hist=(b.history||[]).slice(-6),totalHist=hist.length,rows=hist.map((h,i)=>{const x=(h.envelopes||[]).find(y=>String(y.id)===String(e.id)||String(y.name||'').toLocaleLowerCase()===String(e.name||'').toLocaleLowerCase());return x?{spent:num(x.spent),amount:num(x.initialAmount??x.amount),currentAmount:num(x.amount),rebalanceDelta:num(x.rebalanceDelta),weight:b2ArchiveMemoryWeight(b,h,i,totalHist)}:null}).filter(x=>x&&x.weight>=.18);
   if(rows.length<2)return null;const weights=rows.map(x=>x.weight);
   return {count:rows.length,medianSpent:b2WeightedMedian(rows.map(x=>x.spent),weights),medianAmount:b2WeightedMedian(rows.map(x=>x.amount),weights),effectiveCount:r2(weights.reduce((s,w)=>s+w,0))}
 }
@@ -6489,7 +6497,7 @@ function emptyPredictivePlan(){
 function plusIntelligenceReport(b){
   const histRaw=(b?.history||[]).slice(-6),totalHist=histRaw.length,historyRows=histRaw.map((h,i)=>({h,w:b2ArchiveMemoryWeight(b,h,i,totalHist)})).filter(x=>x.w>=.18),history=historyRows.map(x=>x.h),learning=adaptiveLearningSummary(b),suggestions=learningSuggestions(b).slice(0,4),ctx=shortTermMoneyContext(b),living=estimatedLivingNeedUntilIncome(b,ctx),spendable=predictedSpendableBeforeIncome(b,living),maturity=clamp(num(learning.maturityPct),0,100),uncertaintyFactor=maturity>=78?.08:maturity>=52?.12:maturity>=30?.17:.23,uncertainty=r2(Math.max(8,num(living.variableNeed)*uncertaintyFactor)),forecastLow=r2(spendable-uncertainty),forecastHigh=r2(spendable+uncertainty);
   const envPatterns=(b.envelopes||[]).map(e=>{
-    const rows=historyRows.map(r=>{const x=(r.h.envelopes||[]).find(v=>String(v.id)===String(e.id)||normalizeSpeechText(v.name)===normalizeSpeechText(e.name));return x?{spent:num(x.spent),budget:num(x.amount),w:r.w}:null}).filter(Boolean);if(rows.length<2)return null;
+    const rows=historyRows.map(r=>{const x=(r.h.envelopes||[]).find(v=>String(v.id)===String(e.id)||normalizeSpeechText(v.name)===normalizeSpeechText(e.name));return x?{spent:num(x.spent),budget:num(x.initialAmount??x.amount),w:r.w}:null}).filter(Boolean);if(rows.length<2)return null;
     const den=rows.reduce((s,x)=>s+x.w,0)||1,avg=r2(rows.reduce((s,x)=>s+x.spent*x.w,0)/den),med=r2(b2WeightedMedian(rows.map(x=>x.spent),rows.map(x=>x.w))),overCount=rows.filter(x=>x.w>=.32&&x.budget>0&&x.spent>x.budget*1.05).length,underCount=rows.filter(x=>x.w>=.32&&x.budget>0&&x.spent<x.budget*.65).length,meaningful=rows.filter(x=>x.w>=.32),min=Math.min(...(meaningful.length?meaningful:rows).map(x=>x.spent)),max=Math.max(...(meaningful.length?meaningful:rows).map(x=>x.spent)),spread=r2(max-min);return {env:e,count:rows.length,avg,median:med,overCount,underCount,spread}
   }).filter(Boolean);
   const recurringOver=envPatterns.filter(x=>x.overCount>=2).sort((a,z)=>z.overCount-a.overCount||z.avg-a.avg)[0]||null,recurringUnder=envPatterns.filter(x=>x.underCount>=2).sort((a,z)=>z.underCount-a.underCount||z.avg-a.avg)[0]||null,variable=envPatterns.filter(x=>x.spread>=Math.max(30,x.avg*.45)).sort((a,z)=>z.spread-a.spread)[0]||null,regime=b2GlobalRegimeModel(b),trend=regime.sustained?{pct:r2((regime.ratio-1)*100),recentAvg:r2(regime.recent),olderAvg:r2(regime.baseline)}:null,insights=[];
@@ -10811,7 +10819,10 @@ $('#pilotNowBalance')?.addEventListener('click',()=>openBalanceAssistant('auto')
   $$('[data-smart-saving]',c).forEach(x=>x.addEventListener('click',()=>openSmartSaving(x.dataset.smartSaving)));
 }
 
-function envelopeCard(b,e){const spent=spentFor(b,e.id),rem=envRemain(b,e),pct=e.amount?clamp(spent/e.amount*100,0,100):0;return `<div class="envelope-card ${rem<0?'over':''}" data-env-card="${e.id}"><div class="envelope-top"><div class="env-icon">${ico(e.icon)}</div><div class="envelope-title"><div class="envelope-title-line"><strong>${esc(e.name)}</strong><button class="env-lock-quick ${e.locked?'on':''}" data-toggle-env-lock="${e.id}" type="button" aria-label="${e.locked?'Déverrouiller':'Protéger'} ${esc(e.name)}" title="${e.locked?'Protégée : B² n’y touche pas':'Autoriser B² à protéger cette enveloppe'}">${e.locked?'🔒':'🔓'}</button></div><span>${Math.round(pct)} % utilisé${e.locked?' · protégée':''}</span></div><div class="envelope-amount"><strong class="${rem<0?'env-rem bad':''}">${euro(Math.abs(rem))}</strong><span>${rem<0?'dépassé':'restant'}</span></div></div><div class="progress ${rem<0?'over':''}" style="margin-top:9px"><i style="width:${pct}%"></i></div><div class="env-tags">${priorityTag(e)}</div><div class="env-card-actions"><button class="env-expenses-btn" data-view-env-expenses="${e.id}" type="button">Voir mes dépenses ›</button><button class="adjust-btn" data-edit-env="${e.id}" type="button">Ajuster</button></div></div>`}
+function envelopeCycleStartAmount(e){return r2(e?.cycleStartAmount==null?num(e?.amount):num(e.cycleStartAmount))}
+function envelopeRebalanceDelta(e){return r2(num(e?.amount)-envelopeCycleStartAmount(e))}
+function recordEnvelopeRebalance(e,to,source='adjust'){const from=r2(num(e.amount)),next=r2(Math.max(0,num(to)));if(e.cycleStartAmount==null)e.cycleStartAmount=from;const delta=r2(next-from);if(Math.abs(delta)>.009){e.rebalanceEvents=Array.isArray(e.rebalanceEvents)?e.rebalanceEvents:[];e.rebalanceEvents.push({at:Date.now(),from,to:next,delta,source});e.rebalanceEvents=e.rebalanceEvents.slice(-30)}e.amount=next;e.rebalanceNet=r2(next-envelopeCycleStartAmount(e))}
+function envelopeCard(b,e){const spent=spentFor(b,e.id),rem=envRemain(b,e),pct=e.amount?clamp(spent/e.amount*100,0,100):0,start=envelopeCycleStartAmount(e),adj=envelopeRebalanceDelta(e),trace=Math.abs(adj)>.009?`<div class="env-adjustment-trace ${adj>0?'up':'down'}"><span>${adj>0?'↗':'↘'}</span><b>${euro(start)} → ${euro(e.amount)}</b></div>`:'';return `<div class="envelope-card ${rem<0?'over':''}" data-env-card="${e.id}"><div class="envelope-top"><div class="env-icon">${ico(e.icon)}</div><div class="envelope-title"><div class="envelope-title-line"><strong>${esc(e.name)}</strong><button class="env-lock-quick ${e.locked?'on':''}" data-toggle-env-lock="${e.id}" type="button" aria-label="${e.locked?'Déverrouiller':'Protéger'} ${esc(e.name)}" title="${e.locked?'Protégée : B² n’y touche pas':'Autoriser B² à protéger cette enveloppe'}">${e.locked?'🔒':'🔓'}</button></div><span>${euro(spent)} dépensés sur ${euro(e.amount)}${e.locked?' · protégée':''}</span></div><div class="envelope-amount"><strong class="${rem<0?'env-rem bad':''}">${euro(Math.abs(rem))}</strong><span>${rem<0?'dépassé':'restant'}</span></div></div><div class="progress ${rem<0?'over':''}" style="margin-top:9px"><i style="width:${pct}%"></i></div>${trace}<div class="env-tags">${priorityTag(e)}</div><div class="env-card-actions"><button class="env-expenses-btn" data-view-env-expenses="${e.id}" type="button">Voir mes dépenses ›</button><button class="adjust-btn" data-edit-env="${e.id}" type="button">Ajuster</button></div></div>`}
 /* v14.47 — accès direct aux dépenses depuis chaque enveloppe.
    Cette vue est strictement descriptive : elle lit les transactions existantes et ne
    modifie ni le budget, ni les prévisions, ni l'intelligence du Carré. */
@@ -12216,7 +12227,7 @@ function renderEnvPriorityPicker(){
 function saveEnv(){
   const b=active(),e=b?.envelopes.find(x=>x.id===editEnvId);if(!b||!e)return;
   let amounts;if(envMode==='auto'){const p=envEditDraft.proposal||makeTargetProposal(b,e.id,num($('#envAutoTarget')?.value));if(p.gap<-.01){showToast('Il reste encore de l’argent à trouver.');return}amounts=p.amounts}else{const gap=r2(allocationPool(b)-sumAmountMap(envEditDraft.amounts));if(gap<-.01){showToast('Le budget doit être équilibré avant d’appliquer.');return}amounts=envEditDraft.amounts}
-  setPriority(e,envEditDraft.priority);e.locked=$('#envLock').dataset.on==='1';b.envelopes.forEach(x=>x.amount=r2(Math.max(spentFor(b,x.id),num(amounts[x.id]))));closeModal('envelopeModal');save();showToast('Budget ajusté.')
+  setPriority(e,envEditDraft.priority);e.locked=$('#envLock').dataset.on==='1';b.envelopes.forEach(x=>recordEnvelopeRebalance(x,r2(Math.max(spentFor(b,x.id),num(amounts[x.id]))),'envelope-adjust'));closeModal('envelopeModal');save();showToast('Budget ajusté.')
 }
 function makeBalanceProposal(b,reserveUse=0){
   const amounts=amountMap(b);b.envelopes.forEach(e=>{amounts[e.id]=Math.max(amounts[e.id],spentFor(b,e.id))});const targetPool=Math.max(0,allocationPool(b)+reserveUse);let gap=r2(targetPool-sumAmountMap(amounts));
@@ -12438,7 +12449,8 @@ function applyBalance(){
     reserve:b.reserve,reserveUsedThisCycle:num(b.reserveUsedThisCycle),amounts:amountMap(b),
     savings:Object.fromEntries((b.savings||[]).map(x=>[x.id,num(x.cycleReduction)])),
     provisions:Object.fromEntries((b.provisions||[]).map(x=>[x.id,num(x.cycleReduction)])),
-    advisorPrefs:{...(b.advisorPrefs||{})}
+    advisorPrefs:{...(b.advisorPrefs||{})},
+    envelopeMeta:Object.fromEntries((b.envelopes||[]).map(e=>[e.id,{cycleStartAmount:envelopeCycleStartAmount(e),rebalanceNet:num(e.rebalanceNet),rebalanceEvents:JSON.parse(JSON.stringify(e.rebalanceEvents||[]))}]))
   };
   const predictive=balanceMode==='auto'&&balanceDraft?.predictive?balanceDraft.proposal:null;
   const amounts=balanceMode==='auto'?(balanceDraft.proposal?.amounts||balanceDraft.amounts):balanceDraft.amounts;
@@ -12459,11 +12471,11 @@ function applyBalance(){
     b.reserve=r2(Math.max(0,b.reserve-balanceReserveUse));b.reserveUsedThisCycle=r2(num(b.reserveUsedThisCycle)+balanceReserveUse)
   }
 
-  b.envelopes.forEach(e=>e.amount=r2(Math.max(spentFor(b,e.id),num(amounts[e.id]))));
+  b.envelopes.forEach(e=>recordEnvelopeRebalance(e,r2(Math.max(spentFor(b,e.id),num(amounts[e.id]))),predictive?'b2-predictive':'rebalance'));
   closeModal('balanceModal');save();
   showToast(predictive?'Proposition B² appliquée.':'Budget rééquilibré.','Annuler',()=>{
     b.reserve=before.reserve;b.reserveUsedThisCycle=before.reserveUsedThisCycle;
-    b.envelopes.forEach(e=>e.amount=before.amounts[e.id]??e.amount);
+    b.envelopes.forEach(e=>{e.amount=before.amounts[e.id]??e.amount;const m=before.envelopeMeta?.[e.id];if(m){e.cycleStartAmount=m.cycleStartAmount;e.rebalanceNet=m.rebalanceNet;e.rebalanceEvents=m.rebalanceEvents}});
     (b.savings||[]).forEach(g=>g.cycleReduction=before.savings[g.id]||0);
     (b.provisions||[]).forEach(p=>p.cycleReduction=before.provisions[p.id]||0);
     b.advisorPrefs={...before.advisorPrefs};save();showToast('Rééquilibrage annulé.')
@@ -13201,8 +13213,13 @@ function renderWizardBase(){
           <div><span>Reste à répartir</span><strong>${euro(margin)}</strong></div>
         </div>
 
+        ${wizardEditId&&margin>.01?`<div class="b2-auto-distribute">
+          <button class="btn btn-white" id="wizardAutoDistribute" type="button">⇄ Répartir automatiquement</button>
+          ${wizard._autoDistributionSnapshot?`<div class="b2-auto-distribute-result"><span>Répartition proposée par B²</span><button class="btn-link" id="wizardUndoAutoDistribute" type="button">Annuler</button></div>`:''}
+        </div>`:wizardEditId&&wizard._autoDistributionSnapshot?`<div class="b2-auto-distribute"><div class="b2-auto-distribute-result"><span>Répartition proposée par B²</span><button class="btn-link" id="wizardUndoAutoDistribute" type="button">Annuler</button></div></div>`:''}
+
         <div class="section-title"><h3>Tes enveloppes</h3></div>
-        <div class="b2-final-simple-note">${ico('spark')}<span>${wizardEditId?'Tes enveloppes existantes restent intactes. Modifier un montant ne change aucune autre enveloppe. Une nouvelle enveloppe commence à 0 € : attribue-lui seulement ce que tu souhaites.':'Après les sommes protégées et ta réserve, B² répartit tout le disponible restant. Modifie un montant : B² rééquilibre automatiquement les autres enveloppes <strong>ajustables</strong>. Une enveloppe protégée reste intacte.'}</span></div>
+        <div class="b2-final-simple-note">${ico('spark')}<span>${wizardEditId?'Tu gardes le contrôle. Modifie tes enveloppes toi-même ou laisse le Carré répartir le montant restant. Les enveloppes verrouillées restent intactes : aucun montant ne peut y être ajouté ou retiré.':'Après les sommes protégées et ta réserve, B² répartit tout le disponible restant. Modifie un montant : B² rééquilibre automatiquement les autres enveloppes <strong>ajustables</strong>. Une enveloppe protégée reste intacte.'}</span></div>
         <div class="b2-final-env-list" id="wAlloc">${wizard.envelopes.map(wizardFinalEnvelopeRow).join('')}</div>
       `:''}
 
@@ -13267,8 +13284,8 @@ function wizardFinalEnvelopeRow(e){
         <strong>${esc(e.name)}</strong>
         <span>${priorityTag(e)} <em class="b2-lock-state ${e.locked?'protected':'adjustable'}">${e.locked?'Protégée':'Ajustable'}</em></span>
       </div>
-      <div class="b2-final-env-amount">
-        <input aria-label="Montant en euros pour ${esc(e.name)}" data-walloc="${e.id}" type="number" step="0.01" min="${wizardEditId?spentFor(wizard,e.id):0}" value="${r2(e.amount)}">
+      <div class="b2-final-env-amount ${e.locked?'locked':''}">
+        <input aria-label="Montant en euros pour ${esc(e.name)}" data-walloc="${e.id}" type="number" step="0.01" min="${wizardEditId?spentFor(wizard,e.id):0}" value="${r2(e.amount)}" ${e.locked?'disabled':''}>
         <span>€</span>
       </div>
       <button class="lock-btn ${e.locked?'on':''}" aria-label="${e.locked?'Déverrouiller':'Protéger'} le montant de ${esc(e.name)}" data-wlock="${e.id}" type="button">${e.locked?'🔒':'🔓'}</button>
@@ -13342,6 +13359,43 @@ function wizardRebalanceToCapacity(preferredId=null,force=false){
     }
   }
   wizard._allocated=true;
+}
+function wizardDistributeRemaining(){
+  const capacity=Math.max(0,wizardPlanningPool(wizard));
+  const gap=r2(capacity-allocated(wizard));
+  if(gap<=.01){showToast('Tout le disponible est déjà réparti.');return}
+  const recipients=wizard.envelopes.filter(e=>!e.locked);
+  if(!recipients.length){showToast('Déverrouille au moins une enveloppe pour répartir le reste.');return}
+
+  // Action volontaire : on mémorise les montants pour permettre « Annuler ».
+  wizard._autoDistributionSnapshot=wizard.envelopes.map(e=>({id:e.id,amount:r2(num(e.amount))}));
+
+  // Le Carré ajoute uniquement le reste disponible : il ne retire rien aux montants existants.
+  // Les poids réutilisent toute l’intelligence déjà présente : profil, foyer, priorités et habitudes.
+  const weights=recipients.map(e=>Math.max(.05,allocationWeight(e,wizard)));
+  const total=weights.reduce((sum,w)=>sum+w,0)||1;
+  let used=0;
+  recipients.forEach((e,i)=>{
+    const add=i===recipients.length-1?r2(gap-used):r2(gap*(weights[i]/total));
+    const safeAdd=Math.max(0,add);
+    e.amount=r2(num(e.amount)+safeAdd);
+    used=r2(used+safeAdd);
+  });
+  wizard._allocated=true;
+  wizardBalanceMode='manual';
+  saveWizardDraft();
+}
+function wizardUndoAutoDistribution(){
+  const snap=wizard._autoDistributionSnapshot;
+  if(!Array.isArray(snap))return;
+  snap.forEach(prev=>{
+    const e=wizard.envelopes.find(x=>String(x.id)===String(prev.id));
+    if(e)e.amount=r2(num(prev.amount));
+  });
+  wizard._autoDistributionSnapshot=null;
+  wizard._allocated=true;
+  wizardBalanceMode='manual';
+  saveWizardDraft();
 }
 function wizardAdjustEnvelope(id,target){
   const e=wizard.envelopes.find(x=>String(x.id)===String(id));if(!e)return;
@@ -13455,6 +13509,7 @@ function wireWizard(){
   $$('[data-wbalmode]',c).forEach(x=>x.addEventListener('click',()=>{wizardBalanceMode=x.dataset.wbalmode;renderWizard()}));
   $$('[data-walloc]',c).forEach(x=>{
     x.addEventListener('change',()=>{
+      wizard._autoDistributionSnapshot=null;
       wizardAdjustEnvelope(x.dataset.walloc,num(x.value));
       saveWizardDraft();
       renderWizard()
@@ -13466,11 +13521,20 @@ function wireWizard(){
   $$('[data-wlock]',c).forEach(x=>x.addEventListener('click',()=>{
     const e=wizard.envelopes.find(y=>String(y.id)===String(x.dataset.wlock));if(!e)return;
     e.locked=!e.locked;
-    wizardBalanceMode='auto';
-    if(!e.locked)wizardRebalanceToCapacity(null);
+    wizard._autoDistributionSnapshot=null;
+    wizardBalanceMode=wizardEditId?'manual':'auto';
+    if(!wizardEditId&&!e.locked)wizardRebalanceToCapacity(null);
     saveWizardDraft();
     renderWizard()
   }));
+  $('#wizardAutoDistribute')?.addEventListener('click',()=>{
+    wizardDistributeRemaining();
+    renderWizard();
+  });
+  $('#wizardUndoAutoDistribute')?.addEventListener('click',()=>{
+    wizardUndoAutoDistribution();
+    renderWizard();
+  });
   $('#wizardDetailsToggle')?.addEventListener('click',()=>{
     const panel=$('#wizardDetailsPanel'),btn=$('#wizardDetailsToggle');if(!panel||!btn)return;
     const opening=panel.classList.contains('hidden');
@@ -14043,9 +14107,10 @@ function b2HistoricalWeekendPattern(b,kind){
 function finishCycle(carry,held,reserveRecovery=0,nextOneOffs=[],nextIncomes=[],editAfter=false,envelopeUpdates={}){
   const b=active();
   if(!b)return;
-  const archive={cycleStart:b.cycleStart,cycleEnd:b.cycleEnd,closedAt:Date.now(),income:r2(plannedIncome(b)+plannedExceptionalIncome(b)+extraIncome(b)),expenses:r2(netExpenses(b)),grossExpenses:r2(expenses(b)),refunds:r2(refundIncome(b)),refundsApplied:r2(refundAppliedTotal(b)),refundExcess:r2(refundExcessIncome(b)),provisionsTotal:r2(provisionsThisCycle(b)),savingsTotal:r2(periodSavingsProtected(b)),reserve:r2(b.reserve),reserveUsed:r2(num(b.reserveUsedThisCycle)),envelopes:b.envelopes.map(e=>({id:e.id,name:e.name,icon:e.icon,amount:r2(e.amount),spent:r2(spentFor(b,e.id))})),behavior:b2PeriodBehaviorSnapshot(b)};
+  const archive={cycleStart:b.cycleStart,cycleEnd:b.cycleEnd,closedAt:Date.now(),income:r2(plannedIncome(b)+plannedExceptionalIncome(b)+extraIncome(b)),expenses:r2(netExpenses(b)),grossExpenses:r2(expenses(b)),refunds:r2(refundIncome(b)),refundsApplied:r2(refundAppliedTotal(b)),refundExcess:r2(refundExcessIncome(b)),provisionsTotal:r2(provisionsThisCycle(b)),savingsTotal:r2(periodSavingsProtected(b)),reserve:r2(b.reserve),reserveUsed:r2(num(b.reserveUsedThisCycle)),envelopes:b.envelopes.map(e=>({id:e.id,name:e.name,icon:e.icon,amount:r2(e.amount),initialAmount:envelopeCycleStartAmount(e),rebalanceDelta:envelopeRebalanceDelta(e),spent:r2(spentFor(b,e.id))})),behavior:b2PeriodBehaviorSnapshot(b)};
   b.history.push(archive);
   Object.entries(envelopeUpdates||{}).forEach(([id,value])=>{const e=b.envelopes.find(x=>String(x.id)===String(id));if(e)e.amount=r2(Math.max(0,num(value)))});
+  b.envelopes.forEach(e=>{e.cycleStartAmount=r2(num(e.amount));e.rebalanceNet=0;e.rebalanceEvents=[]});
   b.provisions.forEach(p=>{
     if(p.status==='active')p.savedAmount=r2(Math.min(p.targetAmount,p.savedAmount+provisionContribution(p,b)));
     if(p.status==='active'&&p.dueDate&&p.dueDate<=b.cycleEnd){p.status='ready';p.readyAt=Date.now()}
