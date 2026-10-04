@@ -2254,9 +2254,10 @@ button{
 
 <div class="modal" id="transactionModal"><div class="sheet"><div class="grab"></div><h3 id="txTitle">Dépense</h3><p class="lead" id="txLead"></p>
 <div class="field hidden" id="txIncomeKindWrap"><label>Ce montant est…</label><div class="tx-kind-row"><button class="on" data-tx-income-kind="normal" type="button">Un revenu</button><button data-tx-income-kind="refund" type="button">Un remboursement</button></div></div>
-<div class="field"><label for="txAmount">Montant</label><input id="txAmount" type="number" inputmode="decimal" step="0.01" placeholder="0,00"></div>
+<div class="field hidden" id="txRefundModeWrap"><label>Ce remboursement concerne…</label><div class="tx-kind-row"><button class="on" data-tx-refund-mode="period" type="button">Une dépense de cette période</button><button data-tx-refund-mode="other" type="button">Autre chose</button></div><div class="help" id="txRefundModeHelp">Choisis la dépense, B² s’occupe du reste.</div></div>
+<div class="field hidden" id="txRefundExpenseWrap"><label for="txRefundExpense">Quelle dépense ?</label><select id="txRefundExpense"></select></div>
+<div class="field"><label for="txAmount">Montant</label><input id="txAmount" type="number" inputmode="decimal" step="0.01" placeholder="0,00"><div class="help hidden" id="txRefundAmountHelp">Tu peux le modifier si tu n’as été remboursé qu’en partie.</div></div>
 <div class="field" id="txCategoryWrap"><label id="txCategoryLabel" for="txCategory">Enveloppe</label><select id="txCategory"></select></div>
-<div class="field hidden" id="txRefundExpenseWrap"><label for="txRefundExpense">Dépense remboursée <span style="font-weight:650;color:var(--muted)">(facultatif)</span></label><select id="txRefundExpense"></select><div class="help">B² recrédite automatiquement l’enveloppe correspondante.</div></div>
 <div class="field hidden" id="txTransferWrap"><label for="txTransferAccount">Compte d’arrivée</label><select id="txTransferAccount"></select><div class="help">Le transfert déplace seulement l’argent entre tes comptes : il ne modifie ni tes enveloppes ni ton disponible global.</div></div>
 <div class="field hidden" id="txMemberWrap"><label for="txMember">Qui a payé ?</label><select id="txMember"></select><div class="help">Le budget reste commun ; B² garde simplement la trace de qui a payé quoi.</div></div>
 <div class="field"><label for="txLabel">Libellé</label><input id="txLabel" autocomplete="off" placeholder="Ex. restaurant"></div><div class="field"><label for="txDate">Date</label><input id="txDate" type="date"></div><div class="modal-actions"><button class="btn btn-soft" data-close="transactionModal" type="button">Annuler</button><button class="btn btn-primary" id="saveTxBtn" type="button">Enregistrer</button></div></div></div>
@@ -2271,7 +2272,7 @@ button{
 
 <div class="modal" id="envelopeExpensesModal"><div class="sheet"><div class="grab"></div><div class="card-title"><h3 id="envelopeExpensesTitle">Mes dépenses</h3><button class="icon-btn" data-close="envelopeExpensesModal" type="button" aria-label="Fermer">×</button></div><p class="lead" id="envelopeExpensesLead">Dépenses enregistrées dans cette enveloppe pour la période en cours.</p><div id="envelopeExpensesSummary"></div><div id="envelopeExpensesList"></div><button class="btn btn-soft btn-full" id="envelopeExpensesAll" type="button" style="margin-top:14px">Voir tous mes mouvements</button></div></div>
 
-<div class="modal" id="balanceModal"><div class="sheet"><div class="grab"></div><h3>Retrouver l’équilibre</h3><p class="lead" id="balanceLead"></p><div class="segmented" id="balanceModeTabs"><button class="seg-btn on" data-balancemode="auto" type="button">✨ Proposition B²</button><button class="seg-btn" data-balancemode="manual" type="button">✏️ Je choisis</button></div><div id="balanceBody"></div><div class="modal-actions"><button class="btn btn-soft" data-close="balanceModal" type="button">Annuler</button><button class="btn btn-primary" id="applyBalanceBtn" type="button">Appliquer la proposition</button></div></div></div>
+<div class="modal" id="balanceModal"><div class="sheet"><div class="grab"></div><h3>Retrouver l’équilibre</h3><p class="lead" id="balanceLead"></p><div class="segmented" id="balanceModeTabs"><button class="seg-btn on" data-balancemode="auto" type="button">✨ Proposition B²</button><button class="seg-btn" data-balancemode="manual" type="button">✏️ Je choisis</button></div><div id="balanceBody"></div><div class="modal-actions"><button class="btn btn-soft" data-close="balanceModal" type="button">Annuler</button><button class="btn btn-primary" id="applyBalanceBtn" type="button">Rééquilibrer</button></div></div></div>
 
 <div class="modal" id="savingModal"><div class="sheet"><div class="grab"></div><h3>Ajouter une épargne</h3><div class="field"><label for="savingName">Nom de l’épargne</label><input id="savingName" autocomplete="off" placeholder="Ex.  Retraite"></div><div class="choice-stack" id="savingModes"><button class="choice on" data-savingmode="regular" type="button"><span class="choice-icon"><span class="ui-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 7h8a4 4 0 0 1 4 4v1"/><path d="m16 4 3 3-3 3"/><path d="M17 17H9a4 4 0 0 1-4-4v-1"/><path d="m8 20-3-3 3-3"/></svg></span></span><div><strong>Tous les mois</strong><span>Je choisis ce que je mets de côté chaque mois.</span></div></button><button class="choice" data-savingmode="goal" type="button"><span class="choice-icon"><span class="ui-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="3.5"/><circle cx="12" cy="12" r="1"/></svg></span></span><div><strong>Pour un objectif précis</strong><span>J’ai une somme à atteindre avant une date.</span></div></button></div><div id="savingFields" style="margin-top:14px"></div><div class="modal-actions"><button class="btn btn-soft" data-close="savingModal" type="button">Annuler</button><button class="btn btn-primary" id="saveSavingBtn" type="button">Ajouter</button></div></div></div>
 
@@ -4190,7 +4191,7 @@ function paidPlusPeriodEndText(){
   return new Intl.DateTimeFormat('fr-FR',{day:'numeric',month:'long',year:'numeric'}).format(new Date(t))
 }
 
-/* B² v14.80 — droits B²+ personnels pilotés par Supabase (essai / parrainage / abonnement vérifié) */
+/* B² v14.81 — droits B²+ personnels pilotés par Supabase (essai / parrainage / abonnement vérifié) */
 let b2AccessStatus={
   ready:false,plusActive:false,accessSource:'none',trialEligible:false,trialStartedAt:null,trialEndsAt:null,
   trialActive:false,founderEligible:false,founderOfferAvailable:false,referralPlusUntil:null,referralActive:false,
@@ -11270,12 +11271,18 @@ function renderTxFields(){
     txDraft.accountId=chosenId;$('#txAccount')?.addEventListener('change',e=>{txDraft.accountId=e.target.value;if(txDraft.type==='transfer')refreshTransferAccountsV1461()})
   }
   const isIncome=txDraft.type==='income',isRefund=isIncome&&txDraft.kind==='refund',isTransfer=txDraft.type==='transfer',plannedProtectedExpense=txDraft.type==='expense'&&['fixed','oneoff'].includes(txDraft.plannedKind);
+  if(isRefund&&!txDraft.refundMode)txDraft.refundMode=txDraft.linkedTxId?'period':'period';
+  const refundPeriod=isRefund&&txDraft.refundMode==='period';
   $('#txIncomeKindWrap').classList.toggle('hidden',!isIncome);
   $$('[data-tx-income-kind]',$('#txIncomeKindWrap')).forEach(x=>x.classList.toggle('on',x.dataset.txIncomeKind===(txDraft.kind||'normal')));
-  $('#txCategoryWrap').classList.toggle('hidden',!((txDraft.type==='expense'&&!plannedProtectedExpense)||isRefund));
+  $('#txRefundModeWrap')?.classList.toggle('hidden',!isRefund);
+  $$('[data-tx-refund-mode]',$('#txRefundModeWrap')).forEach(x=>x.classList.toggle('on',x.dataset.txRefundMode===(txDraft.refundMode||'period')));
+  if($('#txRefundModeHelp'))$('#txRefundModeHelp').textContent=refundPeriod?'Choisis la dépense, B² s’occupe du reste.':'Ajoute simplement le montant à l’enveloppe concernée.';
+  $('#txRefundExpenseWrap').classList.toggle('hidden',!refundPeriod);
+  $('#txCategoryWrap').classList.toggle('hidden',!((txDraft.type==='expense'&&!plannedProtectedExpense)||(isRefund&&!refundPeriod)));
   $('#txCategory').disabled=isIncome&&!isRefund;
-  $('#txCategoryLabel').textContent=isRefund?'Enveloppe à recréditer':'Enveloppe';
-  $('#txRefundExpenseWrap').classList.toggle('hidden',!isRefund);
+  $('#txCategoryLabel').textContent=isRefund?'À quelle enveloppe l’ajouter ?':'Enveloppe';
+  $('#txRefundAmountHelp')?.classList.toggle('hidden',!refundPeriod);
   if(isIncome&&!isRefund)$('#txLead').textContent=`${b.type==='shared'?'Budget partagé · ':''}${b.name} · L’argent sera ajouté à Piloter pour être réparti ensuite.`;
   else if(isRefund)$('#txLead').textContent=`${b.type==='shared'?'Budget partagé · ':''}${b.name} · Le remboursement recrédite l’enveloppe concernée.`;
   else if(plannedProtectedExpense&&txDraft.plannedKind==='fixed')$('#txLead').textContent=`${b.type==='shared'?'Budget partagé · ':''}${b.name} · Montant prévu prérempli. Modifie-le si le montant réellement prélevé est différent.`;
@@ -11290,7 +11297,7 @@ function openTx(type,prefill={}){
   const existing=prefill.editId?allAccounts.flatMap(a=>a.transactions||[]).find(t=>String(t.id)===String(prefill.editId)):null;
   const realType=existing?.type||type;
   if(realType==='transfer'&&!existing&&allAccounts.length<2){showToast('Ajoute un autre compte à ce budget pour faire un transfert.');return}
-  txDraft={type:realType,accountId:prefill.accountId||selectedAccount?.id||g?.planAccountId||b.id,kind:existing?.kind||prefill.kind||'normal',memberId:existing?.memberId||(b.type==='shared'?(b.members.find(m=>m.current)?.id||b.members.find(m=>m.status==='joined')?.id||null):null),pendingBankId:prefill.pendingBankId||null,editId:existing?.id||null,linkedTxId:existing?.linkedTxId||null,transferAccountId:existing?.transferAccountId||null,plannedKind:existing?.plannedKind||prefill.plannedKind||null,plannedId:existing?.plannedId||prefill.plannedId||null,plannedSnapshot:existing?.plannedSnapshot||prefill.plannedSnapshot||null,voiceOrigin:prefill.voiceOrigin||null,voiceConceptId:prefill.voiceConceptId||null,voiceMerchantKey:prefill.voiceMerchantKey||null,voiceSuggestedCategoryId:prefill.voiceSuggestedCategoryId||null};
+  txDraft={type:realType,refundMode:(existing?.kind==='refund'&&existing?.linkedTxId)?'period':'period',accountId:prefill.accountId||selectedAccount?.id||g?.planAccountId||b.id,kind:existing?.kind||prefill.kind||'normal',memberId:existing?.memberId||(b.type==='shared'?(b.members.find(m=>m.current)?.id||b.members.find(m=>m.status==='joined')?.id||null):null),pendingBankId:prefill.pendingBankId||null,editId:existing?.id||null,linkedTxId:existing?.linkedTxId||null,transferAccountId:existing?.transferAccountId||null,plannedKind:existing?.plannedKind||prefill.plannedKind||null,plannedId:existing?.plannedId||prefill.plannedId||null,plannedSnapshot:existing?.plannedSnapshot||prefill.plannedSnapshot||null,voiceOrigin:prefill.voiceOrigin||null,voiceConceptId:prefill.voiceConceptId||null,voiceMerchantKey:prefill.voiceMerchantKey||null,voiceSuggestedCategoryId:prefill.voiceSuggestedCategoryId||null};
   $('#txTitle').textContent=existing?(realType==='income'?'Modifier le mouvement':realType==='transfer'?'Transfert':'Modifier la dépense'):(realType==='income'?'Ajouter un revenu':realType==='transfer'?'Faire un transfert':'Ajouter une dépense');
   $('#txLead').textContent=(b.type==='shared'?'Budget partagé · ':'')+b.name;
   $('#txAmount').value=existing?.amount??prefill.amount??'';
@@ -11302,8 +11309,9 @@ function openTx(type,prefill={}){
   if(existing?.categoryId)cat.value=existing.categoryId;
   else if(prefill.categoryId)cat.value=prefill.categoryId;
   else if(voiceNeedsChoice)cat.value='';
-  const recent=(b.transactions||[]).filter(t=>t.type==='expense').sort((a,z)=>(z.createdAt||0)-(a.createdAt||0)).slice(0,30);
-  const refundSel=$('#txRefundExpense');refundSel.innerHTML=`<option value="">Choisir seulement l’enveloppe</option>`+recent.map(t=>`<option value="${t.id}">${fmtDate(t.date)} · ${esc(t.label||t.category)} · ${euro(t.amount)}</option>`).join('');
+  const periodStart=b.cycleStart||b.periodStart||b.startDate||null;
+  const recent=(b.transactions||[]).filter(t=>t.type==='expense'&&(!periodStart||String(t.date||'')>=String(periodStart))).sort((a,z)=>(z.createdAt||0)-(a.createdAt||0)).slice(0,60);
+  const refundSel=$('#txRefundExpense');refundSel.innerHTML=`<option value="">Choisir une dépense</option>`+recent.map(t=>`<option value="${t.id}">${fmtDate(t.date)} · ${esc(t.label||t.category)} · ${euro(t.amount)}</option>`).join('');
   if(existing?.linkedTxId)refundSel.value=existing.linkedTxId;
   const transferSel=$('#txTransferAccount');
   if(existing?.transferAccountId)txDraft.transferAccountId=existing.transferAccountId;
@@ -11388,7 +11396,13 @@ function saveTx(){
   const chosenMember=b.type==='shared'?($('#txMember')?.value||txDraft.memberId):null;
   if(txDraft.type==='income'){
     const isRefund=txDraft.kind==='refund';let e=null,linked=null;
-    if(isRefund){e=b.envelopes.find(x=>String(x.id)===String($('#txCategory').value));if(!e){showToast('Choisis l’enveloppe à recréditer.');return}linked=$('#txRefundExpense').value||null}
+    if(isRefund){
+      const periodMode=(txDraft.refundMode||'period')==='period';linked=periodMode?($('#txRefundExpense').value||null):null;
+      if(periodMode&&!linked){showToast('Choisis la dépense remboursée.');return}
+      const linkedExpense=linked?(b.transactions||[]).find(x=>String(x.id)===String(linked)):null;
+      const envelopeId=periodMode?linkedExpense?.categoryId:$('#txCategory').value;
+      e=b.envelopes.find(x=>String(x.id)===String(envelopeId));if(!e){showToast(periodMode?'Cette dépense n’est liée à aucune enveloppe.':'Choisis l’enveloppe à recréditer.');return}
+    }
     if(existing){
       const before={...existing},wasExceptional=existing.plannedKind==='exceptionalIncome'?existing.plannedSnapshot:null;
       // Si un salaire prévu est modifié/supprimé comme tel, son apprentissage de date
@@ -12230,10 +12244,37 @@ function saveEnv(){
   setPriority(e,envEditDraft.priority);e.locked=$('#envLock').dataset.on==='1';b.envelopes.forEach(x=>recordEnvelopeRebalance(x,r2(Math.max(spentFor(b,x.id),num(amounts[x.id]))),'envelope-adjust'));closeModal('envelopeModal');save();showToast('Budget ajusté.')
 }
 function makeBalanceProposal(b,reserveUse=0){
-  const amounts=amountMap(b);b.envelopes.forEach(e=>{amounts[e.id]=Math.max(amounts[e.id],spentFor(b,e.id))});const targetPool=Math.max(0,allocationPool(b)+reserveUse);let gap=r2(targetPool-sumAmountMap(amounts));
-  if(gap<-.01){let need=Math.abs(gap);const donors=b.envelopes.filter(e=>!e.locked&&amounts[e.id]>spentFor(b,e.id)+.01).sort((a,c)=>priorityRank(a)-priorityRank(c)||(amounts[c.id]-spentFor(b,c.id))-(amounts[a.id]-spentFor(b,a.id)));for(const d of donors){if(need<=.01)break;const can=Math.max(0,amounts[d.id]-spentFor(b,d.id)),take=Math.min(can,need);amounts[d.id]=r2(amounts[d.id]-take);need=r2(need-take)}}
-  if(gap>.01){const free=b.envelopes.filter(e=>!e.locked),total=free.reduce((v,e)=>v+allocationWeight(e,b),0)||1,cents=Math.round(gap*100);let used=0;free.forEach((e,i)=>{const add=i===free.length-1?cents-used:Math.floor(cents*allocationWeight(e,b)/total);amounts[e.id]=r2(amounts[e.id]+add/100);used+=add})}
-  gap=r2(targetPool-sumAmountMap(amounts));const changes=b.envelopes.map(e=>({id:e.id,name:e.name,icon:e.icon,from:e.amount,to:amounts[e.id],delta:r2(amounts[e.id]-e.amount)})).filter(x=>Math.abs(x.delta)>.009);return {amounts,gap,changes}
+  const amounts=amountMap(b);
+  // Cible stricte : une enveloppe réellement dépassée remonte seulement à 0 € restant.
+  b.envelopes.forEach(e=>{amounts[e.id]=Math.max(amounts[e.id],spentFor(b,e.id))});
+  const targetPool=Math.max(0,allocationPool(b)+reserveUse);
+  let gap=r2(targetPool-sumAmountMap(amounts));
+  if(gap<-.01){
+    let needCents=Math.round(Math.abs(gap)*100);
+    const donors=b.envelopes
+      .filter(e=>!e.locked&&amounts[e.id]>spentFor(b,e.id)+.01)
+      .map(e=>({e,capCents:Math.max(0,Math.floor((amounts[e.id]-spentFor(b,e.id)+1e-9)*100))}))
+      .filter(x=>x.capCents>0);
+    // B² peut répartir l'effort entre plusieurs enveloppes pour éviter d'en fragiliser une seule.
+    // Flexible contribue davantage, Important moins, Essentiel en dernier recours.
+    while(needCents>0&&donors.some(x=>x.capCents>0)){
+      const active=donors.filter(x=>x.capCents>0);
+      const weights=active.map(x=>x.capCents*([3,1.5,.55][priorityRank(x.e)]||1));
+      const totalW=weights.reduce((a,v)=>a+v,0)||active.length;
+      let distributed=0;
+      active.forEach((x,i)=>{
+        if(needCents-distributed<=0)return;
+        let share=i===active.length-1?needCents-distributed:Math.max(0,Math.floor(needCents*weights[i]/totalW));
+        share=Math.min(share,x.capCents,needCents-distributed);
+        if(share>0){amounts[x.e.id]=r2(amounts[x.e.id]-share/100);x.capCents-=share;distributed+=share}
+      });
+      if(distributed===0){const x=active[0],share=Math.min(1,x.capCents,needCents);amounts[x.e.id]=r2(amounts[x.e.id]-share/100);x.capCents-=share;distributed=share}
+      needCents-=distributed;
+    }
+  }
+  gap=r2(targetPool-sumAmountMap(amounts));
+  const changes=b.envelopes.map(e=>({id:e.id,name:e.name,icon:e.icon,from:e.amount,to:amounts[e.id],delta:r2(amounts[e.id]-e.amount)})).filter(x=>Math.abs(x.delta)>.009);
+  return {amounts,gap,changes}
 }
 function openBalanceAssistant(mode='auto'){
   const b=active();if(!b)return;
@@ -12242,9 +12283,12 @@ function openBalanceAssistant(mode='auto'){
     showToast('Aucun réajustement n’est nécessaire.');
     return
   }
-  balanceMode=mode;balanceReserveUse=0;balancePredictivePlan=reb.globalDeficit>.01?{actionable:false}:predictiveCyclePlan(b,0);balanceDraft={amounts:amountMap(b)};
-  b.envelopes.forEach(e=>balanceDraft.amounts[e.id]=Math.max(balanceDraft.amounts[e.id],spentFor(b,e.id)));
+  balanceMode=mode;balanceReserveUse=0;
   const over=b.envelopes.filter(e=>envRemain(b,e)<-.01);
+  // Un dépassement réel est traité à part : B² couvre exactement le manque pour revenir à 0 €.
+  // Les anticipations de fin de période ne doivent jamais gonfler ce rééquilibrage d'urgence.
+  balancePredictivePlan=(reb.globalDeficit>.01||over.length)?{actionable:false}:predictiveCyclePlan(b,0);balanceDraft={amounts:amountMap(b)};
+  b.envelopes.forEach(e=>balanceDraft.amounts[e.id]=Math.max(balanceDraft.amounts[e.id],spentFor(b,e.id)));
   $('#balanceLead').textContent=reb.globalDeficit>.01
     ?`Après une modification de ton budget, ${euro(reb.globalDeficit)} doivent être repris dans tes enveloppes. B² te propose où les réajuster, sans rien changer sans ton accord.`
     :balancePredictivePlan.actionable
@@ -12265,7 +12309,8 @@ function renderBalanceAssistant(){
 
   if(balanceMode==='auto'){
     const hardAllocationGap=Math.max(0,-unallocated(b));
-    balancePredictivePlan=hardAllocationGap>.01?{actionable:false}:predictiveCyclePlan(b,balanceReserveUse);
+    const actualOvers=b.envelopes.filter(e=>envRemain(b,e)<-.01);
+    balancePredictivePlan=(hardAllocationGap>.01||actualOvers.length)?{actionable:false}:predictiveCyclePlan(b,balanceReserveUse);
 
     if(balancePredictivePlan.actionable){
       const p=balancePredictivePlan;
@@ -12395,26 +12440,27 @@ function renderBalanceAssistant(){
       const p=makeBalanceProposal(b,balanceReserveUse);
       balanceDraft={amounts:p.amounts,proposal:p,predictive:false};
 
-      const stateBox=p.gap<-.01
-        ?`<div class="balance-box bad"><strong>Il manque encore ${euro(Math.abs(p.gap))}</strong>B² a respecté toutes les enveloppes protégées.</div>`
-        :`<div class="balance-box good"><strong>✓ Équilibre retrouvé</strong>B² ne changera rien sans ton accord.</div>`;
+      const overs=b.envelopes.filter(e=>envRemain(b,e)<-.01);
+      const totalNeed=r2(overs.reduce((a,e)=>a+Math.abs(envRemain(b,e)),0));
+      const donors=p.changes.filter(x=>x.delta<-.009);
+      const receivers=p.changes.filter(x=>x.delta>.009);
+      const rows=[
+        ...donors.map(x=>`<div class="change-row"><span>${ico(x.icon||'money')} ${esc(x.name)}</span><b class="down">− ${euro(Math.abs(x.delta))}</b></div>`),
+        ...receivers.map(x=>`<div class="change-row balance-receiver"><span>${ico(x.icon||'money')} ${esc(x.name)}</span><b class="up">＋ ${euro(x.delta)}</b></div>`)
+      ].join('');
+      const main=overs[0]||null;
+      const intro=main&&overs.length===1
+        ?`Il manque <b>${euro(Math.abs(envRemain(b,main)))}</b> à <b>${esc(main.name)}</b>. B² déplace uniquement ce montant pour revenir à 0 €.`
+        :overs.length>1
+          ?`Il manque <b>${euro(totalNeed)}</b> au total dans ${overs.length} enveloppes. B² couvre uniquement ces dépassements.`
+          :`B² te propose le déplacement minimum nécessaire pour retrouver l’équilibre.`;
+      const afterText=p.gap<-.01
+        ?`Il manque encore ${euro(Math.abs(p.gap))}`
+        :overs.length===1?`${esc(main.name)} revient à 0,00 € restant`:'Les enveloppes dépassées reviennent à 0,00 €';
 
-      const changeCards=p.changes.map(x=>{
-        const currentRemain=r2(num(x.from)-spentFor(b,x.id));
-        const afterRemain=r2(num(x.to)-spentFor(b,x.id));
-        return `<div class="balance-explain-card">
-          <div class="balance-explain-title">${ico(x.icon||'money')}<strong>${esc(x.name)}</strong></div>
-          <div class="balance-flow">
-            <div class="balance-value-box before"><span>Reste actuel</span><b>${euro(currentRemain)}</b></div>
-            <div class="balance-flow-arrow">→</div>
-            <div class="balance-value-box ${x.delta<0?'after':'receive'}"><span>Reste après</span><b>${euro(afterRemain)}</b></div>
-          </div>
-          <div class="balance-transfer-note">${x.delta<0?`<b>− ${euro(Math.abs(x.delta))}</b> retirés de cette enveloppe`:`<b>＋ ${euro(Math.abs(x.delta))}</b> ajoutés à cette enveloppe`}</div>
-        </div>`
-      }).join('');
-
-      body.innerHTML=`${stateBox}
-        ${changeCards?`<div class="section-title"><h3>Comment B² te propose de rééquilibrer</h3></div><div class="balance-explain-list">${changeCards}</div>`:'<div class="empty">Aucun déplacement nécessaire.</div>'}
+      body.innerHTML=`<div class="balance-simple-intro">${intro}</div>
+        ${rows?`<div class="section-title"><h3>Proposition B²</h3></div><div class="card flat"><div class="change-list">${rows}</div></div>`:'<div class="empty">Aucun déplacement nécessaire.</div>'}
+        <div class="balance-box ${p.gap<-.01?'bad':'good'}"><strong>${p.gap<-.01?'Rééquilibrage incomplet':'✓ '+afterText}</strong>${p.gap<-.01?'Les enveloppes protégées limitent le rééquilibrage.':'Rien ne change avant ta confirmation.'}</div>
         ${p.gap<-.01?`<button class="btn btn-white btn-full" id="balanceReserveBtn" type="button" ${b.reserve-balanceReserveUse<Math.abs(p.gap)-.01?'disabled':''}>${ico('shield')} Utiliser ma réserve</button>`:''}`;
 
       $('#applyBalanceBtn').disabled=p.gap<-.01;
@@ -14722,7 +14768,7 @@ $('#authRemember')?.addEventListener('click',e=>renderRememberChoice(!e.currentT
 $('#accountRemember')?.addEventListener('click',e=>setRememberDevice(!e.currentTarget.classList.contains('on')));
 $('#authSubmit')?.addEventListener('click',submitAuth);[$('#authEmail'),$('#authPassword'),$('#authName')].filter(Boolean).forEach(el=>el.addEventListener('keydown',e=>{if(e.key==='Enter')submitAuth()}));$('#bankReviewAdd')?.addEventListener('click',confirmBankReview);$('#bankReviewAlready')?.addEventListener('click',markBankAlreadyAdded);$('#saveAccountInfo')?.addEventListener('click',saveAccountInfo);$('#changeAccountPassword')?.addEventListener('click',changeAccountPassword);$('#forgotPasswordAccount')?.addEventListener('click',forgotPasswordPrototype);$('#accountLogout')?.addEventListener('click',()=>{closeModal('accountModal');logoutAuth()});$('#deleteAccount')?.addEventListener('click',deleteAccountLocal);$('#affordCheck')?.addEventListener('click',runAffordTest);
 $('#squareIntroContinue')?.addEventListener('click',finishSquareLearningIntro);$('#squareIntroPlus')?.addEventListener('click',()=>{if(squareLearningOverlay)closeSquareLearningOverlay();openPlus('Intelligence du carré')});
-$('#mainPlus').addEventListener('click',openQuick);$('#homeNotificationBell')?.addEventListener('click',openNotificationCenter);$('#homeBudgetSwitch').addEventListener('click',renderBudgetSwitch);$$('[data-quick]').forEach(x=>x.addEventListener('click',()=>{closeModal('quickModal');if(x.dataset.quick==='expense')openTx('expense');if(x.dataset.quick==='income')openTx('income');if(x.dataset.quick==='transfer')openTx('transfer');if(x.dataset.quick==='voice'){resetVoiceModal();openModal('voiceModal');setTimeout(startVoice,180)}}));$$('[data-tx-income-kind]',$('#txIncomeKindWrap')).forEach(x=>x.addEventListener('click',()=>{txDraft.kind=x.dataset.txIncomeKind;renderTxFields()}));$('#txRefundExpense')?.addEventListener('change',e=>{const b=active(),t=b?.transactions.find(x=>String(x.id)===String(e.target.value));if(t){$('#txCategory').value=t.categoryId||$('#txCategory').value;if(!$('#txLabel').value.trim())$('#txLabel').value=`Remboursement ${t.label||t.category||''}`}});$('#saveTxBtn').addEventListener('click',saveTx);$('#applyIncomeAllocation')?.addEventListener('click',applyIncomeAllocationManual);$('#voiceOrb').addEventListener('click',startVoice);$('#overspendRebalance').addEventListener('click',rebalanceOverspend);$('#overspendReserve').addEventListener('click',useReserve);$('#overspendKeep').addEventListener('click',()=>{closeModal('overspendModal');showToast('Dépassement conservé.')});$$('[data-envmode]',$('#envModeTabs')).forEach(x=>x.addEventListener('click',()=>{envMode=x.dataset.envmode;renderEnvEditor()}));$('#envLock').addEventListener('click',e=>{const b=e.currentTarget,on=b.dataset.on!=='1';b.dataset.on=on?'1':'0';b.classList.toggle('on',on)});$('#saveEnvBtn').addEventListener('click',saveEnv);$$('[data-balancemode]',$('#balanceModeTabs')).forEach(x=>x.addEventListener('click',()=>{balanceMode=x.dataset.balancemode;renderBalanceAssistant()}));$('#applyBalanceBtn').addEventListener('click',applyBalance);$('#movementFilters').addEventListener('click',e=>{const x=e.target.closest('[data-filter]');if(!x)return;movementFilter=x.dataset.filter;state.ui.movementFilter=movementFilter;renderMovements()});$('#newBudgetBtn').addEventListener('click',()=>startWizard());$('#closeCycleCard').addEventListener('click',startClosing);$('#economiesCard').addEventListener('click',()=>showPage('economies'));$('#accountCard').addEventListener('click',openAccountModal);$('#settingsCard').addEventListener('click',()=>showPage('settings'));$('#referralCard').addEventListener('click',()=>showPage('referral'));$('#plusCard').addEventListener('click',()=>openPlus('B²+'));$('#analysisCard').addEventListener('click',()=>showPage('analysis'));$('#wizardPrev').addEventListener('click',prevWizard);$('#wizardNext').addEventListener('click',nextWizard);$('#wizardClose').addEventListener('click',closeWizard);$('#closingBack').addEventListener('click',()=>{if(closingStep>0){closingStep--;renderClosing()}else showPage('more')});
+$('#mainPlus').addEventListener('click',openQuick);$('#homeNotificationBell')?.addEventListener('click',openNotificationCenter);$('#homeBudgetSwitch').addEventListener('click',renderBudgetSwitch);$$('[data-quick]').forEach(x=>x.addEventListener('click',()=>{closeModal('quickModal');if(x.dataset.quick==='expense')openTx('expense');if(x.dataset.quick==='income')openTx('income');if(x.dataset.quick==='transfer')openTx('transfer');if(x.dataset.quick==='voice'){resetVoiceModal();openModal('voiceModal');setTimeout(startVoice,180)}}));$$('[data-tx-income-kind]',$('#txIncomeKindWrap')).forEach(x=>x.addEventListener('click',()=>{txDraft.kind=x.dataset.txIncomeKind;if(txDraft.kind==='refund'&&!txDraft.refundMode)txDraft.refundMode='period';renderTxFields()}));$$('[data-tx-refund-mode]',$('#txRefundModeWrap')).forEach(x=>x.addEventListener('click',()=>{txDraft.refundMode=x.dataset.txRefundMode;if(txDraft.refundMode==='other'){$('#txRefundExpense').value='';txDraft.linkedTxId=null}else{const v=$('#txRefundExpense').value;if(v)$('#txRefundExpense').dispatchEvent(new Event('change'))}renderTxFields()}));$('#txRefundExpense')?.addEventListener('change',e=>{const b=active(),t=b?.transactions.find(x=>String(x.id)===String(e.target.value));if(t){$('#txAmount').value=r2(t.amount);$('#txCategory').value=t.categoryId||$('#txCategory').value;$('#txLabel').value=`Remboursement ${t.label||t.category||''}`;txDraft.linkedTxId=t.id}});$('#saveTxBtn').addEventListener('click',saveTx);$('#applyIncomeAllocation')?.addEventListener('click',applyIncomeAllocationManual);$('#voiceOrb').addEventListener('click',startVoice);$('#overspendRebalance').addEventListener('click',rebalanceOverspend);$('#overspendReserve').addEventListener('click',useReserve);$('#overspendKeep').addEventListener('click',()=>{closeModal('overspendModal');showToast('Dépassement conservé.')});$$('[data-envmode]',$('#envModeTabs')).forEach(x=>x.addEventListener('click',()=>{envMode=x.dataset.envmode;renderEnvEditor()}));$('#envLock').addEventListener('click',e=>{const b=e.currentTarget,on=b.dataset.on!=='1';b.dataset.on=on?'1':'0';b.classList.toggle('on',on)});$('#saveEnvBtn').addEventListener('click',saveEnv);$$('[data-balancemode]',$('#balanceModeTabs')).forEach(x=>x.addEventListener('click',()=>{balanceMode=x.dataset.balancemode;renderBalanceAssistant()}));$('#applyBalanceBtn').addEventListener('click',applyBalance);$('#movementFilters').addEventListener('click',e=>{const x=e.target.closest('[data-filter]');if(!x)return;movementFilter=x.dataset.filter;state.ui.movementFilter=movementFilter;renderMovements()});$('#newBudgetBtn').addEventListener('click',()=>startWizard());$('#closeCycleCard').addEventListener('click',startClosing);$('#economiesCard').addEventListener('click',()=>showPage('economies'));$('#accountCard').addEventListener('click',openAccountModal);$('#settingsCard').addEventListener('click',()=>showPage('settings'));$('#referralCard').addEventListener('click',()=>showPage('referral'));$('#plusCard').addEventListener('click',()=>openPlus('B²+'));$('#analysisCard').addEventListener('click',()=>showPage('analysis'));$('#wizardPrev').addEventListener('click',prevWizard);$('#wizardNext').addEventListener('click',nextWizard);$('#wizardClose').addEventListener('click',closeWizard);$('#closingBack').addEventListener('click',()=>{if(closingStep>0){closingStep--;renderClosing()}else showPage('more')});
 $$('[data-billmode]',$('#billModes')).forEach(x=>x.addEventListener('click',()=>{
   billDraft.amount=num($('#billAmount')?.value)||billDraft.amount;
   billDraft.targetAmount=num($('#billTarget')?.value)||billDraft.targetAmount;
