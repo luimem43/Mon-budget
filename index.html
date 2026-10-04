@@ -13199,8 +13199,11 @@ function renderWizardBase(){
   if(wizardStep===6)c.innerHTML=envelopesStepHTML();
   if(wizardStep===7){
     const planningCapacity=wizardPlanningPool(wizard);
-    const staleZeroAllocation=!wizardEditId && wizard.envelopes.length>0 && planningCapacity>.01 && allocated(wizard)<=.01;
-    if(!wizard._allocated||staleZeroAllocation)autoAllocateWizard();
+    const needsInitialAllocationChoice=v11WizardCreatingBudget && wizard.envelopes.length>0 && !wizard._initialAllocationChoice;
+    if(!needsInitialAllocationChoice){
+      const staleZeroAllocation=!wizardEditId && wizard.envelopes.length>0 && planningCapacity>.01 && allocated(wizard)<=.01 && wizard._initialAllocationChoice==='b2';
+      if((!wizard._allocated||staleZeroAllocation) && wizard._initialAllocationChoice!=='manual')autoAllocateWizard();
+    }
 
     const projectedBase=wizardPlanningPool(wizard);
     const gap=r2(projectedBase-allocated(wizard));
@@ -13247,8 +13250,20 @@ function renderWizardBase(){
       ?`<div class="status bad"><strong>La répartition dépasse le disponible de ${euro(Math.abs(gap))}.</strong><br>Ajuste une ou plusieurs enveloppes avant d’enregistrer.</div>`
       :'';
 
+    if(needsInitialAllocationChoice){
+      $('#wizardNext').disabled=true;
+      c.innerHTML=`<h2 class="wizard-title">Comment veux-tu répartir ton budget ?</h2>
+        <p class="wizard-lead">Choisis ce qui te convient. Tu pourras toujours modifier les montants avant de créer ton budget.</p>
+        <div class="choice-stack">
+          <button class="choice" id="wizardChooseB2Allocation" type="button"><span class="choice-icon">${ico('spark')}</span><div><strong>Laisser B² me proposer une répartition</strong><span>B² prépare tes enveloppes. Tu pourras tout modifier avant de valider.</span></div></button>
+          <button class="choice" id="wizardChooseManualAllocation" type="button"><span class="choice-icon">${ico('edit')}</span><div><strong>Je préfère répartir moi-même</strong><span>À toi de choisir combien mettre dans chaque enveloppe.</span></div></button>
+        </div>`;
+      wireWizard();
+      return;
+    }
+
     c.innerHTML=`<h2 class="wizard-title">${wizard.envelopes.length?'Ta répartition est prête':'Ton budget est prêt'}</h2>
-      <p class="wizard-lead">${wizard.envelopes.length?(wizardEditId?'Tes montants actuels sont conservés. Seules tes modifications seront appliquées.':'Voici directement les montants que B² te propose. Tu peux encore les modifier avant d’enregistrer.'):'Tes informations sont enregistrées. Tu peux vérifier le détail si tu le souhaites.'}</p>
+      <p class="wizard-lead">${wizard.envelopes.length?(wizardEditId?'Tes montants actuels sont conservés. Seules tes modifications seront appliquées.':wizard._initialAllocationChoice==='manual'?'Répartis ton disponible comme tu le souhaites. Tu peux encore tout modifier avant de créer ton budget.':'Voici la proposition de B². Tu peux modifier librement les montants avant de créer ton budget.'):'Tes informations sont enregistrées. Tu peux vérifier le détail si tu le souhaites.'}</p>
 
       ${blockingHTML}
       ${overflowHTML}
@@ -13260,12 +13275,13 @@ function renderWizardBase(){
         </div>
 
         ${wizardEditId&&margin>.01?`<div class="b2-auto-distribute">
-          <button class="btn btn-white" id="wizardAutoDistribute" type="button">⇄ Répartir automatiquement</button>
+          <button class="btn btn-white" id="wizardAutoDistribute" type="button">⇄ ${allocated(wizard)>.01?`Répartir les ${euro(margin)} restants`:'Répartir automatiquement'}</button>
+          ${wizard.envelopes.some(e=>e.locked)?`<div style="margin-top:7px;text-align:center;font-size:12px;color:var(--muted);line-height:1.35">Les enveloppes verrouillées ne seront pas modifiées.</div>`:''}
           ${wizard._autoDistributionSnapshot?`<div class="b2-auto-distribute-result"><span>Répartition proposée par B²</span><button class="btn-link" id="wizardUndoAutoDistribute" type="button">Annuler</button></div>`:''}
         </div>`:wizardEditId&&wizard._autoDistributionSnapshot?`<div class="b2-auto-distribute"><div class="b2-auto-distribute-result"><span>Répartition proposée par B²</span><button class="btn-link" id="wizardUndoAutoDistribute" type="button">Annuler</button></div></div>`:''}
 
         <div class="section-title"><h3>Tes enveloppes</h3></div>
-        <div class="b2-final-simple-note">${ico('spark')}<span>${wizardEditId?'Tu gardes le contrôle. Modifie tes enveloppes toi-même ou laisse le Carré répartir le montant restant. Les enveloppes verrouillées restent intactes : aucun montant ne peut y être ajouté ou retiré.':'Après les sommes protégées et ta réserve, B² répartit tout le disponible restant. Modifie un montant : B² rééquilibre automatiquement les autres enveloppes <strong>ajustables</strong>. Une enveloppe protégée reste intacte.'}</span></div>
+        <div class="b2-final-simple-note">${ico('spark')}<span>${wizardEditId?'Tu gardes le contrôle. Modifie tes enveloppes toi-même ou laisse B² répartir le montant restant.':wizard._initialAllocationChoice==='manual'?'Répartis librement ton disponible. Les enveloppes verrouillées restent intactes.':'Répartition proposée par B². Tu peux modifier chaque montant avant de valider. Une enveloppe protégée reste intacte.'}</span></div>
         <div class="b2-final-env-list" id="wAlloc">${wizard.envelopes.map(wizardFinalEnvelopeRow).join('')}</div>
       `:''}
 
@@ -13452,13 +13468,31 @@ function wizardAdjustEnvelope(id,target){
   // v14.54 : sur un budget déjà validé, modifier une enveloppe ne touche jamais
   // aux autres. Le reste à répartir (ou le dépassement) montre simplement l'effet
   // du choix de l'utilisateur. Une redistribution globale exige une action explicite.
-  if(wizardEditId){wizardBalanceMode='manual';return}
+  if(wizardEditId||wizard._initialAllocationChoice){wizardBalanceMode='manual';return}
 
   wizardBalanceMode='auto';
   wizardRebalanceToCapacity(e.id)
 }
 function wireWizard(){
   const c=$('#wizardContent');
+  $('#wizardChooseB2Allocation')?.addEventListener('click',()=>{
+    wizard._initialAllocationChoice='b2';
+    wizard._allocated=false;
+    wizardBalanceMode='auto';
+    autoAllocateWizard(true);
+    saveWizardDraft();
+    renderWizard();
+    wizardTop();
+  });
+  $('#wizardChooseManualAllocation')?.addEventListener('click',()=>{
+    wizard._initialAllocationChoice='manual';
+    wizard.envelopes.forEach(e=>{if(!e.locked)e.amount=0});
+    wizard._allocated=true;
+    wizardBalanceMode='manual';
+    saveWizardDraft();
+    renderWizard();
+    wizardTop();
+  });
   $('#customEnvelope')?.addEventListener('click',()=>openVariable(''));
   $$('[data-remove-variable]',c).forEach(x=>x.addEventListener('click',()=>{wizard.envelopes=wizard.envelopes.filter(e=>e.id!==x.dataset.removeVariable||spentFor(wizard,e.id)>0);invalidateWizardAllocation();wizard._situationChanged=true;saveWizardDraft();renderWizard()}));
   $$('[data-add-variable]',c).forEach(x=>x.addEventListener('click',()=>{const e=wizard.envelopes.find(e=>e.name===x.dataset.addVariable);openVariable(x.dataset.addVariable,x.dataset.icon,e?.id)}));
@@ -14841,5 +14875,7 @@ try{
 if(!splash)b2CloudBoot()
 })();
 </script>
+
+<!-- v14.83 — création de budget : choix explicite entre proposition B² et répartition manuelle. La proposition reste entièrement modifiable avant validation. -->
 </body>
 </html>
